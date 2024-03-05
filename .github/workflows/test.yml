@@ -1,0 +1,11 @@
+name: test
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      run: npm run test
