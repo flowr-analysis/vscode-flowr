@@ -55,6 +55,7 @@ export class FlowrInternalSession {
 	private async extractSlice(shell: RShell, document: vscode.TextDocument, pos: vscode.Position): Promise<string> {
 		const filename = document.fileName
 		// hacky way to deal with various encodings
+		// eslint-disable-next-line no-control-regex
 		let content = document.getText().replace(/[^\x00-\x7F]/g,'')
 		content = content.replace(/\r\n/g, '\n')
 		const uri = document.uri
@@ -74,7 +75,7 @@ export class FlowrInternalSession {
 		})
 		const result = await slicer.allRemainingSteps()
 
-		// TODO: we should be more robust :D
+		// we should be more robust here
 		const sliceElements = [...result.slice.result]
 			.map(id => ({id, location: result.normalize.idMap.get(id)?.location}))
 			.filter(e => isNotUndefined(e.location)) as { id: NodeId, location: SourceRange }[]
