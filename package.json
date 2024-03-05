@@ -4,7 +4,7 @@
   "description": "flowR Extension for Visual Studio Code",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.70.0"
+    "vscode": "^1.60.0"
   },
   "categories": [
     "Other"
@@ -55,7 +55,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
-    "@types/vscode": "^1.70.0",
+    "@types/vscode": "^1.60.0",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
     "@vscode/test-cli": "^0.0.6",
