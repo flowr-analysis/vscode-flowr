@@ -1,0 +1,237 @@
+{
+  "name": "vscode-flowr",
+  "displayName": "vscode-flowr",
+  "description": "flowR Extension for Visual Studio Code",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.87.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscode-flowr.helloWorld",
+        "title": "Hello World"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.87.0",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@typescript-eslint/eslint-plugin": "^7.0.2",
+    "@typescript-eslint/parser": "^7.0.2",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3",
+    "@vscode/test-cli": "^0.0.6",
+    "@vscode/test-electron": "^2.3.9",
+    "eslint-plugin-check-file": "^2.6.2",
+    "eslint-plugin-tsdoc": "^0.2.17"
+  },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "browser": false,
+      "node": true,
+      "es2022": true
+    },
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/recommended-requiring-type-checking",
+      "plugin:@typescript-eslint/strict",
+      "plugin:@typescript-eslint/recommended"
+    ],
+    "overrides": [],
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module",
+      "project": "./tsconfig.json"
+    },
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+      "@typescript-eslint",
+      "eslint-plugin-tsdoc",
+      "check-file"
+    ],
+    "rules": {
+      "indent": "off",
+      "@typescript-eslint/indent": [
+        "error",
+        "tab",
+        {
+          "FunctionDeclaration": {
+            "parameters": "first"
+          },
+          "ObjectExpression": 1,
+          "SwitchCase": 1
+        }
+      ],
+      "quotes": [
+        "error",
+        "single",
+        {
+          "avoidEscape": true
+        }
+      ],
+      "no-mixed-spaces-and-tabs": [
+        "error",
+        "smart-tabs"
+      ],
+      "no-warning-comments": [
+        "error",
+        {
+          "terms": [
+            "todo",
+            "fixme",
+            "xxx"
+          ],
+          "location": "anywhere"
+        }
+      ],
+      "@typescript-eslint/non-nullable-type-assertion-style": "off",
+      "@typescript-eslint/no-unsafe-enum-comparison": "off",
+      "@typescript-eslint/no-redundant-type-constituents": "off",
+      "@typescript-eslint/consistent-type-assertions": [
+        "error",
+        {
+          "assertionStyle": "as"
+        }
+      ],
+      "@typescript-eslint/key-spacing": [
+        "error",
+        {
+          "align": "value"
+        }
+      ],
+      "semi": [
+        "error",
+        "never"
+      ],
+      "space-before-function-paren": [
+        "error",
+        "never"
+      ],
+      "keyword-spacing": "off",
+      "check-file/filename-naming-convention": [
+        "error",
+        {
+          "**/*.ts": "?([A-Z])+([a-z])*((-|.)?([A-Z])+([a-z]))"
+        }
+      ],
+      "check-file/folder-match-with-fex": [
+        "error",
+        {
+          "*.spec.{js,jsx,ts,tsx}": "test/**"
+        }
+      ],
+      "@typescript-eslint/keyword-spacing": [
+        "error",
+        {
+          "before": true,
+          "after": true,
+          "overrides": {
+            "if": {
+              "after": false
+            },
+            "for": {
+              "after": false
+            },
+            "while": {
+              "after": false
+            },
+            "do": {
+              "after": false
+            },
+            "catch": {
+              "after": false
+            },
+            "switch": {
+              "after": false
+            },
+            "default": {
+              "after": false
+            },
+            "throw": {
+              "after": false
+            }
+          }
+        }
+      ],
+      "@typescript-eslint/space-before-function-paren": [
+        "error",
+        "never"
+      ],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          "argsIgnorePattern": "^_",
+          "destructuredArrayIgnorePattern": "^_",
+          "varsIgnorePattern": "^_"
+        }
+      ],
+      "tsdoc/syntax": "error",
+      "@typescript-eslint/naming-convention": [
+        "error",
+        {
+          "selector": "variable",
+          "modifiers": [
+            "const",
+            "global",
+            "exported"
+          ],
+          "format": [
+            "camelCase",
+            "PascalCase",
+            "UPPER_CASE"
+          ],
+          "leadingUnderscore": "allow",
+          "trailingUnderscore": "allow"
+        },
+        {
+          "selector": "variable",
+          "modifiers": [
+            "const"
+          ],
+          "format": [
+            "camelCase",
+            "PascalCase"
+          ],
+          "leadingUnderscore": "allow",
+          "trailingUnderscore": "allow"
+        },
+        {
+          "selector": "enumMember",
+          "format": [
+            "StrictPascalCase"
+          ],
+          "leadingUnderscore": "forbid",
+          "trailingUnderscore": "forbid"
+        },
+        {
+          "selector": "typeLike",
+          "format": [
+            "PascalCase"
+          ]
+        }
+      ],
+      "@typescript-eslint/consistent-type-imports": "error",
+      "curly": "error",
+      "brace-style": [
+        "error",
+        "1tbs"
+      ]
+    }
+  }
+}
