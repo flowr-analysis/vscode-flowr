@@ -9,13 +9,13 @@ import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
  */
 export class FlowrInternalSession {
 	private readonly outputChannel: vscode.OutputChannel
-	private readonly collection:    vscode.DiagnosticCollection
+	private readonly diagnostics:   vscode.DiagnosticCollection
 	private readonly shell:         RShell
 
 	constructor(outputChannel: vscode.OutputChannel, collection: vscode.DiagnosticCollection) {
 		this.outputChannel = outputChannel
 		this.outputChannel.appendLine('Using internal FlowR!')
-		this.collection = collection
+		this.diagnostics = collection
 		this.shell = new RShell({
 			revive:      'always',
 			sessionName: 'flowr - vscode'
@@ -32,20 +32,18 @@ export class FlowrInternalSession {
 		})
 	}
 
-	// TODO: caching etc.
 	async retrieveSlice(pos: vscode.Position, document: vscode.TextDocument): Promise<string> {
-		// TODO: do not use a shell per slice?
 		try {
 			return await this.extractSlice(this.shell, document, pos)
 		} catch(e) {
-			this.outputChannel.appendLine('Error: ' + e);
+			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l))
 			return ''
 		}
 	}
 
 	clearSlice(document: vscode.TextDocument) {
-		this.collection.delete(document.uri)
+		this.diagnostics.delete(document.uri)
 	}
 
 	public static getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {
@@ -77,12 +75,11 @@ export class FlowrInternalSession {
 		const result = await slicer.allRemainingSteps()
 
 		// TODO: we should be more robust :D
-		const sliceElements = [...result.slice.result].map(id => ({
-			id,
-			location: result.normalize.idMap.get(id)?.location
-		})).filter(e => isNotUndefined(e.location)) as { id: NodeId, location: SourceRange; }[]
+		const sliceElements = [...result.slice.result]
+			.map(id => ({id, location: result.normalize.idMap.get(id)?.location}))
+			.filter(e => isNotUndefined(e.location)) as { id: NodeId, location: SourceRange }[]
 		// sort by start
-		sliceElements.sort((a: { location: SourceRange; }, b: { location: SourceRange; }) => {
+		sliceElements.sort((a: { location: SourceRange }, b: { location: SourceRange }) => {
 			return a.location.start.line - b.location.start.line || a.location.start.column - b.location.start.column
 		})
 
@@ -102,7 +99,7 @@ export class FlowrInternalSession {
 				tags:     [vscode.DiagnosticTag.Unnecessary]
 			})
 		}
-		this.collection.set(uri, diagnostics)
+		this.diagnostics.set(uri, diagnostics)
 		this.outputChannel.appendLine('slice: ' + JSON.stringify([...result.slice.result]))
 		return result.reconstruct.code
 	}
