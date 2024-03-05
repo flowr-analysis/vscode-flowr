@@ -15,5 +15,5 @@ jobs:
         with:
           node-version: 21.6.x
           registry-url: 'https://registry.npmjs.org/'
-      - name: Lint
+      - name: Test
         run: npm run test
