@@ -228,7 +228,10 @@
       ],
       "@typescript-eslint/consistent-type-imports": "error",
       "curly": "error",
-      "brace-style": ["error", "1tbs"]
+      "brace-style": [
+        "error",
+        "1tbs"
+      ]
     }
   }
 }
