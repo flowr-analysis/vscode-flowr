@@ -32,6 +32,12 @@
         "title": "Clear Slice Presentation",
         "icon": "$(refresh)",
         "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.slice.cursor-reconstruct",
+        "title": "Slice for Cursor Position (Reconstruct)",
+        "icon": "$(run)",
+        "category": "flowR"
       }
     ]
   },

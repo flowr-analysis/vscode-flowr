@@ -23,6 +23,15 @@ export function activate(context: vscode.ExtensionContext) {
 			void flowrSession?.clearSlice(activeEditor.document)
 		}
 	}))
+
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor-reconstruct', async() => {
+		const activeEditor = vscode.window.activeTextEditor
+		if(activeEditor) {
+			const code = await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor.document)
+			const doc =	await vscode.workspace.openTextDocument({language: 'r', content: code})
+			void vscode.window.showTextDocument(doc)
+		}
+	}))
 }
 
 export function deactivate() {}
