@@ -22,7 +22,7 @@ Then, you can install it the same way as you would the `vsix` downloaded [from G
 
 ## Using
 
-**To use this extension, a working installation of [R](https://www.r-project.org/) is required**, and R needs to be included in your `PATH` environment variable. There are [plans](https://github.com/Code-Inspect/vscode-flowr/issues/5) to allow for the extension to install R for the user.
+**To use this extension, a working installation of [R](https://www.r-project.org/) is required**, and R needs to be included in your `PATH` environment variable. You may need to [do so manually](https://www.hanss.info/sebastian/post/rtools-path/) on Windows. (There are [plans](https://github.com/Code-Inspect/vscode-flowr/issues/5) to allow for the extension to install R automatically.)
 
 Although it is not required, we recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code along with this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r).
 
