@@ -24,7 +24,7 @@ Then, you can install it the same way as you would the `vsix` downloaded [from G
 
 **To use this extension, a working installation of [R](https://www.r-project.org/) is required.** There are [plans](https://github.com/Code-Inspect/vscode-flowr/issues/5) to allow for the extension to install R for the user.
 
-In addition, we recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code in addition to this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r).
+In addition, we recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code along with this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r).
 
 ### Slicing
 You can generate a [slice](https://github.com/Code-Inspect/flowr/wiki/Terminology#program-slice) of the currently highlighted variable in any R code by using the "Slice for Cursor Position" command. All code that is not part of the generated slice will then be grayed out.
