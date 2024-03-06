@@ -6,7 +6,7 @@
 ## Installing
 
 ### From Visual Studio Marketplace
-vscode-flowr is not available on the Visual Studio Marketplace yet. For now, we recommend installing from the artifact, or building from source.
+vscode-flowr is not available on the Visual Studio Marketplace yet. For now, we recommend installing from GitHub Releases, or building from source.
 
 ### From GitHub Releases
 You can find official releases of the extension in the [Releases](https://github.com/Code-Inspect/vscode-flowr/releases) section of the repository. Simply select the version you'd like to download, open up the Assets section at the bottom, and download the `vscode-flowr-[version].vsix` contained in it.
