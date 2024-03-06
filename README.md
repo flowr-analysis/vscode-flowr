@@ -19,7 +19,7 @@ From Visual Studio Code, open the Extensions tab and click on the three dots in 
 ## Developing
 
 ### Building and running from source
-Opening the repository in Visual Studio Code allows using the [existing launch configurations](https://github.com/Code-Inspect/vscode-flowr/blob/main/.vscode/launch.json) which can launch Visual Studio Code with the extension enabled. To use them, open the Run and Debug view and press the Run button at the top, or use the F5 shortcut to start debugging.
+Opening the repository in Visual Studio Code allows using the [existing launch configurations](https://github.com/Code-Inspect/vscode-flowr/blob/main/.vscode/launch.json) which can launch Visual Studio Code with the extension enabled. To use them, open the Run and Debug view and press the Run button at the top, or use the <kbd>F5</kbd> shortcut to start debugging.
 
 You can then open the [example folder](https://github.com/Code-Inspect/vscode-flowr/tree/main/example) contained in this repository to try out the extension for yourself.
 
