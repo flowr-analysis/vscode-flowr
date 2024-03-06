@@ -11,7 +11,7 @@
 vscode-flowr is not available on the Visual Studio Marketplace yet. For now, we recommend installing from GitHub Releases, or building from source.
 
 ### From GitHub Releases
-You can find official releases of the extension in the [Releases](https://github.com/Code-Inspect/vscode-flowr/releases) section of the repository. Simply select the version you'd like to download, open up the Assets section at the bottom, and download the `vscode-flowr-[version].vsix` contained in it.
+You can find official releases of the extension in the [Releases](https://github.com/Code-Inspect/vscode-flowr/releases) section of the repository. Simply select the version you would like to download, open up the Assets section at the bottom, and download the `vscode-flowr-[version].vsix` contained in it.
 
 From Visual Studio Code, open the Extensions tab and click on the three dots in the top right to select "Install from VSIX..." Alternatively, you can use the Command Palette to select the option directly. Then, you can select the `vsix` file you downloaded to install it.
 
@@ -22,9 +22,9 @@ Then, you can install it the same way as you would the `vsix` downloaded [from G
 
 ## Using
 
-**To use this extension, a working installation of [R](https://www.r-project.org/) is required.** There are [plans](https://github.com/Code-Inspect/vscode-flowr/issues/5) to allow for the extension to install R for the user.
+**To use this extension, a working installation of [R](https://www.r-project.org/) is required**, and R needs to be included in your `PATH` environment variable. There are [plans](https://github.com/Code-Inspect/vscode-flowr/issues/5) to allow for the extension to install R for the user.
 
-In addition, we recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code along with this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r).
+Although it is not required, we recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code along with this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r).
 
 ### Slicing
 You can generate a [slice](https://github.com/Code-Inspect/flowr/wiki/Terminology#program-slice) of the currently highlighted variable in any R code by using the "Slice for Cursor Position" command. All code that is not part of the generated slice will then be grayed out.
