@@ -2,6 +2,7 @@
   "name": "vscode-flowr",
   "displayName": "vscode-flowr",
   "description": "flowR Extension for Visual Studio Code",
+  "repository": "https://github.com/Code-Inspect/vscode-flowr",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.60.0"
