@@ -22,7 +22,9 @@ Then, you can install it the same way as you would the `vsix` downloaded [from G
 
 ## Using
 
-We recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code in addition to this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r).
+**To use this extension, a working installation of [R](https://www.r-project.org/) is required.** There are [plans](https://github.com/Code-Inspect/vscode-flowr/issues/5) to allow for the extension to install R for the user.
+
+In addition, we recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code in addition to this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r).
 
 ### Slicing
 You can generate a [slice](https://github.com/Code-Inspect/flowr/wiki/Terminology#program-slice) of the currently highlighted variable in any R code by using the "Slice for Cursor Position" command. All code that is not part of the generated slice will then be grayed out.
@@ -38,6 +40,8 @@ After cloning the repository, required dependencies can be installed using [npm]
 ```
 npm ci
 ```
+
+Note that this does not install [R](https://www.r-project.org/), which is also not strictly required for development, but obviously highly encouraged.
 
 Opening the cloned repository in Visual Studio Code allows using the [existing launch configurations](https://github.com/Code-Inspect/vscode-flowr/blob/main/.vscode/launch.json) which can launch Visual Studio Code with the extension enabled. To use them, open the Run and Debug view and press the Run button at the top, or use the <kbd>F5</kbd> shortcut to start debugging.
 
