@@ -1,5 +1,7 @@
 # vscode-flowr
-flowR Extension for Visual Studio Code 
+*flowR* Extension for Visual Studio Code. For more information on *flowR*, check out [the main repository](https://github.com/Code-Inspect/flowr).
+
+**This extension is still work in progress, as is this README. Please stay tuned for cool features and cooler documentation!**
 
 ## Installing
 
