@@ -1,14 +1,29 @@
 {
   "name": "vscode-flowr",
-  "displayName": "vscode-flowr",
-  "description": "flowR Extension for Visual Studio Code",
-  "repository": "https://github.com/Code-Inspect/vscode-flowr",
+  "publisher": "The Code-Inspect Team",
+  "displayName": "R Slicer (flowR)",
+  "description": "Slicing and analyzing R code courtesy of flowR",
+  "homepage": "https://github.com/Code-Inspect/vscode-flowr/blob/main/README.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Code-Inspect/vscode-flowr"
+  },
+  "bugs": {
+    "url": "https://github.com/Code-Inspect/vscode-flowr/issues",
+    "email": "florian.sihler@uni-ulm.de"
+  },
+  "license": "GPL-3.0",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.60.0"
   },
   "categories": [
-    "Other"
+    "Programming Languages",
+    "Visualization"
+  ],
+  "keywords": [
+    "flowR",
+    "R"
   ],
   "activationEvents": [
     "onLanguage:r",
