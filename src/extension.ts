@@ -45,7 +45,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	}))
 
-	context.subscriptions.push(new vscode.Disposable(()=> flowrSession.destroy()))
+	context.subscriptions.push(new vscode.Disposable(() => flowrSession.destroy()))
 }
 
 export function deactivate() {}
