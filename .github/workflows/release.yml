@@ -49,13 +49,13 @@ jobs:
       - name: Package
         run: vsce package
 
+      - name: Push version update
+        run: |
+          git push
+          git push --tags
       - name: GitHub release
         uses: softprops/action-gh-release@v1
         with:
           files: vscode-flowr-*.vsix
           token: ${{ secrets.RELEASE_TOKEN }}
           tag: ${{ vars.PACKAGE_VERSION }}
-      - name: Push version update
-        run: |
-          git push
-          git push --tags
