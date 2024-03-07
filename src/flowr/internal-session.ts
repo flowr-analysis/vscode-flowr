@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import type { NodeId} from '@eagleoutice/flowr'
+import type { NodeId, SingleSlicingCriterion} from '@eagleoutice/flowr'
 import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
@@ -52,7 +52,7 @@ export class FlowrInternalSession {
 		this.outputChannel.appendLine(`Token: ${document.getText(range)}`)
 
 		const slicer = new SteppingSlicer({
-			criterion:      [`${pos.line + 1}:${pos.character + 1}`],
+			criterion:      [FlowrInternalSession.toSlicingCriterion(pos)],
 			filename,
 			shell,
 			request:        requestFromInput(content),
@@ -106,5 +106,9 @@ export class FlowrInternalSession {
 		let content = text.replace(/[^\x00-\x7F]/g,'')
 		content = content.replace(/\r\n/g, '\n')
 		return content
+	}
+
+	public static toSlicingCriterion(pos: vscode.Position): SingleSlicingCriterion {
+		return `${pos.line + 1}:${pos.character + 1}`
 	}
 }

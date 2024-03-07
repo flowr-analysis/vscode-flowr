@@ -95,7 +95,7 @@ export class FlowrServerSession {
 			'type':      'request-slice',
 			'id':        String(this.idCounter++),
 			'filetoken': '@tmp',
-			'criterion': [`${pos.line + 1}:${pos.character + 1}`]
+			'criterion': [FlowrInternalSession.toSlicingCriterion(pos)]
 		})
 		const sliceElements = [...sliceResponse.results.slice.result].map(id => ({ id, location: idToLocation.get(id) }))
 			.filter(e => isNotUndefined(e.location)) as { id: NodeId, location: SourceRange; }[]
