@@ -1,12 +1,9 @@
 import * as vscode from 'vscode'
-import type { NodeId} from '@eagleoutice/flowr'
+import type { NodeId, SingleSlicingCriterion} from '@eagleoutice/flowr'
 import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 
-/**
- * Just a proof of concept for now.
- */
 export class FlowrInternalSession {
 	private readonly outputChannel: vscode.OutputChannel
 	private readonly diagnostics:   vscode.DiagnosticCollection
@@ -24,12 +21,10 @@ export class FlowrInternalSession {
 		void this.shell.usedRVersion().then(version => {
 			this.outputChannel.appendLine(`Using R shell: ${JSON.stringify(version)}`)
 		})
-		process.on('exit', () => {
-			this.shell.close()
-		})
-		process.on('SIGINT', () => {
-			this.shell.close()
-		})
+	}
+
+	public destroy(): void {
+		this.shell.close()
 	}
 
 	async retrieveSlice(pos: vscode.Position, document: vscode.TextDocument): Promise<string> {
@@ -46,28 +41,18 @@ export class FlowrInternalSession {
 		this.diagnostics.delete(document.uri)
 	}
 
-	public static getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {
-		const re = /([a-zA-Z0-9._:])+/
-		const wordRange = document.getWordRangeAtPosition(position, re)
-		return wordRange
-	}
-
 	private async extractSlice(shell: RShell, document: vscode.TextDocument, pos: vscode.Position): Promise<string> {
 		const filename = document.fileName
-		// hacky way to deal with various encodings
-		// eslint-disable-next-line no-control-regex
-		let content = document.getText().replace(/[^\x00-\x7F]/g,'')
-		content = content.replace(/\r\n/g, '\n')
+		const content = FlowrInternalSession.fixEncoding(document.getText())
 		const uri = document.uri
 
 		const range = FlowrInternalSession.getPositionAt(pos, document)
 		pos = range?.start ?? pos
 		this.outputChannel.appendLine(`Extracting slice at ${pos.line + 1}:${pos.character + 1} in ${filename}`)
-		const token = document.getText(range)
-		this.outputChannel.appendLine(`Token: ${token}`)
+		this.outputChannel.appendLine(`Token: ${document.getText(range)}`)
 
 		const slicer = new SteppingSlicer({
-			criterion:      [`${pos.line + 1}:${pos.character + 1}`],
+			criterion:      [FlowrInternalSession.toSlicingCriterion(pos)],
 			filename,
 			shell,
 			request:        requestFromInput(content),
@@ -84,7 +69,19 @@ export class FlowrInternalSession {
 			return a.location.start.line - b.location.start.line || a.location.start.column - b.location.start.column
 		})
 
-		const diagnostics: vscode.Diagnostic[] = []
+		this.outputChannel.appendLine('slice: ' + JSON.stringify([...result.slice.result]))
+		this.diagnostics.set(uri, FlowrInternalSession.createDiagnostics(document, range, pos, sliceElements))
+		return result.reconstruct.code
+	}
+
+	public static getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {
+		const re = /([a-zA-Z0-9._:])+/
+		const wordRange = document.getWordRangeAtPosition(position, re)
+		return wordRange
+	}
+
+	public static createDiagnostics(document: vscode.TextDocument, range: vscode.Range | undefined, pos: vscode.Position, sliceElements: { id: NodeId, location: SourceRange }[]): vscode.Diagnostic[]{
+		const ret: vscode.Diagnostic[] = []
 		const blockedLines = new Set<number>()
 		for(const slice of sliceElements) {
 			blockedLines.add(slice.location.start.line - 1)
@@ -93,15 +90,25 @@ export class FlowrInternalSession {
 			if(blockedLines.has(i)) {
 				continue
 			}
-			diagnostics.push({
-				message:  `irrelevant when slicing for '${token}' (line: ${pos.line + 1}, char: ${pos.character + 1})`,
+			ret.push({
+				message:  `irrelevant when slicing for '${document.getText(range)}' (line: ${pos.line + 1}, char: ${pos.character + 1})`,
 				range:    new vscode.Range(i, 0, i, document.lineAt(i).text.length),
 				severity: vscode.DiagnosticSeverity.Hint,
 				tags:     [vscode.DiagnosticTag.Unnecessary]
 			})
 		}
-		this.diagnostics.set(uri, diagnostics)
-		this.outputChannel.appendLine('slice: ' + JSON.stringify([...result.slice.result]))
-		return result.reconstruct.code
+		return ret
+	}
+
+	public static fixEncoding(text: string) {
+		// hacky way to deal with various encodings
+		// eslint-disable-next-line no-control-regex
+		let content = text.replace(/[^\x00-\x7F]/g,'')
+		content = content.replace(/\r\n/g, '\n')
+		return content
+	}
+
+	public static toSlicingCriterion(pos: vscode.Position): SingleSlicingCriterion {
+		return `${pos.line + 1}:${pos.character + 1}`
 	}
 }
