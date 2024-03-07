@@ -10,23 +10,24 @@ import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
 
 export class FlowrServerSession {
-	private readonly port:          number
-	private readonly host:          string
 	private readonly outputChannel: vscode.OutputChannel
 	private readonly diagnostics:   vscode.DiagnosticCollection
 	private socket:                 net.Socket
 	private idCounter = 0
 
 	constructor(outputChannel: vscode.OutputChannel, collection: vscode.DiagnosticCollection, port = 1042, host = 'localhost') {
-		this.port = port
-		this.host = host
 		this.outputChannel = outputChannel
 		this.outputChannel.appendLine(`Connecting to FlowR server at ${host}:${port}`)
-		this.socket = net.createConnection(this.port, this.host, () => {
+		this.socket = net.createConnection(port, host, () => {
 			this.outputChannel.appendLine('Connected to FlowR server!')
 		})
 		this.diagnostics = collection
+		this.socket.on('error', e => this.outputChannel.appendLine(`flowR server error: ${e.message}`))
 		this.socket.on('data', str => this.handleResponse(String(str)))
+	}
+
+	public destroy(): void {
+		this.socket.destroy()
 	}
 
 	private currentMessageBuffer = ''
@@ -67,7 +68,7 @@ export class FlowrServerSession {
 
 	async retrieveSlice(pos: vscode.Position, document: vscode.TextDocument): Promise<string> {
 		const filename = document.fileName
-		const content = document.getText()
+		const content = FlowrInternalSession.fixEncoding(document.getText())
 		const uri = document.uri
 
 		const range = FlowrInternalSession.getPositionAt(pos, document)

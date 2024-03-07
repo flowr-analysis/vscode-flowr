@@ -21,12 +21,10 @@ export class FlowrInternalSession {
 		void this.shell.usedRVersion().then(version => {
 			this.outputChannel.appendLine(`Using R shell: ${JSON.stringify(version)}`)
 		})
-		process.on('exit', () => {
-			this.shell.close()
-		})
-		process.on('SIGINT', () => {
-			this.shell.close()
-		})
+	}
+
+	public destroy(): void {
+		this.shell.close()
 	}
 
 	async retrieveSlice(pos: vscode.Position, document: vscode.TextDocument): Promise<string> {
@@ -45,10 +43,7 @@ export class FlowrInternalSession {
 
 	private async extractSlice(shell: RShell, document: vscode.TextDocument, pos: vscode.Position): Promise<string> {
 		const filename = document.fileName
-		// hacky way to deal with various encodings
-		// eslint-disable-next-line no-control-regex
-		let content = document.getText().replace(/[^\x00-\x7F]/g,'')
-		content = content.replace(/\r\n/g, '\n')
+		const content = FlowrInternalSession.fixEncoding(document.getText())
 		const uri = document.uri
 
 		const range = FlowrInternalSession.getPositionAt(pos, document)
@@ -103,5 +98,13 @@ export class FlowrInternalSession {
 			})
 		}
 		return ret
+	}
+
+	public static fixEncoding(text: string) {
+		// hacky way to deal with various encodings
+		// eslint-disable-next-line no-control-regex
+		let content = text.replace(/[^\x00-\x7F]/g,'')
+		content = content.replace(/\r\n/g, '\n')
+		return content
 	}
 }

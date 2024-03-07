@@ -54,6 +54,18 @@
         "title": "Slice for Cursor Position (Reconstruct)",
         "icon": "$(run)",
         "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.session.connect",
+        "title": "Connect to flowR Server",
+        "icon": "$(server)",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.session.disconnect",
+        "title": "Disconnect from flowR Server",
+        "icon": "$(server)",
+        "category": "flowR"
       }
     ]
   },
