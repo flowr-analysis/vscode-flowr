@@ -45,8 +45,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	}))
 
-	process.on('exit', () => flowrSession.destroy())
-	process.on('SIGINT', () => flowrSession.destroy())
+	context.subscriptions.push({dispose: () => flowrSession.destroy()})
 }
 
 export function deactivate() {}
