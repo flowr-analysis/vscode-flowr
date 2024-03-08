@@ -85,6 +85,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Whether to auto-connect to a [flowR server](https://github.com/Code-Inspect/flowr/wiki/Interface#-communicating-with-the-server) when the extension is loaded."
+        },
+        "vscode-flowr.verboseLog": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Whether to use verbose logging while flowR is active."
         }
       }
     }

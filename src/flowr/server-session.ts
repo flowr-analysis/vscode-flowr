@@ -8,7 +8,7 @@ import { visitAst } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
-import { establishInternalSession, getConfig } from '../extension'
+import { establishInternalSession, getConfig, isVerbose } from '../extension'
 
 export class FlowrServerSession {
 	private readonly outputChannel: vscode.OutputChannel
@@ -55,7 +55,9 @@ export class FlowrServerSession {
 		}
 		message = this.currentMessageBuffer + message
 		this.currentMessageBuffer = ''
-		this.outputChannel.appendLine('Received: ' + message)
+		if(isVerbose()) {
+			this.outputChannel.appendLine('Received: ' + message)
+		}
 		this.onceOnLineReceived?.(message)
 		this.onceOnLineReceived = undefined
 	}
@@ -63,7 +65,9 @@ export class FlowrServerSession {
 	private onceOnLineReceived: undefined | ((line: string) => void)
 
 	sendCommand(command: object): void {
-		this.outputChannel.appendLine('Sending: ' + JSON.stringify(command))
+		if(isVerbose()) {
+			this.outputChannel.appendLine('Sending: ' + JSON.stringify(command))
+		}
 		this.socket.write(JSON.stringify(command) + '\n')
 	}
 
@@ -122,7 +126,9 @@ export class FlowrServerSession {
 		})
 
 		this.diagnostics.set(uri, FlowrInternalSession.createDiagnostics(document, range, pos, sliceElements))
-		this.outputChannel.appendLine('slice: ' + JSON.stringify([...sliceResponse.results.slice.result]))
+		if(isVerbose()) {
+			this.outputChannel.appendLine('slice: ' + JSON.stringify([...sliceResponse.results.slice.result]))
+		}
 		return sliceResponse.results.reconstruct.code
 	}
 }

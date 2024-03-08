@@ -56,6 +56,10 @@ export function getConfig(): vscode.WorkspaceConfiguration {
 	return vscode.workspace.getConfiguration('vscode-flowr')
 }
 
+export function isVerbose(): boolean {
+	return getConfig().get<boolean>('verboseLog', false)
+}
+
 export function establishInternalSession() {
 	flowrSession?.destroy()
 	flowrSession = new FlowrInternalSession(outputChannel, diagnostics)
