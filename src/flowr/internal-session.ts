@@ -21,8 +21,13 @@ export class FlowrInternalSession {
 		this.shell.tryToInjectHomeLibPath()
 		void this.shell.usedRVersion().then(version => {
 			if(version == null){
-				// this will soon be a lot more useful because it'll ask if we want to install R
-				void vscode.window.showErrorMessage('R was not found on your system. Is it installed correctly?')
+				const seeDoc = 'See documentation'
+				void vscode.window.showErrorMessage('The R version could not be determined. R needs to be installed and part of your PATH environment variable.', seeDoc)
+					.then(s => {
+						if(s === seeDoc){
+							void vscode.env.openExternal(vscode.Uri.parse('https://github.com/Code-Inspect/vscode-flowr/blob/main/README.md#using'))
+						}
+					})
 			} else {
 				this.outputChannel.appendLine(`Using R shell: ${JSON.stringify(version)}`)
 			}
