@@ -1,6 +1,6 @@
 {
   "name": "vscode-flowr",
-  "publisher": "The Code-Inspect Team",
+  "publisher": "code-inspect",
   "displayName": "R Slicer (flowR)",
   "description": "Slicing and analyzing R code courtesy of flowR",
   "homepage": "https://github.com/Code-Inspect/vscode-flowr/blob/main/README.md",
