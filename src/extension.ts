@@ -20,7 +20,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', () => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor?.selection) {
-			void flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor.document)
+			void flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor.document, true)
 		}
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
@@ -32,7 +32,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor-reconstruct', async() => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor) {
-			const code = await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor.document)
+			const code = await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor.document, false)
 			const doc =	await vscode.workspace.openTextDocument({language: 'r', content: code})
 			void vscode.window.showTextDocument(doc)
 		}

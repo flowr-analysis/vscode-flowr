@@ -56,9 +56,9 @@ export class FlowrInternalSession {
 		this.shell.close()
 	}
 
-	async retrieveSlice(pos: vscode.Position, document: vscode.TextDocument): Promise<string> {
+	async retrieveSlice(pos: vscode.Position, document: vscode.TextDocument, diagnostics: boolean): Promise<string> {
 		try {
-			return await this.extractSlice(this.shell, document, pos)
+			return await this.extractSlice(this.shell, document, pos, diagnostics)
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l))
@@ -71,7 +71,7 @@ export class FlowrInternalSession {
 		this.diagnostics.delete(document.uri)
 	}
 
-	private async extractSlice(shell: RShell, document: vscode.TextDocument, pos: vscode.Position): Promise<string> {
+	private async extractSlice(shell: RShell, document: vscode.TextDocument, pos: vscode.Position, diagnostics: boolean): Promise<string> {
 		const filename = document.fileName
 		const content = FlowrInternalSession.fixEncoding(document.getText())
 		const uri = document.uri
@@ -102,10 +102,12 @@ export class FlowrInternalSession {
 			return a.location.start.line - b.location.start.line || a.location.start.column - b.location.start.column
 		})
 
+		if(diagnostics) {
+			this.diagnostics.set(uri, FlowrInternalSession.createDiagnostics(document, range, pos, sliceElements))
+		}
 		if(isVerbose()) {
 			this.outputChannel.appendLine('slice: ' + JSON.stringify([...result.slice.result]))
 		}
-		this.diagnostics.set(uri, FlowrInternalSession.createDiagnostics(document, range, pos, sliceElements))
 		return result.reconstruct.code
 	}
 

@@ -101,7 +101,7 @@ export class FlowrServerSession {
 		this.diagnostics.delete(document.uri)
 	}
 
-	async retrieveSlice(pos: vscode.Position, document: vscode.TextDocument): Promise<string> {
+	async retrieveSlice(pos: vscode.Position, document: vscode.TextDocument, diagnostics: boolean): Promise<string> {
 		const filename = document.fileName
 		const content = FlowrInternalSession.fixEncoding(document.getText())
 		const uri = document.uri
@@ -139,7 +139,9 @@ export class FlowrServerSession {
 			return a.location.start.line - b.location.start.line || a.location.start.column - b.location.start.column
 		})
 
-		this.diagnostics.set(uri, FlowrInternalSession.createDiagnostics(document, range, pos, sliceElements))
+		if(diagnostics) {
+			this.diagnostics.set(uri, FlowrInternalSession.createDiagnostics(document, range, pos, sliceElements))
+		}
 		if(isVerbose()) {
 			this.outputChannel.appendLine('slice: ' + JSON.stringify([...sliceResponse.results.slice.result]))
 		}
