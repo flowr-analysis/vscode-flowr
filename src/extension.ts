@@ -2,6 +2,9 @@ import * as vscode from 'vscode'
 import { FlowrInternalSession } from './flowr/internal-session'
 import { FlowrServerSession } from './flowr/server-session'
 
+export const MINIMUM_R_MAJOR = 3
+export const BEST_R_MAJOR = 4
+
 export let flowrSession: FlowrInternalSession | FlowrServerSession
 export let outputChannel: vscode.OutputChannel
 export let diagnostics: vscode.DiagnosticCollection

@@ -1,9 +1,9 @@
 import * as vscode from 'vscode'
-import type { NodeId, SingleSlicingCriterion} from '@eagleoutice/flowr'
+import type { NodeId, RShellOptions, SingleSlicingCriterion} from '@eagleoutice/flowr'
 import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
-import { isVerbose } from '../extension'
+import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, isVerbose } from '../extension'
 
 export class FlowrInternalSession {
 	private readonly outputChannel: vscode.OutputChannel
@@ -14,17 +14,40 @@ export class FlowrInternalSession {
 		this.outputChannel = outputChannel
 		this.outputChannel.appendLine('Using internal flowR')
 		this.diagnostics = collection
-		this.shell = new RShell({
+
+		let options: Partial<RShellOptions> = {
 			revive:      'always',
 			sessionName: 'flowr - vscode'
-		})
+		}
+		const executable = getConfig().get<string>('r.executable')?.trim()
+		if(executable !== undefined && executable.length > 0) {
+			options = {...options, pathToRExecutable: executable }
+		}
+
+		this.shell = new RShell(options)
 		this.shell.tryToInjectHomeLibPath()
-		void this.shell.usedRVersion().then(version => {
-			if(version == null){
-				// this will soon be a lot more useful because it'll ask if we want to install R
-				void vscode.window.showErrorMessage('R was not found on your system. Is it installed correctly?')
+
+		// wait at most 1 second for the version, since the R shell doesn't let us know if the path
+		// we provided doesn't actually lead anywhere, or doesn't contain an R executable, etc.
+		let handle: NodeJS.Timeout
+		const timeout = new Promise<null>(resolve => handle = setTimeout(() => resolve(null), 1000))
+		void Promise.race([this.shell.usedRVersion(), timeout]).then(version => {
+			clearTimeout(handle)
+			if(!version){
+				const seeDoc = 'See documentation'
+				void vscode.window.showErrorMessage('The R version could not be determined. R needs to be installed and part of your PATH environment variable.', seeDoc)
+					.then(s => {
+						if(s === seeDoc){
+							void vscode.env.openExternal(vscode.Uri.parse('https://github.com/Code-Inspect/vscode-flowr/blob/main/README.md#using'))
+						}
+					})
 			} else {
-				this.outputChannel.appendLine(`Using R shell: ${JSON.stringify(version)}`)
+				this.outputChannel.appendLine(`Using R version ${version.toString()}`)
+				if(version.major < MINIMUM_R_MAJOR) {
+					void vscode.window.showErrorMessage(`You are using R version ${version.toString()}, which is not compatible with flowR.`)
+				} else if(version.major < BEST_R_MAJOR) {
+					void vscode.window.showWarningMessage(`You are using R version ${version.toString()}, which flowR has not been tested for. Some things might not work correctly.`)
+				}
 			}
 		})
 	}
@@ -39,6 +62,7 @@ export class FlowrInternalSession {
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l))
+			void vscode.window.showErrorMessage(`There was an error while extracting a slice: ${(e as Error)?.message}. See the flowR output for more information.`)
 			return ''
 		}
 	}

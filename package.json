@@ -86,6 +86,11 @@
           "default": false,
           "markdownDescription": "Whether to auto-connect to a [flowR server](https://github.com/Code-Inspect/flowr/wiki/Interface#-communicating-with-the-server) when the extension is loaded."
         },
+        "vscode-flowr.r.executable": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "An absolute path to the R binary to use. If this is empty, R is expected to be part of the system's PATH."
+        },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,
