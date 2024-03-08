@@ -8,18 +8,17 @@ import { visitAst } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
-import { establishInternalSession, getConfig, isVerbose, updateServerStatus } from '../extension'
+import { createSliceDecorations, establishInternalSession, getConfig, isVerbose, sliceDecoration, updateServerStatus } from '../extension'
 
 export class FlowrServerSession {
 
 	public state: 'connecting' | 'connected' | 'not connected'
 
 	private readonly outputChannel: vscode.OutputChannel
-	private readonly diagnostics:   vscode.DiagnosticCollection
 	private socket:                 net.Socket
 	private idCounter = 0
 
-	constructor(outputChannel: vscode.OutputChannel, diagnostics: vscode.DiagnosticCollection) {
+	constructor(outputChannel: vscode.OutputChannel) {
 		this.outputChannel = outputChannel
 
 		this.state = 'connecting'
@@ -53,8 +52,6 @@ export class FlowrServerSession {
 			updateServerStatus()
 		})
 		this.socket.on('data', str => this.handleResponse(String(str)))
-
-		this.diagnostics = diagnostics
 	}
 
 	public destroy(): void {
@@ -97,16 +94,11 @@ export class FlowrServerSession {
 		})
 	}
 
-	clearSlice(document: vscode.TextDocument) {
-		this.diagnostics.delete(document.uri)
-	}
+	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, decorate: boolean): Promise<string> {
+		const filename = editor.document.fileName
+		const content = FlowrInternalSession.fixEncoding(editor.document.getText())
 
-	async retrieveSlice(pos: vscode.Position, document: vscode.TextDocument, diagnostics: boolean): Promise<string> {
-		const filename = document.fileName
-		const content = FlowrInternalSession.fixEncoding(document.getText())
-		const uri = document.uri
-
-		const range = FlowrInternalSession.getPositionAt(pos, document)
+		const range = FlowrInternalSession.getPositionAt(pos, editor.document)
 		pos = range?.start ?? pos
 
 		const response = await this.sendCommandWithResponse<FileAnalysisResponseMessageJson>({
@@ -139,8 +131,8 @@ export class FlowrServerSession {
 			return a.location.start.line - b.location.start.line || a.location.start.column - b.location.start.column
 		})
 
-		if(diagnostics) {
-			this.diagnostics.set(uri, FlowrInternalSession.createDiagnostics(document, range, pos, sliceElements))
+		if(decorate) {
+			editor.setDecorations(sliceDecoration, createSliceDecorations(editor.document, sliceElements))
 		}
 		if(isVerbose()) {
 			this.outputChannel.appendLine('slice: ' + JSON.stringify([...sliceResponse.results.slice.result]))

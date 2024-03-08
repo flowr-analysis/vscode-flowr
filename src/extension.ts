@@ -1,13 +1,15 @@
 import * as vscode from 'vscode'
 import { FlowrInternalSession } from './flowr/internal-session'
 import { FlowrServerSession } from './flowr/server-session'
+import type { NodeId } from '@eagleoutice/flowr'
+import type { SourceRange } from '@eagleoutice/flowr/util/range'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
 
 export let flowrSession: FlowrInternalSession | FlowrServerSession
 export let outputChannel: vscode.OutputChannel
-export let diagnostics: vscode.DiagnosticCollection
+export let sliceDecoration: vscode.TextEditorDecorationType
 
 let serverStatus: vscode.StatusBarItem
 
@@ -15,24 +17,26 @@ export function activate(context: vscode.ExtensionContext) {
 	console.log('Loading vscode-flowr')
 
 	outputChannel = vscode.window.createOutputChannel('flowR')
-	diagnostics = vscode.languages.createDiagnosticCollection('flowR')
+	sliceDecoration = vscode.window.createTextEditorDecorationType({
+		opacity: getConfig().get<number>('style.sliceOpacity')?.toString()
+	})
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', () => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor?.selection) {
-			void flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor.document, true)
+			void flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, true)
 		}
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
 		const activeEditor = vscode.window.activeTextEditor
-		if(activeEditor?.document) {
-			void flowrSession?.clearSlice(activeEditor.document)
+		if(activeEditor) {
+			activeEditor.setDecorations(sliceDecoration, [])
 		}
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor-reconstruct', async() => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor) {
-			const code = await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor.document, false)
+			const code = await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, false)
 			const doc =	await vscode.workspace.openTextDocument({language: 'r', content: code})
 			void vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside)
 		}
@@ -75,13 +79,13 @@ export function isVerbose(): boolean {
 
 export function establishInternalSession() {
 	flowrSession?.destroy()
-	flowrSession = new FlowrInternalSession(outputChannel, diagnostics)
+	flowrSession = new FlowrInternalSession(outputChannel)
 	updateServerStatus()
 }
 
 export function establishServerSession() {
 	flowrSession?.destroy()
-	flowrSession = new FlowrServerSession(outputChannel, diagnostics)
+	flowrSession = new FlowrServerSession(outputChannel)
 	updateServerStatus()
 }
 
@@ -92,4 +96,16 @@ export function updateServerStatus() {
 	} else {
 		serverStatus.hide()
 	}
+}
+
+export function createSliceDecorations(document: vscode.TextDocument, sliceElements: { id: NodeId, location: SourceRange }[]): vscode.DecorationOptions[]{
+	// create a set to make finding matching lines
+	const sliceLines = new Set<number>(sliceElements.map(s => s.location.start.line - 1))
+	const ret: vscode.DecorationOptions[] = []
+	for(let i = 0; i < document.lineCount; i++) {
+		if(!sliceLines.has(i)) {
+			ret.push({range: new vscode.Range(i, 0, i, document.lineAt(i).text.length)})
+		}
+	}
+	return ret
 }
