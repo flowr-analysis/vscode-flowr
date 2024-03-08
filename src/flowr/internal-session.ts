@@ -42,7 +42,12 @@ export class FlowrInternalSession {
 						}
 					})
 			} else {
-				this.outputChannel.appendLine(`Using R shell: ${JSON.stringify(version)}`)
+				this.outputChannel.appendLine(`Using R version ${version.toString()}`)
+				if(version.major < 3) {
+					void vscode.window.showErrorMessage(`You are using R version ${version.toString()}, which is not compatible with flowR.`)
+				} else if(version.major < 4) {
+					void vscode.window.showWarningMessage(`You are using R version ${version.toString()}, which flowR has not been tested for. Some things might not work correctly.`)
+				}
 			}
 		})
 	}
