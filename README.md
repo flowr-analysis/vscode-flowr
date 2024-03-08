@@ -6,6 +6,20 @@ This is the *flowR* extension for Visual Studio Code which allows you to retriev
 
 ![A screenshot of the extension being used to reconstruct a slice](media/splash.png)
 
+## Use
+
+**To use this extension, a working installation of [R](https://www.r-project.org/) is required**, and R needs to be included in your `PATH` environment variable. You may need to [do so manually](https://www.hanss.info/sebastian/post/rtools-path/) on Windows. (There are [plans](https://github.com/Code-Inspect/vscode-flowr/issues/5) to allow for the extension to install R automatically.)
+
+Although it is not required, we recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code along with this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r).
+
+### Slicing
+
+You can generate a [slice](https://github.com/Code-Inspect/flowr/wiki/Terminology#program-slice) of the currently highlighted variable in any R code by using the "Slice for Cursor Position" command. All code that is not part of the generated slice will then be grayed out.
+
+To clear the slice highlighting, use the "Clear Slice Presentation" command.
+
+You can also reconstruct a piece of code based on the slice of a variable by using the "Slice for Cursor Position (Reconstruct)" command. The reconstructed code will be opened in a new file.
+
 ## Installing
 
 ### From Visual Studio Marketplace
@@ -23,20 +37,6 @@ From Visual Studio Code, open the Extensions tab and click on the three dots in 
 You can easily download the most recent build of the extension by heading to the [Actions tab](https://github.com/Code-Inspect/vscode-flowr/actions/workflows/package.yml), where you will find a list of runs. Selecting the most recent run will display a summary of it, at the bottom of which you can find the Artifacts section and the `Extension vsix` artifact. Download it and unzip it.
 
 Then, you can install it the same way as you would the `vsix` downloaded [from GitHub Releases](#from-github-release).
-
-## Use
-
-**To use this extension, a working installation of [R](https://www.r-project.org/) is required**, and R needs to be included in your `PATH` environment variable. You may need to [do so manually](https://www.hanss.info/sebastian/post/rtools-path/) on Windows. (There are [plans](https://github.com/Code-Inspect/vscode-flowr/issues/5) to allow for the extension to install R automatically.)
-
-Although it is not required, we recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code along with this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r).
-
-### Slicing
-
-You can generate a [slice](https://github.com/Code-Inspect/flowr/wiki/Terminology#program-slice) of the currently highlighted variable in any R code by using the "Slice for Cursor Position" command. All code that is not part of the generated slice will then be grayed out.
-
-To clear the slice highlighting, use the "Clear Slice Presentation" command.
-
-You can also reconstruct a piece of code based on the slice of a variable by using the "Slice for Cursor Position (Reconstruct)" command. The reconstructed code will be opened in a new file.
 
 ## Development
 
