@@ -67,7 +67,24 @@
         "icon": "$(server)",
         "category": "flowR"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "R Slicer (flowR)",
+      "properties": {
+        "vscode-flowr.server.host": {
+          "displayName": "flowR server host",
+          "type": "string",
+          "default": "localhost",
+          "markdownDescription": "The host to use when connecting to a [flowR server](https://github.com/Code-Inspect/flowr/wiki/Interface#-communicating-with-the-server)."
+        },
+        "vscode-flowr.server.port": {
+          "displayName": "flowR server port",
+          "type": "number",
+          "default": 1042,
+          "markdownDescription": "The port to use when connecting to a [flowR server](https://github.com/Code-Inspect/flowr/wiki/Interface#-communicating-with-the-server)."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
