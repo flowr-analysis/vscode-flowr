@@ -30,6 +30,8 @@ export class FlowrServerSession {
 		this.outputChannel.appendLine(`Connecting to flowR server at ${host}:${port}`)
 		this.socket = net.createConnection(port, host, () => {
 			this.state = 'connected'
+			updateServerStatus()
+
 			const msg = 'Connected to flowR server'
 			this.outputChannel.appendLine(msg)
 			void vscode.window.showInformationMessage(msg)
@@ -44,8 +46,6 @@ export class FlowrServerSession {
 						establishInternalSession()
 					}
 				})
-
-			updateServerStatus()
 		})
 		this.socket.on('close', () => {
 			this.outputChannel.appendLine('flowR server connection closed')
