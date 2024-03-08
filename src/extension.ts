@@ -6,17 +6,13 @@ export let flowrSession: FlowrInternalSession | FlowrServerSession
 export let outputChannel: vscode.OutputChannel
 export let diagnostics: vscode.DiagnosticCollection
 
+let serverStatus: vscode.StatusBarItem
+
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Loading vscode-flowr')
 
 	outputChannel = vscode.window.createOutputChannel('flowR')
 	diagnostics = vscode.languages.createDiagnosticCollection('flowR')
-
-	if(getConfig().get<boolean>('server.autoConnect')) {
-		establishServerSession()
-	} else {
-		establishInternalSession()
-	}
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', () => {
 		const activeEditor = vscode.window.activeTextEditor
@@ -48,8 +44,18 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	}))
 
+	serverStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
+	context.subscriptions.push(serverStatus)
+	updateServerStatus()
+
 	context.subscriptions.push(new vscode.Disposable(() => flowrSession.destroy()))
 	process.on('SIGINT', () => flowrSession.destroy())
+
+	if(getConfig().get<boolean>('server.autoConnect')) {
+		establishServerSession()
+	} else {
+		establishInternalSession()
+	}
 }
 
 export function getConfig(): vscode.WorkspaceConfiguration {
@@ -63,9 +69,20 @@ export function isVerbose(): boolean {
 export function establishInternalSession() {
 	flowrSession?.destroy()
 	flowrSession = new FlowrInternalSession(outputChannel, diagnostics)
+	updateServerStatus()
 }
 
 export function establishServerSession() {
 	flowrSession?.destroy()
 	flowrSession = new FlowrServerSession(outputChannel, diagnostics)
+	updateServerStatus()
+}
+
+export function updateServerStatus() {
+	if(flowrSession instanceof FlowrServerSession) {
+		serverStatus.show()
+		serverStatus.text = `$(server) flowR ${flowrSession.state}`
+	} else {
+		serverStatus.hide()
+	}
 }

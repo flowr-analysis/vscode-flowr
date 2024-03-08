@@ -8,9 +8,12 @@ import { visitAst } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
-import { establishInternalSession, getConfig, isVerbose } from '../extension'
+import { establishInternalSession, getConfig, isVerbose, updateServerStatus } from '../extension'
 
 export class FlowrServerSession {
+
+	public state: 'connecting' | 'connected' | 'not connected'
+
 	private readonly outputChannel: vscode.OutputChannel
 	private readonly diagnostics:   vscode.DiagnosticCollection
 	private socket:                 net.Socket
@@ -19,10 +22,14 @@ export class FlowrServerSession {
 	constructor(outputChannel: vscode.OutputChannel, diagnostics: vscode.DiagnosticCollection) {
 		this.outputChannel = outputChannel
 
+		this.state = 'connecting'
+		updateServerStatus()
+
 		const host = getConfig().get<string>('server.host', 'localhost')
 		const port = getConfig().get<number>('server.port', 1042)
 		this.outputChannel.appendLine(`Connecting to flowR server at ${host}:${port}`)
 		this.socket = net.createConnection(port, host, () => {
+			this.state = 'connected'
 			const msg = 'Connected to flowR server'
 			this.outputChannel.appendLine(msg)
 			void vscode.window.showInformationMessage(msg)
@@ -37,6 +44,13 @@ export class FlowrServerSession {
 						establishInternalSession()
 					}
 				})
+
+			updateServerStatus()
+		})
+		this.socket.on('close', () => {
+			this.outputChannel.appendLine('flowR server connection closed')
+			this.state = 'not connected'
+			updateServerStatus()
 		})
 		this.socket.on('data', str => this.handleResponse(String(str)))
 
