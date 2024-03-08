@@ -1,9 +1,9 @@
 import * as vscode from 'vscode'
-import type { NodeId, SingleSlicingCriterion} from '@eagleoutice/flowr'
+import type { NodeId, RShellOptions, SingleSlicingCriterion} from '@eagleoutice/flowr'
 import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
-import { isVerbose } from '../extension'
+import { getConfig, isVerbose } from '../extension'
 
 export class FlowrInternalSession {
 	private readonly outputChannel: vscode.OutputChannel
@@ -14,13 +14,26 @@ export class FlowrInternalSession {
 		this.outputChannel = outputChannel
 		this.outputChannel.appendLine('Using internal flowR')
 		this.diagnostics = collection
-		this.shell = new RShell({
+
+		let options: Partial<RShellOptions> = {
 			revive:      'always',
 			sessionName: 'flowr - vscode'
-		})
+		}
+		const executable = getConfig().get<string>('r.executable')
+		if(executable){
+			options = {...options, pathToRExecutable: executable }
+		}
+
+		this.shell = new RShell(options)
 		this.shell.tryToInjectHomeLibPath()
-		void this.shell.usedRVersion().then(version => {
-			if(version == null){
+
+		// wait at most 1 second for the version, since the R shell doesn't let us know if the path
+		// we provided doesn't actually lead anywhere, or doesn't contain an R executable, etc.
+		let handle: NodeJS.Timeout
+		const timeout = new Promise<null>(resolve => handle = setTimeout(() => resolve(null), 1000))
+		void Promise.race([this.shell.usedRVersion(), timeout]).then(version => {
+			clearTimeout(handle)
+			if(!version){
 				const seeDoc = 'See documentation'
 				void vscode.window.showErrorMessage('The R version could not be determined. R needs to be installed and part of your PATH environment variable.', seeDoc)
 					.then(s => {
