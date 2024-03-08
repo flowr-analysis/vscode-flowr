@@ -34,7 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
 		if(activeEditor) {
 			const code = await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor.document, false)
 			const doc =	await vscode.workspace.openTextDocument({language: 'r', content: code})
-			void vscode.window.showTextDocument(doc)
+			void vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside)
 		}
 	}))
 
