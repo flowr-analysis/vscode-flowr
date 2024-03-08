@@ -3,7 +3,7 @@ import type { NodeId, RShellOptions, SingleSlicingCriterion} from '@eagleoutice/
 import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
-import { getConfig, isVerbose } from '../extension'
+import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, isVerbose } from '../extension'
 
 export class FlowrInternalSession {
 	private readonly outputChannel: vscode.OutputChannel
@@ -43,9 +43,9 @@ export class FlowrInternalSession {
 					})
 			} else {
 				this.outputChannel.appendLine(`Using R version ${version.toString()}`)
-				if(version.major < 3) {
+				if(version.major < MINIMUM_R_MAJOR) {
 					void vscode.window.showErrorMessage(`You are using R version ${version.toString()}, which is not compatible with flowR.`)
-				} else if(version.major < 4) {
+				} else if(version.major < BEST_R_MAJOR) {
 					void vscode.window.showWarningMessage(`You are using R version ${version.toString()}, which flowR has not been tested for. Some things might not work correctly.`)
 				}
 			}
