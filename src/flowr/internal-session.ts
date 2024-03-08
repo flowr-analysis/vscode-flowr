@@ -3,6 +3,7 @@ import type { NodeId, SingleSlicingCriterion} from '@eagleoutice/flowr'
 import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
+import { isVerbose } from '../extension'
 
 export class FlowrInternalSession {
 	private readonly outputChannel: vscode.OutputChannel
@@ -11,7 +12,7 @@ export class FlowrInternalSession {
 
 	constructor(outputChannel: vscode.OutputChannel, collection: vscode.DiagnosticCollection) {
 		this.outputChannel = outputChannel
-		this.outputChannel.appendLine('Using internal FlowR!')
+		this.outputChannel.appendLine('Using internal flowR')
 		this.diagnostics = collection
 		this.shell = new RShell({
 			revive:      'always',
@@ -19,7 +20,12 @@ export class FlowrInternalSession {
 		})
 		this.shell.tryToInjectHomeLibPath()
 		void this.shell.usedRVersion().then(version => {
-			this.outputChannel.appendLine(`Using R shell: ${JSON.stringify(version)}`)
+			if(version == null){
+				// this will soon be a lot more useful because it'll ask if we want to install R
+				void vscode.window.showErrorMessage('R was not found on your system. Is it installed correctly?')
+			} else {
+				this.outputChannel.appendLine(`Using R shell: ${JSON.stringify(version)}`)
+			}
 		})
 	}
 
@@ -48,8 +54,11 @@ export class FlowrInternalSession {
 
 		const range = FlowrInternalSession.getPositionAt(pos, document)
 		pos = range?.start ?? pos
-		this.outputChannel.appendLine(`Extracting slice at ${pos.line + 1}:${pos.character + 1} in ${filename}`)
-		this.outputChannel.appendLine(`Token: ${document.getText(range)}`)
+
+		if(isVerbose()) {
+			this.outputChannel.appendLine(`Extracting slice at ${pos.line + 1}:${pos.character + 1} in ${filename}`)
+			this.outputChannel.appendLine(`Token: ${document.getText(range)}`)
+		}
 
 		const slicer = new SteppingSlicer({
 			criterion:      [FlowrInternalSession.toSlicingCriterion(pos)],
@@ -69,7 +78,9 @@ export class FlowrInternalSession {
 			return a.location.start.line - b.location.start.line || a.location.start.column - b.location.start.column
 		})
 
-		this.outputChannel.appendLine('slice: ' + JSON.stringify([...result.slice.result]))
+		if(isVerbose()) {
+			this.outputChannel.appendLine('slice: ' + JSON.stringify([...result.slice.result]))
+		}
 		this.diagnostics.set(uri, FlowrInternalSession.createDiagnostics(document, range, pos, sliceElements))
 		return result.reconstruct.code
 	}
