@@ -20,7 +20,12 @@ export class FlowrInternalSession {
 		})
 		this.shell.tryToInjectHomeLibPath()
 		void this.shell.usedRVersion().then(version => {
-			this.outputChannel.appendLine(`Using R shell: ${JSON.stringify(version)}`)
+			if(version == null){
+				// this will soon be a lot more useful because it'll ask if we want to install R
+				void vscode.window.showErrorMessage('R was not found on your system. Is it installed correctly?')
+			} else {
+				this.outputChannel.appendLine(`Using R shell: ${JSON.stringify(version)}`)
+			}
 		})
 	}
 
