@@ -19,8 +19,8 @@ export class FlowrInternalSession {
 			revive:      'always',
 			sessionName: 'flowr - vscode'
 		}
-		const executable = getConfig().get<string>('r.executable')
-		if(executable){
+		const executable = getConfig().get<string>('r.executable')?.trim()
+		if(executable !== undefined && executable.length > 0) {
 			options = {...options, pathToRExecutable: executable }
 		}
 
