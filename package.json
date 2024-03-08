@@ -66,6 +66,12 @@
         "title": "Disconnect from flowR Server",
         "icon": "$(server)",
         "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.report",
+        "title": "Report Issue (Opens Browser)",
+        "icon": "$(bug)",
+        "category": "flowR"
       }
     ],
     "configuration": {

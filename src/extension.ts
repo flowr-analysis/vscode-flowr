@@ -47,6 +47,10 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	}))
 
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.report', () => {
+		void vscode.env.openExternal(vscode.Uri.parse('https://github.com/Code-Inspect/flowr/issues/new/choose'))
+	}))
+
 	serverStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
 	context.subscriptions.push(serverStatus)
 	updateServerStatus()
