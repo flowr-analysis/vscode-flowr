@@ -40,7 +40,7 @@ Then, you can install it the same way as you would the `vsix` downloaded [from G
 
 ## Development
 
-### Building and running from source
+### Building and Running from Source
 
 After cloning the repository, required dependencies can be installed using [npm](https://www.npmjs.com/):
 
@@ -56,7 +56,7 @@ You can then open the [example folder](https://github.com/Code-Inspect/vscode-fl
 
 To build the extension into a `vsix` file, see [this documentation article](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
-### Git hooks
+### Git Hooks
 
 This repository contains some git hooks to ensure that linting and other actions happen. Register these hooks by running:
 
