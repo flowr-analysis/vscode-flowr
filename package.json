@@ -4,6 +4,7 @@
   "displayName": "R Slicer (flowR)",
   "description": "Slicing and analyzing R code courtesy of flowR",
   "homepage": "https://github.com/Code-Inspect/vscode-flowr/blob/main/README.md",
+  "icon": "media/flowR.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/Code-Inspect/vscode-flowr"
