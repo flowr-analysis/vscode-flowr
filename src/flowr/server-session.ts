@@ -1,5 +1,5 @@
 import * as net from 'net'
-import * as vscode from 'vscode'
+import type * as vscode from 'vscode'
 import type { FlowrMessage } from '@eagleoutice/flowr/cli/repl'
 import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/repl/server/messages/analysis'
 import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/slice'
@@ -8,6 +8,7 @@ import { visitAst } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
+import { getConfig } from '../extension'
 
 export class FlowrServerSession {
 	private readonly outputChannel: vscode.OutputChannel
@@ -18,9 +19,8 @@ export class FlowrServerSession {
 	constructor(outputChannel: vscode.OutputChannel, collection: vscode.DiagnosticCollection) {
 		this.outputChannel = outputChannel
 
-		const config = vscode.workspace.getConfiguration('vscode-flowr')
-		const host = config.get<string>('server.host', 'localhost')
-		const port = config.get<number>('server.port', 1042)
+		const host = getConfig().get<string>('server.host', 'localhost')
+		const port = getConfig().get<number>('server.port', 1042)
 		this.outputChannel.appendLine(`Connecting to FlowR server at ${host}:${port}`)
 		this.socket = net.createConnection(port, host, () => {
 			this.outputChannel.appendLine('Connected to FlowR server!')

@@ -11,7 +11,12 @@ export function activate(context: vscode.ExtensionContext) {
 
 	outputChannel = vscode.window.createOutputChannel('flowR')
 	diagnostics = vscode.languages.createDiagnosticCollection('flowR')
-	flowrSession = new FlowrInternalSession(outputChannel, diagnostics)
+
+	if(getConfig().get<boolean>('server.autoConnect')) {
+		flowrSession = new FlowrServerSession(outputChannel, diagnostics)
+	} else {
+		flowrSession = new FlowrInternalSession(outputChannel, diagnostics)
+	}
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', () => {
 		const activeEditor = vscode.window.activeTextEditor
@@ -49,4 +54,6 @@ export function activate(context: vscode.ExtensionContext) {
 	process.on('SIGINT', () => flowrSession.destroy())
 }
 
-export function deactivate() {}
+export function getConfig(): vscode.WorkspaceConfiguration {
+	return vscode.workspace.getConfiguration('vscode-flowr')
+}
