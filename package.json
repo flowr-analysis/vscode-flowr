@@ -97,6 +97,18 @@
           "markdownDescription": "Whether to use verbose logging while flowR is active."
         }
       }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "vscode-flowr.slice.cursor",
+          "when": "resourceLangId == r"
+        },
+        {
+          "command": "vscode-flowr.slice.clear",
+          "when": "resourceLangId == r"
+        }
+      ]
     }
   },
   "scripts": {
