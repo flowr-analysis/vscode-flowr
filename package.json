@@ -97,6 +97,13 @@
           "default": "",
           "markdownDescription": "An absolute path to the R binary to use. If this is empty, R is expected to be part of the system's PATH."
         },
+        "vscode-flowr.style.sliceOpacity": {
+          "type": "number",
+          "default": 0.25,
+          "minimum": 0,
+          "maximum": 1,
+          "markdownDescription": "The opacity that code which isn't part of the current slice should have, between 0 (invisible) and 1 (opaque)."
+        },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,
