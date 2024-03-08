@@ -13,9 +13,9 @@ export function activate(context: vscode.ExtensionContext) {
 	diagnostics = vscode.languages.createDiagnosticCollection('flowR')
 
 	if(getConfig().get<boolean>('server.autoConnect')) {
-		flowrSession = new FlowrServerSession(outputChannel, diagnostics)
+		establishServerSession()
 	} else {
-		flowrSession = new FlowrInternalSession(outputChannel, diagnostics)
+		establishInternalSession()
 	}
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', () => {
@@ -40,13 +40,11 @@ export function activate(context: vscode.ExtensionContext) {
 	}))
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', () => {
-		flowrSession.destroy()
-		flowrSession = new FlowrServerSession(outputChannel, diagnostics)
+		establishServerSession()
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.disconnect', () => {
 		if(flowrSession instanceof FlowrServerSession) {
-			flowrSession.destroy()
-			flowrSession = new FlowrInternalSession(outputChannel, diagnostics)
+			establishInternalSession()
 		}
 	}))
 
@@ -56,4 +54,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function getConfig(): vscode.WorkspaceConfiguration {
 	return vscode.workspace.getConfiguration('vscode-flowr')
+}
+
+export function establishInternalSession() {
+	flowrSession?.destroy()
+	flowrSession = new FlowrInternalSession(outputChannel, diagnostics)
+}
+
+export function establishServerSession() {
+	flowrSession?.destroy()
+	flowrSession = new FlowrServerSession(outputChannel, diagnostics)
 }

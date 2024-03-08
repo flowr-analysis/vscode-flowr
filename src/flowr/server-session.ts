@@ -1,5 +1,5 @@
 import * as net from 'net'
-import type * as vscode from 'vscode'
+import * as vscode from 'vscode'
 import type { FlowrMessage } from '@eagleoutice/flowr/cli/repl'
 import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/repl/server/messages/analysis'
 import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/slice'
@@ -8,7 +8,7 @@ import { visitAst } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
-import { getConfig } from '../extension'
+import { establishInternalSession, getConfig } from '../extension'
 
 export class FlowrServerSession {
 	private readonly outputChannel: vscode.OutputChannel
@@ -16,19 +16,31 @@ export class FlowrServerSession {
 	private socket:                 net.Socket
 	private idCounter = 0
 
-	constructor(outputChannel: vscode.OutputChannel, collection: vscode.DiagnosticCollection) {
+	constructor(outputChannel: vscode.OutputChannel, diagnostics: vscode.DiagnosticCollection) {
 		this.outputChannel = outputChannel
 
 		const host = getConfig().get<string>('server.host', 'localhost')
 		const port = getConfig().get<number>('server.port', 1042)
-		this.outputChannel.appendLine(`Connecting to FlowR server at ${host}:${port}`)
+		this.outputChannel.appendLine(`Connecting to flowR server at ${host}:${port}`)
 		this.socket = net.createConnection(port, host, () => {
-			this.outputChannel.appendLine('Connected to FlowR server!')
+			const msg = 'Connected to flowR server'
+			this.outputChannel.appendLine(msg)
+			void vscode.window.showInformationMessage(msg)
 		})
-		this.socket.on('error', e => this.outputChannel.appendLine(`flowR server error: ${e.message}`))
+		this.socket.on('error', e => {
+			this.outputChannel.appendLine(`flowR server error: ${e.message}`)
+
+			const useLocal = 'Use local shell instead'
+			void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${e.message}`, useLocal)
+				.then(v => {
+					if(v === useLocal) {
+						establishInternalSession()
+					}
+				})
+		})
 		this.socket.on('data', str => this.handleResponse(String(str)))
 
-		this.diagnostics = collection
+		this.diagnostics = diagnostics
 	}
 
 	public destroy(): void {
