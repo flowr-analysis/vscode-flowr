@@ -20,6 +20,7 @@ export function activate(context: vscode.ExtensionContext) {
 	sliceDecoration = vscode.window.createTextEditorDecorationType({
 		opacity: getConfig().get<number>('style.sliceOpacity')?.toString()
 	})
+	context.subscriptions.push(sliceDecoration)
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', () => {
 		const activeEditor = vscode.window.activeTextEditor
