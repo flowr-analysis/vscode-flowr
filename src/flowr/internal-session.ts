@@ -7,7 +7,7 @@ import { BEST_R_MAJOR, MINIMUM_R_MAJOR, createSliceDecorations, getConfig, isVer
 
 export class FlowrInternalSession {
 
-	public state:    'loading' | 'active' | 'errored'
+	public state:    'loading' | 'active' | 'failure'
 	public rVersion: string | undefined
 
 	private readonly outputChannel: vscode.OutputChannel
@@ -47,7 +47,7 @@ export class FlowrInternalSession {
 						}
 					})
 
-				this.state = 'errored'
+				this.state = 'failure'
 				updateStatusBar()
 			} else {
 				this.outputChannel.appendLine(`Using R version ${version.toString()}`)
