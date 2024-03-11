@@ -9,6 +9,7 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
 import { createSliceDecorations, establishInternalSession, getConfig, isVerbose, sliceDecoration, updateStatusBar } from '../extension'
+import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/hello'
 
 export class FlowrServerSession {
 
@@ -28,7 +29,7 @@ export class FlowrServerSession {
 
 		// the first response will be flowR's hello message
 		void this.awaitResponse().then(r => {
-			const info = JSON.parse(r) as {versions: {flowr: string, r: string}}
+			const info = JSON.parse(r) as FlowrHelloResponseMessage
 			this.rVersion = info.versions.r
 			this.flowrVersion = info.versions.flowr
 			updateStatusBar()
