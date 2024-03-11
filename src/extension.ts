@@ -53,7 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.disconnect', () => {
 		if(flowrSession instanceof FlowrServerSession) {
-			establishInternalSession()
+			destroySession()
 		}
 	}))
 
@@ -65,8 +65,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(serverStatus)
 	updateServerStatus()
 
-	context.subscriptions.push(new vscode.Disposable(() => flowrSession?.destroy()))
-	process.on('SIGINT', () => flowrSession?.destroy())
+	context.subscriptions.push(new vscode.Disposable(() => destroySession()))
+	process.on('SIGINT', () => destroySession())
 
 	if(getConfig().get<boolean>('server.autoConnect')) {
 		establishServerSession()
@@ -82,15 +82,20 @@ export function isVerbose(): boolean {
 }
 
 export function establishInternalSession() {
-	flowrSession?.destroy()
+	destroySession()
 	flowrSession = new FlowrInternalSession(outputChannel)
 	updateServerStatus()
 }
 
 export function establishServerSession() {
-	flowrSession?.destroy()
+	destroySession()
 	flowrSession = new FlowrServerSession(outputChannel)
 	updateServerStatus()
+}
+
+export function destroySession() {
+	flowrSession?.destroy()
+	flowrSession = undefined
 }
 
 export function updateServerStatus() {
