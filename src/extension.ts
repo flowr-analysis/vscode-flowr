@@ -98,7 +98,7 @@ export function updateStatusBar() {
 	} else if(flowrSession instanceof FlowrInternalSession) {
 		flowrStatus.show()
 		flowrStatus.text = `$(console) flowR shell ${flowrSession.state}`
-		flowrStatus.tooltip =flowrSession.state === 'active' ?
+		flowrStatus.tooltip = flowrSession.state === 'active' ?
 			`R version ${flowrSession.rVersion}` : undefined
 	} else {
 		flowrStatus.hide()
