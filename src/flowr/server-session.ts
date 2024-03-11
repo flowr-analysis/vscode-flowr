@@ -8,7 +8,7 @@ import { visitAst } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
-import { createSliceDecorations, establishInternalSession, getConfig, isVerbose, sliceDecoration, updateServerStatus } from '../extension'
+import { createSliceDecorations, establishInternalSession, getConfig, isVerbose, sliceDecoration, updateStatusBar } from '../extension'
 
 export class FlowrServerSession {
 
@@ -22,14 +22,14 @@ export class FlowrServerSession {
 		this.outputChannel = outputChannel
 
 		this.state = 'connecting'
-		updateServerStatus()
+		updateStatusBar()
 
 		const host = getConfig().get<string>('server.host', 'localhost')
 		const port = getConfig().get<number>('server.port', 1042)
 		this.outputChannel.appendLine(`Connecting to flowR server at ${host}:${port}`)
 		this.socket = net.createConnection(port, host, () => {
 			this.state = 'connected'
-			updateServerStatus()
+			updateStatusBar()
 
 			const msg = 'Connected to flowR server'
 			this.outputChannel.appendLine(msg)
@@ -49,7 +49,7 @@ export class FlowrServerSession {
 		this.socket.on('close', () => {
 			this.outputChannel.appendLine('flowR server connection closed')
 			this.state = 'not connected'
-			updateServerStatus()
+			updateStatusBar()
 		})
 		this.socket.on('data', str => this.handleResponse(String(str)))
 	}

@@ -3,15 +3,21 @@ import type { NodeId, RShellOptions, SingleSlicingCriterion} from '@eagleoutice/
 import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
-import { BEST_R_MAJOR, MINIMUM_R_MAJOR, createSliceDecorations, getConfig, isVerbose, sliceDecoration } from '../extension'
+import { BEST_R_MAJOR, MINIMUM_R_MAJOR, createSliceDecorations, getConfig, isVerbose, sliceDecoration, updateStatusBar } from '../extension'
 
 export class FlowrInternalSession {
+
+	public state: 'loading' | 'active' | 'errored'
+
 	private readonly outputChannel: vscode.OutputChannel
 	private readonly shell:         RShell
 
 	constructor(outputChannel: vscode.OutputChannel) {
 		this.outputChannel = outputChannel
 		this.outputChannel.appendLine('Using internal flowR')
+
+		this.state = 'loading'
+		updateStatusBar()
 
 		let options: Partial<RShellOptions> = {
 			revive:      'always',
@@ -39,6 +45,9 @@ export class FlowrInternalSession {
 							void vscode.env.openExternal(vscode.Uri.parse('https://github.com/Code-Inspect/vscode-flowr/blob/main/README.md#using'))
 						}
 					})
+
+				this.state = 'errored'
+				updateStatusBar()
 			} else {
 				this.outputChannel.appendLine(`Using R version ${version.toString()}`)
 				if(version.major < MINIMUM_R_MAJOR) {
@@ -46,6 +55,9 @@ export class FlowrInternalSession {
 				} else if(version.major < BEST_R_MAJOR) {
 					void vscode.window.showWarningMessage(`You are using R version ${version.toString()}, which flowR has not been tested for. Some things might not work correctly.`)
 				}
+
+				this.state = 'active'
+				updateStatusBar()
 			}
 		})
 	}

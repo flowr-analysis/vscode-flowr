@@ -11,7 +11,7 @@ export let flowrSession: FlowrInternalSession | FlowrServerSession
 export let outputChannel: vscode.OutputChannel
 export let sliceDecoration: vscode.TextEditorDecorationType
 
-let serverStatus: vscode.StatusBarItem
+let flowrStatus: vscode.StatusBarItem
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Loading vscode-flowr')
@@ -55,9 +55,9 @@ export function activate(context: vscode.ExtensionContext) {
 		void vscode.env.openExternal(vscode.Uri.parse('https://github.com/Code-Inspect/flowr/issues/new/choose'))
 	}))
 
-	serverStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
-	context.subscriptions.push(serverStatus)
-	updateServerStatus()
+	flowrStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
+	context.subscriptions.push(flowrStatus)
+	updateStatusBar()
 
 	context.subscriptions.push(new vscode.Disposable(() => flowrSession.destroy()))
 	process.on('SIGINT', () => flowrSession.destroy())
@@ -80,21 +80,24 @@ export function isVerbose(): boolean {
 export function establishInternalSession() {
 	flowrSession?.destroy()
 	flowrSession = new FlowrInternalSession(outputChannel)
-	updateServerStatus()
+	updateStatusBar()
 }
 
 export function establishServerSession() {
 	flowrSession?.destroy()
 	flowrSession = new FlowrServerSession(outputChannel)
-	updateServerStatus()
+	updateStatusBar()
 }
 
-export function updateServerStatus() {
+export function updateStatusBar() {
 	if(flowrSession instanceof FlowrServerSession) {
-		serverStatus.show()
-		serverStatus.text = `$(server) flowR ${flowrSession.state}`
+		flowrStatus.show()
+		flowrStatus.text = `$(cloud) flowR server ${flowrSession.state}`
+	} else if(flowrSession instanceof FlowrInternalSession) {
+		flowrStatus.show()
+		flowrStatus.text = `$(console) flowR shell ${flowrSession.state}`
 	} else {
-		serverStatus.hide()
+		flowrStatus.hide()
 	}
 }
 
