@@ -8,11 +8,14 @@ import { visitAst } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
-import { createSliceDecorations, establishInternalSession, getConfig, isVerbose, sliceDecoration, updateServerStatus } from '../extension'
+import { createSliceDecorations, establishInternalSession, getConfig, isVerbose, sliceDecoration, updateStatusBar } from '../extension'
+import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/hello'
 
 export class FlowrServerSession {
 
-	public state: 'connecting' | 'connected' | 'not connected'
+	public state:        'connecting' | 'connected' | 'not connected'
+	public flowrVersion: string | undefined
+	public rVersion:     string | undefined
 
 	private readonly outputChannel: vscode.OutputChannel
 	private socket:                 net.Socket
@@ -22,18 +25,23 @@ export class FlowrServerSession {
 		this.outputChannel = outputChannel
 
 		this.state = 'connecting'
-		updateServerStatus()
+		updateStatusBar()
+
+		// the first response will be flowR's hello message
+		void this.awaitResponse().then(r => {
+			const info = JSON.parse(r) as FlowrHelloResponseMessage
+			this.rVersion = info.versions.r
+			this.flowrVersion = info.versions.flowr
+			updateStatusBar()
+		})
 
 		const host = getConfig().get<string>('server.host', 'localhost')
 		const port = getConfig().get<number>('server.port', 1042)
 		this.outputChannel.appendLine(`Connecting to flowR server at ${host}:${port}`)
 		this.socket = net.createConnection(port, host, () => {
 			this.state = 'connected'
-			updateServerStatus()
-
-			const msg = 'Connected to flowR server'
-			this.outputChannel.appendLine(msg)
-			void vscode.window.showInformationMessage(msg)
+			updateStatusBar()
+			this.outputChannel.appendLine('Connected to flowR server')
 		})
 		this.socket.on('error', e => {
 			this.outputChannel.appendLine(`flowR server error: ${e.message}`)
@@ -49,7 +57,7 @@ export class FlowrServerSession {
 		this.socket.on('close', () => {
 			this.outputChannel.appendLine('flowR server connection closed')
 			this.state = 'not connected'
-			updateServerStatus()
+			updateStatusBar()
 		})
 		this.socket.on('data', str => this.handleResponse(String(str)))
 	}
