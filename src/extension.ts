@@ -17,10 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
 	console.log('Loading vscode-flowr')
 
 	outputChannel = vscode.window.createOutputChannel('flowR')
-	sliceDecoration = vscode.window.createTextEditorDecorationType({
-		opacity: getConfig().get<number>('style.sliceOpacity')?.toString()
-	})
-	context.subscriptions.push(sliceDecoration)
+	recreateSliceDecorationType()
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', () => {
 		const activeEditor = vscode.window.activeTextEditor
@@ -60,7 +57,16 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(serverStatus)
 	updateServerStatus()
 
-	context.subscriptions.push(new vscode.Disposable(() => flowrSession.destroy()))
+	vscode.workspace.onDidChangeConfiguration(e => {
+		if(e.affectsConfiguration('vscode-flowr.style.sliceOpacity')) {
+			recreateSliceDecorationType()
+		}
+	})
+
+	context.subscriptions.push(new vscode.Disposable(() => {
+		sliceDecoration.dispose()
+		flowrSession.destroy()
+	}))
 	process.on('SIGINT', () => flowrSession.destroy())
 
 	if(getConfig().get<boolean>('server.autoConnect')) {
@@ -109,4 +115,11 @@ export function createSliceDecorations(document: vscode.TextDocument, sliceEleme
 		}
 	}
 	return ret
+}
+
+function recreateSliceDecorationType() {
+	sliceDecoration?.dispose()
+	sliceDecoration = vscode.window.createTextEditorDecorationType({
+		opacity: getConfig().get<number>('style.sliceOpacity')?.toString()
+	})
 }
