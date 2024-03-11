@@ -7,7 +7,7 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range'
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
 
-export let flowrSession: FlowrInternalSession | FlowrServerSession
+export let flowrSession: FlowrInternalSession | FlowrServerSession | undefined
 export let outputChannel: vscode.OutputChannel
 export let sliceDecoration: vscode.TextEditorDecorationType
 
@@ -24,6 +24,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', () => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor?.selection) {
+			if(!flowrSession) {
+				establishInternalSession()
+			}
 			void flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, true)
 		}
 	}))
@@ -36,6 +39,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor-reconstruct', async() => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor) {
+			if(!flowrSession) {
+				establishInternalSession()
+			}
 			const code = await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, false)
 			const doc =	await vscode.workspace.openTextDocument({language: 'r', content: code})
 			void vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside)
@@ -59,13 +65,11 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(serverStatus)
 	updateServerStatus()
 
-	context.subscriptions.push(new vscode.Disposable(() => flowrSession.destroy()))
-	process.on('SIGINT', () => flowrSession.destroy())
+	context.subscriptions.push(new vscode.Disposable(() => flowrSession?.destroy()))
+	process.on('SIGINT', () => flowrSession?.destroy())
 
 	if(getConfig().get<boolean>('server.autoConnect')) {
 		establishServerSession()
-	} else {
-		establishInternalSession()
 	}
 }
 
