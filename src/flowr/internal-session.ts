@@ -52,9 +52,9 @@ export class FlowrInternalSession {
 			} else {
 				this.outputChannel.appendLine(`Using R version ${version.toString()}`)
 				if(version.major < MINIMUM_R_MAJOR) {
-					void vscode.window.showErrorMessage(`You are using R version ${version.toString()}, which is not compatible with flowR.`)
+					void vscode.window.showErrorMessage(`You are using R version ${version.toString()}, but ${MINIMUM_R_MAJOR}.0.0 or higher is required.`)
 				} else if(version.major < BEST_R_MAJOR) {
-					void vscode.window.showWarningMessage(`You are using R version ${version.toString()}, which flowR has not been tested for. Some things might not work correctly.`)
+					void vscode.window.showWarningMessage(`You are using R version ${version.toString()}, which flowR has not been tested for. Version ${BEST_R_MAJOR}.0.0 or higher is recommended.`)
 				}
 
 				this.state = 'active'
