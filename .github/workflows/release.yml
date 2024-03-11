@@ -59,3 +59,7 @@ jobs:
           files: vscode-flowr-*.vsix
           token: ${{ secrets.RELEASE_TOKEN }}
           tag: ${{ vars.PACKAGE_VERSION }}
+      - name: Marketplace
+        run: vsce publish
+        env:
+          VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE }}
