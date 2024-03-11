@@ -28,12 +28,10 @@
   ],
   "activationEvents": [
     "onLanguage:r",
-    "onLanguage:rd",
-    "onLanguage:rmd",
     "onLanguage:debian-control.r",
     "onLanguage:namespace.r",
     "onLanguage:buildignore.r",
-    "workspaceContains:**/*.{rproj,Rproj,r,R,rd,Rd,rmd,Rmd}"
+    "workspaceContains:**/*.{r,R}"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -123,7 +121,19 @@
           "when": "resourceLangId == r"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "vscode-flowr.slice.cursor",
+        "key": "alt+s",
+        "when": "resourceLangId == r"
+      },
+      {
+        "command": "vscode-flowr.slice.clear",
+        "key": "alt+c",
+        "when": "resourceLangId == r"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
