@@ -121,7 +121,19 @@
           "when": "resourceLangId == r"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "vscode-flowr.slice.cursor",
+        "key": "alt+s",
+        "when": "resourceLangId == r"
+      },
+      {
+        "command": "vscode-flowr.slice.clear",
+        "key": "alt+c",
+        "when": "resourceLangId == r"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
