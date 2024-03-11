@@ -28,12 +28,10 @@
   ],
   "activationEvents": [
     "onLanguage:r",
-    "onLanguage:rd",
-    "onLanguage:rmd",
     "onLanguage:debian-control.r",
     "onLanguage:namespace.r",
     "onLanguage:buildignore.r",
-    "workspaceContains:**/*.{rproj,Rproj,r,R,rd,Rd,rmd,Rmd}"
+    "workspaceContains:**/*.{r,R}"
   ],
   "main": "./out/extension.js",
   "contributes": {
