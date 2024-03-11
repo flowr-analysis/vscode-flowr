@@ -12,7 +12,9 @@ import { createSliceDecorations, establishInternalSession, getConfig, isVerbose,
 
 export class FlowrServerSession {
 
-	public state: 'connecting' | 'connected' | 'not connected'
+	public state:        'connecting' | 'connected' | 'not connected'
+	public flowrVersion: string | undefined
+	public rVersion:     string | undefined
 
 	private readonly outputChannel: vscode.OutputChannel
 	private socket:                 net.Socket
@@ -24,16 +26,21 @@ export class FlowrServerSession {
 		this.state = 'connecting'
 		updateStatusBar()
 
+		// the first response will be flowR's hello message
+		void this.awaitResponse().then(r => {
+			const info = JSON.parse(r) as {versions: {flowr: string, r: string}}
+			this.rVersion = info.versions.r
+			this.flowrVersion = info.versions.flowr
+			updateStatusBar()
+		})
+
 		const host = getConfig().get<string>('server.host', 'localhost')
 		const port = getConfig().get<number>('server.port', 1042)
 		this.outputChannel.appendLine(`Connecting to flowR server at ${host}:${port}`)
 		this.socket = net.createConnection(port, host, () => {
 			this.state = 'connected'
 			updateStatusBar()
-
-			const msg = 'Connected to flowR server'
-			this.outputChannel.appendLine(msg)
-			void vscode.window.showInformationMessage(msg)
+			this.outputChannel.appendLine('Connected to flowR server')
 		})
 		this.socket.on('error', e => {
 			this.outputChannel.appendLine(`flowR server error: ${e.message}`)

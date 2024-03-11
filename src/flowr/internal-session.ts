@@ -7,7 +7,8 @@ import { BEST_R_MAJOR, MINIMUM_R_MAJOR, createSliceDecorations, getConfig, isVer
 
 export class FlowrInternalSession {
 
-	public state: 'loading' | 'active' | 'errored'
+	public state:    'loading' | 'active' | 'errored'
+	public rVersion: string | undefined
 
 	private readonly outputChannel: vscode.OutputChannel
 	private readonly shell:         RShell
@@ -57,6 +58,7 @@ export class FlowrInternalSession {
 				}
 
 				this.state = 'active'
+				this.rVersion = version.toString()
 				updateStatusBar()
 			}
 		})
