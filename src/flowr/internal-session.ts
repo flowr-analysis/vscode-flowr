@@ -7,18 +7,24 @@ import { BEST_R_MAJOR, MINIMUM_R_MAJOR, createSliceDecorations, getConfig, isVer
 
 export class FlowrInternalSession {
 
-	public state:    'loading' | 'active' | 'failure'
+	public state:    'inactive' | 'loading' | 'active' | 'failure'
 	public rVersion: string | undefined
 
 	private readonly outputChannel: vscode.OutputChannel
-	private readonly shell:         RShell
+	private shell:                  RShell | undefined
 
 	constructor(outputChannel: vscode.OutputChannel) {
 		this.outputChannel = outputChannel
-		this.outputChannel.appendLine('Using internal flowR')
 
+		this.state = 'inactive'
+		updateStatusBar()
+	}
+
+	async initialize() {
 		this.state = 'loading'
 		updateStatusBar()
+
+		this.outputChannel.appendLine('Starting flowR shell')
 
 		let options: Partial<RShellOptions> = {
 			revive:      'always',
@@ -36,7 +42,7 @@ export class FlowrInternalSession {
 		// we provided doesn't actually lead anywhere, or doesn't contain an R executable, etc.
 		let handle: NodeJS.Timeout
 		const timeout = new Promise<null>(resolve => handle = setTimeout(() => resolve(null), 1000))
-		void Promise.race([this.shell.usedRVersion(), timeout]).then(version => {
+		await Promise.race([this.shell.usedRVersion(), timeout]).then(version => {
 			clearTimeout(handle)
 			if(!version){
 				const seeDoc = 'See documentation'
@@ -65,10 +71,13 @@ export class FlowrInternalSession {
 	}
 
 	public destroy(): void {
-		this.shell.close()
+		this.shell?.close()
 	}
 
 	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, decorate: boolean): Promise<string> {
+		if(!this.shell) {
+			return ''
+		}
 		try {
 			return await this.extractSlice(this.shell, editor, pos, decorate)
 		} catch(e) {
