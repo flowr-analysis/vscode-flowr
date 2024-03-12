@@ -35,6 +35,7 @@ jobs:
         run: npm ci
 
       - name: Bump version
+        id: version
         run: |
           step=$(echo "$MESSAGE" | sed -n -E 's/\[release:(patch|minor|major)].*/\1/p')
           if [ -z "$step" ]; then
@@ -43,7 +44,7 @@ jobs:
           fi
 
           new_version=$(npm version "$step" -m "[skip ci] Release %s")
-          echo "PACKAGE_VERSION=$new_version" >> $GITHUB_ENV
+          echo "::set-output name=release_tag::$new_version"
         env:
           # apparently, putting the message into an env variable first sanitizes it
           # (see https://github.com/Code-Inspect/flowr/security/code-scanning/29)
@@ -52,17 +53,16 @@ jobs:
       - name: Package
         run: vsce package
 
-      - name: Push version update
-        run: |
-          git push
-          git push --tags
+      # but not the tag as it may be created by the release action
+      - name: Push version update commmit
+        run: git push
 
       - name: GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: vscode-flowr-*.vsix
           token: ${{ secrets.RELEASE_TOKEN }}
-          tag_name: ${{ vars.PACKAGE_VERSION }}
+          tag_name: ${{ steps.version.outputs.release_tag }}
 
       - name: Marketplace
         run: vsce publish
