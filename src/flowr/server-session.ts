@@ -13,17 +13,22 @@ import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/serv
 
 export class FlowrServerSession {
 
-	public state:        'connecting' | 'connected' | 'not connected'
+	public state:        'inactive' | 'connecting' | 'connected' | 'not connected'
 	public flowrVersion: string | undefined
 	public rVersion:     string | undefined
 
 	private readonly outputChannel: vscode.OutputChannel
-	private socket:                 net.Socket
+	private socket:                 net.Socket | undefined
 	private idCounter = 0
 
 	constructor(outputChannel: vscode.OutputChannel) {
 		this.outputChannel = outputChannel
 
+		this.state = 'inactive'
+		updateStatusBar()
+	}
+
+	initialize() {
 		this.state = 'connecting'
 		updateStatusBar()
 
@@ -50,7 +55,7 @@ export class FlowrServerSession {
 			void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${e.message}`, useLocal)
 				.then(v => {
 					if(v === useLocal) {
-						establishInternalSession()
+						void establishInternalSession()
 					}
 				})
 		})
@@ -63,7 +68,7 @@ export class FlowrServerSession {
 	}
 
 	public destroy(): void {
-		this.socket.destroy()
+		this.socket?.destroy()
 	}
 
 	private currentMessageBuffer = ''
@@ -83,11 +88,15 @@ export class FlowrServerSession {
 
 	private onceOnLineReceived: undefined | ((line: string) => void)
 
-	sendCommand(command: object): void {
-		if(isVerbose()) {
-			this.outputChannel.appendLine('Sending: ' + JSON.stringify(command))
+	sendCommand(command: object): boolean {
+		if(this.socket) {
+			if(isVerbose()) {
+				this.outputChannel.appendLine('Sending: ' + JSON.stringify(command))
+			}
+			this.socket.write(JSON.stringify(command) + '\n')
+			return true
 		}
-		this.socket.write(JSON.stringify(command) + '\n')
+		return false
 	}
 
 	async sendCommandWithResponse<Target>(command: FlowrMessage): Promise<Target> {
