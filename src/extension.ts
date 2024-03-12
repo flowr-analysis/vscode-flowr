@@ -20,11 +20,11 @@ export function activate(context: vscode.ExtensionContext) {
 	outputChannel = vscode.window.createOutputChannel('flowR')
 	recreateSliceDecorationType()
 
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', () => {
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor?.selection) {
 			if(!flowrSession) {
-				establishInternalSession()
+				await establishInternalSession()
 			}
 			void flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, true)
 		}
@@ -39,7 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor) {
 			if(!flowrSession) {
-				establishInternalSession()
+				await establishInternalSession()
 			}
 			const code = await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, false)
 			const doc =	await vscode.workspace.openTextDocument({language: 'r', content: code})
@@ -89,16 +89,16 @@ export function isVerbose(): boolean {
 	return getConfig().get<boolean>(Settings.VerboseLog, false)
 }
 
-export function establishInternalSession() {
+export async function establishInternalSession() {
 	destroySession()
 	flowrSession = new FlowrInternalSession(outputChannel)
-	updateStatusBar()
+	await flowrSession.initialize()
 }
 
 export function establishServerSession() {
 	destroySession()
 	flowrSession = new FlowrServerSession(outputChannel)
-	updateStatusBar()
+	flowrSession.initialize()
 }
 
 export function destroySession() {
