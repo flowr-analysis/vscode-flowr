@@ -4,6 +4,7 @@ import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutic
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, createSliceDecorations, getConfig, isVerbose, sliceDecoration, updateStatusBar } from '../extension'
+import { Settings } from '../settings'
 
 export class FlowrInternalSession {
 
@@ -24,7 +25,7 @@ export class FlowrInternalSession {
 			revive:      'always',
 			sessionName: 'flowr - vscode'
 		}
-		const executable = getConfig().get<string>('r.executable')?.trim()
+		const executable = getConfig().get<string>(Settings.Rexecutable)?.trim()
 		if(executable !== undefined && executable.length > 0) {
 			options = {...options, pathToRExecutable: executable }
 		}

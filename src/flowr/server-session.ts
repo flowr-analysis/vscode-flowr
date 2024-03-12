@@ -10,6 +10,7 @@ import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
 import { createSliceDecorations, establishInternalSession, getConfig, isVerbose, sliceDecoration, updateStatusBar } from '../extension'
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/hello'
+import { Settings } from '../settings'
 
 export class FlowrServerSession {
 
@@ -35,8 +36,8 @@ export class FlowrServerSession {
 			updateStatusBar()
 		})
 
-		const host = getConfig().get<string>('server.host', 'localhost')
-		const port = getConfig().get<number>('server.port', 1042)
+		const host = getConfig().get<string>(Settings.ServerHost, 'localhost')
+		const port = getConfig().get<number>(Settings.ServerPort, 1042)
 		this.outputChannel.appendLine(`Connecting to flowR server at ${host}:${port}`)
 		this.socket = net.createConnection(port, host, () => {
 			this.state = 'connected'

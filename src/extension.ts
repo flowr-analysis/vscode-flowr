@@ -3,6 +3,7 @@ import { FlowrInternalSession } from './flowr/internal-session'
 import { FlowrServerSession } from './flowr/server-session'
 import type { NodeId } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
+import { Settings } from './settings'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
@@ -64,7 +65,7 @@ export function activate(context: vscode.ExtensionContext) {
 	updateStatusBar()
 
 	vscode.workspace.onDidChangeConfiguration(e => {
-		if(e.affectsConfiguration('vscode-flowr.style.sliceOpacity')) {
+		if(e.affectsConfiguration(`${Settings.Category}.${Settings.StyleSliceOpacity}`)) {
 			recreateSliceDecorationType()
 		}
 	})
@@ -75,17 +76,17 @@ export function activate(context: vscode.ExtensionContext) {
 	}))
 	process.on('SIGINT', () => destroySession())
 
-	if(getConfig().get<boolean>('server.autoConnect')) {
+	if(getConfig().get<boolean>(Settings.ServerAutoConnect)) {
 		establishServerSession()
 	}
 }
 
 export function getConfig(): vscode.WorkspaceConfiguration {
-	return vscode.workspace.getConfiguration('vscode-flowr')
+	return vscode.workspace.getConfiguration(Settings.Category)
 }
 
 export function isVerbose(): boolean {
-	return getConfig().get<boolean>('verboseLog', false)
+	return getConfig().get<boolean>(Settings.VerboseLog, false)
 }
 
 export function establishInternalSession() {
@@ -136,6 +137,6 @@ export function createSliceDecorations(document: vscode.TextDocument, sliceEleme
 function recreateSliceDecorationType() {
 	sliceDecoration?.dispose()
 	sliceDecoration = vscode.window.createTextEditorDecorationType({
-		opacity: getConfig().get<number>('style.sliceOpacity')?.toString()
+		opacity: getConfig().get<number>(Settings.StyleSliceOpacity)?.toString()
 	})
 }
