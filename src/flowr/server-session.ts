@@ -47,10 +47,13 @@ export class FlowrServerSession {
 			this.outputChannel.appendLine(`flowR server error: ${e.message}`)
 
 			const useLocal = 'Use local shell instead'
-			void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${e.message}`, useLocal)
+			const openSettings = 'Open connection settings'
+			void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${e.message}`, openSettings, useLocal)
 				.then(v => {
 					if(v === useLocal) {
 						establishInternalSession()
+					} else if(v === openSettings) {
+						void vscode.commands.executeCommand( 'workbench.action.openSettings', 'vscode-flowr.server' )
 					}
 				})
 		})
