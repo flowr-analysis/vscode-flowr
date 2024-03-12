@@ -56,12 +56,14 @@ jobs:
         run: |
           git push
           git push --tags
+
       - name: GitHub release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: vscode-flowr-*.vsix
           token: ${{ secrets.RELEASE_TOKEN }}
-          tag: ${{ vars.PACKAGE_VERSION }}
+          tag_name: ${{ vars.PACKAGE_VERSION }}
+
       - name: Marketplace
         run: vsce publish
         env:
