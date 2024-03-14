@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import type { NodeId } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { establishInternalSession, flowrSession, getConfig } from './extension'
+import type { SliceDisplay } from './settings'
 import { Settings } from './settings'
 
 export let sliceDecoration: vscode.TextEditorDecorationType
@@ -45,7 +46,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 
 export async function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[]) {
 	const sliceLines = new Set<number>(sliceElements.map(s => s.location.start.line - 1))
-	switch(getConfig().get<string>(Settings.StyleSliceDisplay)) {
+	switch(getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay)) {
 		case 'text': {
 			const decorations: vscode.DecorationOptions[] = []
 			for(let i = 0; i < editor.document.lineCount; i++) {
