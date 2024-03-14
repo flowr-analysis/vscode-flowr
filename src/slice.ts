@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import type { NodeId } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
-import { establishInternalSession, flowrSession, getConfig, outputChannel } from './extension'
+import { establishInternalSession, flowrSession, getConfig } from './extension'
 import { Settings } from './settings'
 
 export let sliceDecoration: vscode.TextEditorDecorationType
@@ -57,10 +57,14 @@ export async function displaySlice(editor: vscode.TextEditor, sliceElements: { i
 			break
 		}
 		case 'diff': {
-			const sliceContent = [...sliceLines].map(l => editor.document.lineAt(l).text).join('\n')
-			outputChannel.appendLine(sliceContent)
-			const sliceDoc = await vscode.workspace.openTextDocument({language: 'r', content: sliceContent})
-			void vscode.commands.executeCommand('vscode.diff', editor.document.uri, sliceDoc.uri)
+			const sliceContent = []
+			for(let i = 0; i < editor.document.lineCount; i++){
+				if(!sliceLines.has(i)){
+					sliceContent.push(editor.document.lineAt(i).text)
+				}
+			}
+			const sliceDoc = await vscode.workspace.openTextDocument({language: 'r', content: sliceContent.join('\n')})
+			void vscode.commands.executeCommand('vscode.diff', sliceDoc.uri, editor.document.uri)
 			break
 		}
 	}
