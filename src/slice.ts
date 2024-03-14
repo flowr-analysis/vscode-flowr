@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import type { NodeId } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
-import { establishInternalSession, flowrSession, getConfig } from './extension'
+import { establishInternalSession, flowrSession, getConfig, outputChannel } from './extension'
 import { Settings } from './settings'
 
 export let sliceDecoration: vscode.TextEditorDecorationType
@@ -43,16 +43,27 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(new vscode.Disposable(() => sliceDecoration.dispose()))
 }
 
-export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[]) {
-	// create a set to make finding matching lines
+export async function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[]) {
 	const sliceLines = new Set<number>(sliceElements.map(s => s.location.start.line - 1))
-	const decorations: vscode.DecorationOptions[] = []
-	for(let i = 0; i < editor.document.lineCount; i++) {
-		if(!sliceLines.has(i)) {
-			decorations.push({range: new vscode.Range(i, 0, i, editor.document.lineAt(i).text.length)})
+	switch(getConfig().get<string>(Settings.StyleSliceDisplay)) {
+		case 'text': {
+			const decorations: vscode.DecorationOptions[] = []
+			for(let i = 0; i < editor.document.lineCount; i++) {
+				if(!sliceLines.has(i)) {
+					decorations.push({range: new vscode.Range(i, 0, i, editor.document.lineAt(i).text.length)})
+				}
+			}
+			editor.setDecorations(sliceDecoration, decorations)
+			break
+		}
+		case 'diff': {
+			const sliceContent = [...sliceLines].map(l => editor.document.lineAt(l).text).join('\n')
+			outputChannel.appendLine(sliceContent)
+			const sliceDoc = await vscode.workspace.openTextDocument({language: 'r', content: sliceContent})
+			void vscode.commands.executeCommand('vscode.diff', editor.document.uri, sliceDoc.uri)
+			break
 		}
 	}
-	editor.setDecorations(sliceDecoration, decorations)
 }
 
 function recreateSliceDecorationType() {

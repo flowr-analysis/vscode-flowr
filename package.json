@@ -103,6 +103,19 @@
           "maximum": 1,
           "markdownDescription": "The opacity that code which isn't part of the current slice should have, between 0 (invisible) and 1 (opaque)."
         },
+        "vscode-flowr.style.sliceDisplay": {
+          "type": "string",
+          "default": "text",
+          "enum": [
+            "text",
+            "diff"
+          ],
+          "enumDescriptions": [
+            "Code that isn't part of the current slice will be grayed out in the active editor.",
+            "Open a diff view that shows the current slice and the rest of the file."
+          ],
+          "markdownDescription": "The way that slices should be displayed."
+        },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,

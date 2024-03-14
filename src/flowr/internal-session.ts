@@ -121,7 +121,7 @@ export class FlowrInternalSession {
 		})
 
 		if(display) {
-			displaySlice(editor, sliceElements)
+			void displaySlice(editor, sliceElements)
 		}
 		if(isVerbose()) {
 			this.outputChannel.appendLine('slice: ' + JSON.stringify([...result.slice.result]))
