@@ -43,16 +43,16 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(new vscode.Disposable(() => sliceDecoration.dispose()))
 }
 
-export function createSliceDecorations(document: vscode.TextDocument, sliceElements: { id: NodeId, location: SourceRange }[]): vscode.DecorationOptions[]{
+export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[]) {
 	// create a set to make finding matching lines
 	const sliceLines = new Set<number>(sliceElements.map(s => s.location.start.line - 1))
-	const ret: vscode.DecorationOptions[] = []
-	for(let i = 0; i < document.lineCount; i++) {
+	const decorations: vscode.DecorationOptions[] = []
+	for(let i = 0; i < editor.document.lineCount; i++) {
 		if(!sliceLines.has(i)) {
-			ret.push({range: new vscode.Range(i, 0, i, document.lineAt(i).text.length)})
+			decorations.push({range: new vscode.Range(i, 0, i, editor.document.lineAt(i).text.length)})
 		}
 	}
-	return ret
+	editor.setDecorations(sliceDecoration, decorations)
 }
 
 function recreateSliceDecorationType() {

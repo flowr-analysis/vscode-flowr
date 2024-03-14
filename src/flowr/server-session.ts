@@ -11,7 +11,7 @@ import { FlowrInternalSession } from './internal-session'
 import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from '../extension'
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/hello'
 import { Settings } from '../settings'
-import { createSliceDecorations, sliceDecoration } from '../slice'
+import { displaySlice } from '../slice'
 
 export class FlowrServerSession {
 
@@ -116,7 +116,7 @@ export class FlowrServerSession {
 		})
 	}
 
-	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, decorate: boolean): Promise<string> {
+	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, display: boolean): Promise<string> {
 		const filename = editor.document.fileName
 		const content = FlowrInternalSession.fixEncoding(editor.document.getText())
 
@@ -153,8 +153,8 @@ export class FlowrServerSession {
 			return a.location.start.line - b.location.start.line || a.location.start.column - b.location.start.column
 		})
 
-		if(decorate) {
-			editor.setDecorations(sliceDecoration, createSliceDecorations(editor.document, sliceElements))
+		if(display) {
+			displaySlice(editor, sliceElements)
 		}
 		if(isVerbose()) {
 			this.outputChannel.appendLine('slice: ' + JSON.stringify([...sliceResponse.results.slice.result]))
