@@ -8,9 +8,10 @@ import { visitAst } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
-import { createSliceDecorations, establishInternalSession, getConfig, isVerbose, sliceDecoration, updateStatusBar } from '../extension'
+import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from '../extension'
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/hello'
 import { Settings } from '../settings'
+import { createSliceDecorations, sliceDecoration } from '../slice'
 
 export class FlowrServerSession {
 
