@@ -3,8 +3,9 @@ import type { NodeId, RShellOptions, SingleSlicingCriterion} from '@eagleoutice/
 import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
-import { BEST_R_MAJOR, MINIMUM_R_MAJOR, createSliceDecorations, getConfig, isVerbose, sliceDecoration, updateStatusBar } from '../extension'
+import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, isVerbose, updateStatusBar } from '../extension'
 import { Settings } from '../settings'
+import { displaySlice } from '../slice'
 
 export class FlowrInternalSession {
 
@@ -75,12 +76,12 @@ export class FlowrInternalSession {
 		this.shell?.close()
 	}
 
-	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, decorate: boolean): Promise<string> {
+	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, display: boolean): Promise<string> {
 		if(!this.shell) {
 			return ''
 		}
 		try {
-			return await this.extractSlice(this.shell, editor, pos, decorate)
+			return await this.extractSlice(this.shell, editor, pos, display)
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l))
@@ -89,7 +90,7 @@ export class FlowrInternalSession {
 		}
 	}
 
-	private async extractSlice(shell: RShell, editor: vscode.TextEditor, pos: vscode.Position, decorate: boolean): Promise<string> {
+	private async extractSlice(shell: RShell, editor: vscode.TextEditor, pos: vscode.Position, display: boolean): Promise<string> {
 		const filename = editor.document.fileName
 		const content = FlowrInternalSession.fixEncoding(editor.document.getText())
 
@@ -119,8 +120,8 @@ export class FlowrInternalSession {
 			return a.location.start.line - b.location.start.line || a.location.start.column - b.location.start.column
 		})
 
-		if(decorate) {
-			editor.setDecorations(sliceDecoration, createSliceDecorations(editor.document, sliceElements))
+		if(display) {
+			void displaySlice(editor, sliceElements)
 		}
 		if(isVerbose()) {
 			this.outputChannel.appendLine('slice: ' + JSON.stringify([...result.slice.result]))

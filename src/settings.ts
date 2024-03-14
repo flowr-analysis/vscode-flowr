@@ -7,6 +7,9 @@ export enum Settings {
 	ServerAutoConnect = 'server.autoConnect',
 
 	StyleSliceOpacity = 'style.sliceOpacity',
+	StyleSliceDisplay = 'style.sliceDisplay',
 
 	Rexecutable = 'r.executable',
 }
+
+export type SliceDisplay = 'text' | 'diff'
