@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import type { NodeId, RShellOptions, SingleSlicingCriterion} from '@eagleoutice/flowr'
+import type { NodeId, RShellOptions, SingleSlicingCriterion } from '@eagleoutice/flowr'
 import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
@@ -34,7 +34,7 @@ export class FlowrInternalSession {
 		}
 		const executable = getConfig().get<string>(Settings.Rexecutable)?.trim()
 		if(executable !== undefined && executable.length > 0) {
-			options = {...options, pathToRExecutable: executable }
+			options = { ...options, pathToRExecutable: executable }
 		}
 
 		this.shell = new RShell(options)
@@ -113,7 +113,7 @@ export class FlowrInternalSession {
 
 		// we should be more robust here
 		const sliceElements = [...result.slice.result]
-			.map(id => ({id, location: result.normalize.idMap.get(id)?.location}))
+			.map(id => ({ id, location: result.normalize.idMap.get(id)?.location }))
 			.filter(e => isNotUndefined(e.location)) as { id: NodeId, location: SourceRange }[]
 		// sort by start
 		sliceElements.sort((a: { location: SourceRange }, b: { location: SourceRange }) => {
