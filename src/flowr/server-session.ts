@@ -118,7 +118,7 @@ export class FlowrServerSession {
 
 	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, display: boolean): Promise<string> {
 		const filename = editor.document.fileName
-		const content = FlowrInternalSession.fixEncoding(editor.document.getText())
+		const content = FlowrInternalSession.consolidateNewlines(editor.document.getText())
 
 		const range = FlowrInternalSession.getPositionAt(pos, editor.document)
 		pos = range?.start ?? pos

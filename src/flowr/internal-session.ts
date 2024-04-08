@@ -92,7 +92,7 @@ export class FlowrInternalSession {
 
 	private async extractSlice(shell: RShell, editor: vscode.TextEditor, pos: vscode.Position, display: boolean): Promise<string> {
 		const filename = editor.document.fileName
-		const content = FlowrInternalSession.fixEncoding(editor.document.getText())
+		const content = FlowrInternalSession.consolidateNewlines(editor.document.getText())
 
 		const range = FlowrInternalSession.getPositionAt(pos, editor.document)
 		pos = range?.start ?? pos
@@ -135,12 +135,8 @@ export class FlowrInternalSession {
 		return wordRange
 	}
 
-	public static fixEncoding(text: string) {
-		// hacky way to deal with various encodings
-		// eslint-disable-next-line no-control-regex
-		let content = text.replace(/[^\x00-\x7F]/g,'')
-		content = content.replace(/\r\n/g, '\n')
-		return content
+	public static consolidateNewlines(text: string) {
+		return text.replace(/\r\n/g, '\n')
 	}
 
 	public static toSlicingCriterion(pos: vscode.Position): SingleSlicingCriterion {
