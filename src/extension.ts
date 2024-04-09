@@ -36,9 +36,9 @@ export function activate(context: vscode.ExtensionContext) {
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-	<div class="mermaid">
+	<pre class="mermaid">
     	${mermaid}
-	</div>
+	</pre>
 	<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </body>
 </html>`.trim()
