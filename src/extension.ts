@@ -3,6 +3,7 @@ import { FlowrInternalSession } from './flowr/internal-session'
 import { FlowrServerSession } from './flowr/server-session'
 import { Settings } from './settings'
 import { registerSliceCommands } from './slice'
+import { registerDiagramCommands } from './diagram'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
@@ -17,41 +18,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	outputChannel = vscode.window.createOutputChannel('flowR')
 
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dataflow', async() => {
-		const activeEditor = vscode.window.activeTextEditor
-		if(activeEditor){
-			if(!flowrSession) {
-				await establishInternalSession()
-			}
-			const mermaid = await flowrSession?.retrieveDataflowMermaid(activeEditor)
-			if(mermaid) {
-				const theme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Light ? 'default' : 'dark'
-				const panel = vscode.window.createWebviewPanel('flowr-dataflow', 'Dataflow Graph', vscode.ViewColumn.Beside, {
-					enableScripts: true
-				})
-				panel.webview.html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-</head>
-<body>
-	<script>
-		mermaid.initialize({
-			theme: '${theme}',
-		})
-	</script>
-	<pre class="mermaid">
-    	${mermaid}
-	</pre>
-</body>
-</html>`.trim()
-			}
-		}
-	}))
-
+	registerDiagramCommands(context)
 	registerSliceCommands(context)
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', () => {
