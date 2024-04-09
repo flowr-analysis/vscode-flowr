@@ -12,6 +12,7 @@ import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from 
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr-cli/repl/server/messages/hello'
 import { Settings } from '../settings'
 import { displaySlice } from '../slice'
+import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
 
 export class FlowrServerSession {
 
@@ -116,21 +117,16 @@ export class FlowrServerSession {
 		})
 	}
 
-	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, display: boolean): Promise<string> {
-		const filename = editor.document.fileName
-		const content = FlowrInternalSession.consolidateNewlines(editor.document.getText())
+	async retrieveDataflowMermaid(editor: vscode.TextEditor): Promise<string> {
+		const response = await this.requestFileAnalysis(editor)
+		return dataflowGraphToMermaid(response.results.dataflow, response.results.normalize.idMap)
+	}
 
+	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, display: boolean): Promise<string> {
 		const range = FlowrInternalSession.getPositionAt(pos, editor.document)
 		pos = range?.start ?? pos
 
-		const response = await this.sendCommandWithResponse<FileAnalysisResponseMessageJson>({
-			type:      'request-file-analysis',
-			id:        String(this.idCounter++),
-			filename,
-			format:    'json',
-			filetoken: '@tmp',
-			content
-		})
+		const response = await this.requestFileAnalysis(editor)
 
 		// now we want to collect all ids from response in a map again (id -> location)
 		const idToLocation = new Map<NodeId, SourceRange>()
@@ -160,5 +156,16 @@ export class FlowrServerSession {
 			this.outputChannel.appendLine('slice: ' + JSON.stringify([...sliceResponse.results.slice.result]))
 		}
 		return sliceResponse.results.reconstruct.code
+	}
+
+	private async requestFileAnalysis(editor: vscode.TextEditor): Promise<FileAnalysisResponseMessageJson> {
+		return await this.sendCommandWithResponse<FileAnalysisResponseMessageJson>({
+			type:      'request-file-analysis',
+			id:        String(this.idCounter++),
+			filename:  editor.document.fileName,
+			format:    'json',
+			filetoken: '@tmp',
+			content:   FlowrInternalSession.consolidateNewlines(editor.document.getText())
+		})
 	}
 }

@@ -6,6 +6,7 @@ import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, isVerbose, updateStatusBar } from '../extension'
 import { Settings } from '../settings'
 import { displaySlice } from '../slice'
+import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
 
 export class FlowrInternalSession {
 
@@ -88,6 +89,18 @@ export class FlowrInternalSession {
 			void vscode.window.showErrorMessage(`There was an error while extracting a slice: ${(e as Error)?.message}. See the flowR output for more information.`)
 			return ''
 		}
+	}
+
+	async retrieveDataflowMermaid(editor: vscode.TextEditor): Promise<string> {
+		if(!this.shell) {
+			return ''
+		}
+		const result = await new SteppingSlicer({
+			stepOfInterest: 'dataflow',
+			shell:          this.shell,
+			request:        requestFromInput(FlowrInternalSession.consolidateNewlines(editor.document.getText()))
+		}).allRemainingSteps()
+		return dataflowGraphToMermaid(result.dataflow, result.normalize.idMap)
 	}
 
 	private async extractSlice(shell: RShell, editor: vscode.TextEditor, pos: vscode.Position, display: boolean): Promise<string> {

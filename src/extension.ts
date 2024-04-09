@@ -17,6 +17,35 @@ export function activate(context: vscode.ExtensionContext) {
 
 	outputChannel = vscode.window.createOutputChannel('flowR')
 
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dataflow', async() => {
+		const activeEditor = vscode.window.activeTextEditor
+		if(activeEditor){
+			if(!flowrSession) {
+				await establishInternalSession()
+			}
+			const mermaid = await flowrSession?.retrieveDataflowMermaid(activeEditor)
+			if(mermaid) {
+				const panel = vscode.window.createWebviewPanel('flowr-dataflow', 'Dataflow Graph', vscode.ViewColumn.Beside, {
+					enableScripts: true
+				})
+				panel.webview.html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+	<div class="mermaid">
+    	${mermaid}
+	</div>
+	<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</body>
+</html>`.trim()
+			}
+		}
+	}))
+
 	registerSliceCommands(context)
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', () => {
