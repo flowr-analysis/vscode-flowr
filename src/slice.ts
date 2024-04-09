@@ -30,7 +30,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 				await establishInternalSession()
 			}
 			const code = await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, false)
-			const doc =	await vscode.workspace.openTextDocument({language: 'r', content: code})
+			const doc =	await vscode.workspace.openTextDocument({ language: 'r', content: code })
 			void vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside)
 		}
 	}))
@@ -51,7 +51,7 @@ export async function displaySlice(editor: vscode.TextEditor, sliceElements: { i
 			const decorations: vscode.DecorationOptions[] = []
 			for(let i = 0; i < editor.document.lineCount; i++) {
 				if(!sliceLines.has(i)) {
-					decorations.push({range: new vscode.Range(i, 0, i, editor.document.lineAt(i).text.length)})
+					decorations.push({ range: new vscode.Range(i, 0, i, editor.document.lineAt(i).text.length) })
 				}
 			}
 			editor.setDecorations(sliceDecoration, decorations)
@@ -64,7 +64,7 @@ export async function displaySlice(editor: vscode.TextEditor, sliceElements: { i
 					sliceContent.push(editor.document.lineAt(i).text)
 				}
 			}
-			const sliceDoc = await vscode.workspace.openTextDocument({language: 'r', content: sliceContent.join('\n')})
+			const sliceDoc = await vscode.workspace.openTextDocument({ language: 'r', content: sliceContent.join('\n') })
 			void vscode.commands.executeCommand('vscode.diff', sliceDoc.uri, editor.document.uri)
 			break
 		}

@@ -1,15 +1,15 @@
 import * as net from 'net'
 import * as vscode from 'vscode'
-import type { FlowrMessage } from '@eagleoutice/flowr/cli/repl'
-import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/repl/server/messages/analysis'
-import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/slice'
-import type { NodeId} from '@eagleoutice/flowr'
+import type { FlowrMessage } from '@eagleoutice/flowr-cli/repl'
+import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr-cli/repl/server/messages/analysis'
+import type { SliceResponseMessage } from '@eagleoutice/flowr-cli/repl/server/messages/slice'
+import type { NodeId } from '@eagleoutice/flowr'
 import { visitAst } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { FlowrInternalSession } from './internal-session'
 import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from '../extension'
-import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/hello'
+import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr-cli/repl/server/messages/hello'
 import { Settings } from '../settings'
 import { displaySlice } from '../slice'
 
@@ -118,7 +118,7 @@ export class FlowrServerSession {
 
 	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, display: boolean): Promise<string> {
 		const filename = editor.document.fileName
-		const content = FlowrInternalSession.fixEncoding(editor.document.getText())
+		const content = FlowrInternalSession.consolidateNewlines(editor.document.getText())
 
 		const range = FlowrInternalSession.getPositionAt(pos, editor.document)
 		pos = range?.start ?? pos

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import type { NodeId, RShellOptions, SingleSlicingCriterion} from '@eagleoutice/flowr'
+import type { NodeId, RShellOptions, SingleSlicingCriterion } from '@eagleoutice/flowr'
 import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
@@ -34,7 +34,7 @@ export class FlowrInternalSession {
 		}
 		const executable = getConfig().get<string>(Settings.Rexecutable)?.trim()
 		if(executable !== undefined && executable.length > 0) {
-			options = {...options, pathToRExecutable: executable }
+			options = { ...options, pathToRExecutable: executable }
 		}
 
 		this.shell = new RShell(options)
@@ -92,7 +92,7 @@ export class FlowrInternalSession {
 
 	private async extractSlice(shell: RShell, editor: vscode.TextEditor, pos: vscode.Position, display: boolean): Promise<string> {
 		const filename = editor.document.fileName
-		const content = FlowrInternalSession.fixEncoding(editor.document.getText())
+		const content = FlowrInternalSession.consolidateNewlines(editor.document.getText())
 
 		const range = FlowrInternalSession.getPositionAt(pos, editor.document)
 		pos = range?.start ?? pos
@@ -113,7 +113,7 @@ export class FlowrInternalSession {
 
 		// we should be more robust here
 		const sliceElements = [...result.slice.result]
-			.map(id => ({id, location: result.normalize.idMap.get(id)?.location}))
+			.map(id => ({ id, location: result.normalize.idMap.get(id)?.location }))
 			.filter(e => isNotUndefined(e.location)) as { id: NodeId, location: SourceRange }[]
 		// sort by start
 		sliceElements.sort((a: { location: SourceRange }, b: { location: SourceRange }) => {
@@ -135,12 +135,8 @@ export class FlowrInternalSession {
 		return wordRange
 	}
 
-	public static fixEncoding(text: string) {
-		// hacky way to deal with various encodings
-		// eslint-disable-next-line no-control-regex
-		let content = text.replace(/[^\x00-\x7F]/g,'')
-		content = content.replace(/\r\n/g, '\n')
-		return content
+	public static consolidateNewlines(text: string) {
+		return text.replace(/\r\n/g, '\n')
 	}
 
 	public static toSlicingCriterion(pos: vscode.Position): SingleSlicingCriterion {
