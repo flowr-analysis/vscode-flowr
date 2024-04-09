@@ -25,6 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 			const mermaid = await flowrSession?.retrieveDataflowMermaid(activeEditor)
 			if(mermaid) {
+				const theme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Light ? 'default' : 'dark'
 				const panel = vscode.window.createWebviewPanel('flowr-dataflow', 'Dataflow Graph', vscode.ViewColumn.Beside, {
 					enableScripts: true
 				})
@@ -34,12 +35,17 @@ export function activate(context: vscode.ExtensionContext) {
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 <body>
+	<script>
+		mermaid.initialize({
+			theme: '${theme}',
+		})
+	</script>
 	<pre class="mermaid">
     	${mermaid}
 	</pre>
-	<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </body>
 </html>`.trim()
 			}
