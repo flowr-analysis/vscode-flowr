@@ -3,6 +3,7 @@ import { FlowrInternalSession } from './flowr/internal-session'
 import { FlowrServerSession } from './flowr/server-session'
 import { Settings } from './settings'
 import { registerSliceCommands } from './slice'
+import { registerDiagramCommands } from './diagram'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
@@ -17,6 +18,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	outputChannel = vscode.window.createOutputChannel('flowR')
 
+	registerDiagramCommands(context)
 	registerSliceCommands(context)
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', () => {
