@@ -4,8 +4,6 @@
 
 This is the *flowR* extension for Visual Studio Code which allows you to retrieve program slices directly within your IDE. For more information on *flowR* and its capabilities, please check out [the main repository](https://github.com/Code-Inspect/flowr).
 
-![A screenshot of the extension being used to reconstruct a slice](media/splash.png)
-
 ## Use
 
 **To use this extension, a working installation of [R](https://www.r-project.org/) is required**, and R needs to be included in your `PATH` environment variable. You may need to [do so manually](https://www.hanss.info/sebastian/post/rtools-path/) on Windows.
@@ -19,6 +17,16 @@ You can generate a [slice](https://github.com/Code-Inspect/flowr/wiki/Terminolog
 To clear the slice highlighting, use the "Clear Slice Presentation" command.
 
 You can also reconstruct a piece of code based on the slice of a variable by using the "Slice for Cursor Position (Reconstruct)" command. The reconstructed code will be opened in a new file.
+
+![A screenshot of the extension being used to reconstruct a slice](media/reconstruct.png)
+
+### Dataflow
+
+You can generate and view the dataflow graph for any R source file by using the "Show Dataflow Graph" command while the file is open in the active editor. The dataflow graph will then be displayed in an interactive tab on the side, where you can pan and zoom to inspect it.
+
+In the future, we plan on including the ability to select nodes in the dataflow graph and have relevant code sections highlighted, and vice versa.
+
+![A screenshot of a dataflow diagram for a piece of code](media/dataflow.png)
 
 ## Installing
 
