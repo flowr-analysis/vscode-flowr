@@ -58,7 +58,10 @@ function createDocument(mermaid: string) {
 		${mermaid}
 	</pre>
 	<script>
-		mermaid.run().then(() => svgPanZoom('.mermaid svg', { controlIconsEnabled: true }));
+		mermaid.run().then(() => {
+			const panZoom = svgPanZoom('.mermaid svg', { controlIconsEnabled: true })
+			addEventListener("resize", () => panZoom.resize())
+		})
 	</script>
 </body>
 </html>`
