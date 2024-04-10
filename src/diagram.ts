@@ -32,17 +32,34 @@ function createDocument(mermaid: string) {
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 	<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-</head>
-<body>
+	<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
 	<script>
 		mermaid.initialize({
-			theme: '${theme}',
+			startOnLoad: false,
+			securityLevel: 'loose',
+			theme: '${theme}'
 		})
 	</script>
+
+	<style>
+		.mermaid svg {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			top: 0;
+			left: 0;
+		}
+	</style>
+</head>
+<body>
 	<pre class="mermaid">
-    	${mermaid}
+		${mermaid}
 	</pre>
+	<script>
+		mermaid.run().then(() => svgPanZoom('.mermaid svg', { controlIconsEnabled: true }));
+	</script>
 </body>
 </html>`
 }
