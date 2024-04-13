@@ -46,6 +46,8 @@ function createDocument(mermaid: string) {
 	<style>
 		.mermaid svg {
 			position: absolute;
+			max-width: 100% !important;
+			max-height: 100% !important;
 			width: 100%;
 			height: 100%;
 			top: 0;
