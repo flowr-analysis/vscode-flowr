@@ -122,9 +122,12 @@ export class FlowrServerSession {
 		return dataflowGraphToMermaid(response.results.dataflow, response.results.normalize.idMap)
 	}
 
-	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, display: boolean): Promise<string> {
-		const range = FlowrInternalSession.getPositionAt(pos, editor.document)
-		pos = range?.start ?? pos
+	async retrieveSlice(poss: vscode.Position[], editor: vscode.TextEditor, display: boolean): Promise<string> {
+		poss = poss.map(pos => {
+			const range = FlowrInternalSession.getPositionAt(pos, editor.document)
+			pos = range?.start ?? pos
+			return pos
+		})
 
 		const response = await this.requestFileAnalysis(editor)
 
@@ -135,12 +138,14 @@ export class FlowrServerSession {
 				idToLocation.set(n.info.id, n.location)
 			}
 		})
+		
+		const criteria = poss.map(pos => FlowrInternalSession.toSlicingCriterion(pos))
 
 		const sliceResponse = await this.sendCommandWithResponse<SliceResponseMessage>({
 			'type':      'request-slice',
 			'id':        String(this.idCounter++),
 			'filetoken': '@tmp',
-			'criterion': [FlowrInternalSession.toSlicingCriterion(pos)]
+			'criterion': criteria
 		})
 		const sliceElements = [...sliceResponse.results.slice.result].map(id => ({ id, location: idToLocation.get(id) }))
 			.filter(e => isNotUndefined(e.location)) as { id: NodeId, location: SourceRange; }[]

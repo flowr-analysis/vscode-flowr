@@ -77,12 +77,12 @@ export class FlowrInternalSession {
 		this.shell?.close()
 	}
 
-	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, display: boolean): Promise<string> {
+	async retrieveSlice(poss: vscode.Position[], editor: vscode.TextEditor, display: boolean): Promise<string> {
 		if(!this.shell) {
 			return ''
 		}
 		try {
-			return await this.extractSlice(this.shell, editor, pos, display)
+			return await this.extractSlice(this.shell, editor, poss, display)
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l))
@@ -103,20 +103,26 @@ export class FlowrInternalSession {
 		return dataflowGraphToMermaid(result.dataflow, result.normalize.idMap)
 	}
 
-	private async extractSlice(shell: RShell, editor: vscode.TextEditor, pos: vscode.Position, display: boolean): Promise<string> {
+	private async extractSlice(shell: RShell, editor: vscode.TextEditor, poss: vscode.Position[], display: boolean): Promise<string> {
 		const filename = editor.document.fileName
 		const content = FlowrInternalSession.consolidateNewlines(editor.document.getText())
 
-		const range = FlowrInternalSession.getPositionAt(pos, editor.document)
-		pos = range?.start ?? pos
+		poss = poss.map(pos => {
+			const range = FlowrInternalSession.getPositionAt(pos, editor.document)
+			pos = range?.start ?? pos
 
-		if(isVerbose()) {
-			this.outputChannel.appendLine(`Extracting slice at ${pos.line + 1}:${pos.character + 1} in ${filename}`)
-			this.outputChannel.appendLine(`Token: ${editor.document.getText(range)}`)
-		}
+			if(isVerbose()) {
+				this.outputChannel.appendLine(`Extracting slice at ${pos.line + 1}:${pos.character + 1} in ${filename}`)
+				this.outputChannel.appendLine(`Token: ${editor.document.getText(range)}`)
+			}
+
+			return pos
+		})
+		
+		const criteria = poss.map(pos => FlowrInternalSession.toSlicingCriterion(pos))
 
 		const slicer = new SteppingSlicer({
-			criterion:      [FlowrInternalSession.toSlicingCriterion(pos)],
+			criterion:      criteria,
 			filename,
 			shell,
 			request:        requestFromInput(content),
