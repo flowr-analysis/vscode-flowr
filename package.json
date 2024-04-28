@@ -26,13 +26,7 @@
     "flowR",
     "R"
   ],
-  "activationEvents": [
-    "onLanguage:r",
-    "onLanguage:debian-control.r",
-    "onLanguage:namespace.r",
-    "onLanguage:buildignore.r",
-    "workspaceContains:**/*.{r,R}"
-  ],
+  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
