@@ -4,6 +4,7 @@ import { FlowrServerSession } from './flowr/server-session'
 import { Settings } from './settings'
 import { registerSliceCommands } from './slice'
 import { registerDiagramCommands } from './diagram'
+import { trackCurrentPos } from './doc-tracker'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
@@ -20,6 +21,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 	registerDiagramCommands(context)
 	registerSliceCommands(context)
+	
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackPosition', async() => {
+		await trackCurrentPos()
+	}))
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', () => {
 		establishServerSession()
@@ -58,6 +63,15 @@ export async function establishInternalSession() {
 	destroySession()
 	flowrSession = new FlowrInternalSession(outputChannel)
 	await flowrSession.initialize()
+}
+
+export async function getFlowrSession() {
+	if(flowrSession){
+		return flowrSession
+	}
+	flowrSession = new FlowrInternalSession(outputChannel)
+	await flowrSession.initialize()
+	return flowrSession
 }
 
 export function establishServerSession() {

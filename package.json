@@ -31,6 +31,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "vscode-flowr.trackPosition",
+        "title": "Track position",
+        "category": "flowR"
+      },
+      {
         "command": "vscode-flowr.dataflow",
         "title": "Show Dataflow Graph",
         "icon": "$(graph)",
