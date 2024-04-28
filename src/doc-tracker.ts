@@ -1,7 +1,10 @@
 import * as vscode from 'vscode'
-import { getFlowrSession } from './extension'
+import { getFlowrSession, getReconstructionContentProvider } from './extension'
+import { makeUri } from './doc-provider'
 
 let flowrTracker: FlowrTracker | undefined
+
+const docTrackerAuthority = 'doc-tracker'
 
 export async function trackCurrentPos(): Promise<void> {
 	const editor = vscode.window.activeTextEditor
@@ -10,6 +13,25 @@ export async function trackCurrentPos(): Promise<void> {
 	}
 	const pos = editor.selection.start
 	await trackPos(pos, editor.document)
+	await showTrackedSlice()
+}
+
+export async function showTrackedSlice(): Promise<vscode.TextEditor | undefined> {
+	const uri = makeUri(docTrackerAuthority)
+	for(const editor of vscode.window.visibleTextEditors){
+		if(editor.document.uri.toString() === uri.toString()){
+			return editor
+		}
+	}
+	const provider = getReconstructionContentProvider()
+	if(provider.contents.has(uri.toString())){
+		const doc = await vscode.workspace.openTextDocument(uri)
+		await vscode.languages.setTextDocumentLanguage(doc, 'r')
+		return await vscode.window.showTextDocument(doc, {
+			viewColumn: vscode.ViewColumn.Beside
+		})
+	}
+	return undefined
 }
 
 export async function trackPos(pos: vscode.Position, doc: vscode.TextDocument): Promise<void> {
@@ -26,8 +48,7 @@ export async function trackPos(pos: vscode.Position, doc: vscode.TextDocument): 
 	} else {
 		flowrTracker.offsets.push(offset)
 	}
-	flowrTracker.updateDecos()
-	await flowrTracker.updateSlices()
+	await flowrTracker.updateOutput()
 }
 
 class FlowrTracker {
@@ -64,8 +85,7 @@ class FlowrTracker {
 				this.offsets[i] = offset
 			}
 			this.offsets = this.offsets.filter(i => i >= 0)
-			this.updateDecos()
-			await this.updateSlices()
+			await this.updateOutput()
 			
 		})
 		
@@ -81,6 +101,13 @@ class FlowrTracker {
 		this.deco.dispose()
 	}
 	
+	async updateOutput(): Promise<void> {
+		const provider = getReconstructionContentProvider()
+		this.updateDecos()
+		const code = await this.updateSlices() ?? '# No slice'
+		provider.updateContents(docTrackerAuthority, code)
+	}
+	
 	updateDecos(): void {
 		for(const editor of vscode.window.visibleTextEditors){
 			if(editor.document === this.doc){
@@ -94,7 +121,7 @@ class FlowrTracker {
 		}
 	}
 	
-	async updateSlices(): Promise<void> {
+	async updateSlices(): Promise<string | undefined> {
 		const session = await getFlowrSession()
 		const poss = this.offsets.map(offset => this.doc.positionAt(offset))
 		if(poss.length === 0){
@@ -102,10 +129,10 @@ class FlowrTracker {
 		}
 		for(const editor of vscode.window.visibleTextEditors){
 			if(editor.document === this.doc){
-				await session.retrieveSlice(poss, editor, true)
-				break
+				return await session.retrieveSlice(poss, editor, true)
 			}
 		}
+		return undefined
 	}
 }
 

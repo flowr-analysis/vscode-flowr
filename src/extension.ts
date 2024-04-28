@@ -5,6 +5,7 @@ import { Settings } from './settings'
 import { registerSliceCommands } from './slice'
 import { registerDiagramCommands } from './diagram'
 import { trackCurrentPos } from './doc-tracker'
+import { ReconstructionContentProvider, flowrScheme } from './doc-provider'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
@@ -50,6 +51,17 @@ export function activate(context: vscode.ExtensionContext) {
 		establishServerSession()
 	}
 }
+
+
+let reconstructionContentProvider: ReconstructionContentProvider |undefined
+export function getReconstructionContentProvider(): ReconstructionContentProvider {
+	if(!reconstructionContentProvider){
+		reconstructionContentProvider = new ReconstructionContentProvider()
+		vscode.workspace.registerTextDocumentContentProvider(flowrScheme, reconstructionContentProvider)
+	}
+	return reconstructionContentProvider
+}
+
 
 export function getConfig(): vscode.WorkspaceConfiguration {
 	return vscode.workspace.getConfiguration(Settings.Category)
