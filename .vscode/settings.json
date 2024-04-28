@@ -11,5 +11,9 @@
     // run eslint when saving to format
     "eslint.format.enable": true,
     "editor.formatOnSave": true,
-    "eslint.enable": true
+    "eslint.enable": true,
+    "[typescript]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": false,
+    },
 }
