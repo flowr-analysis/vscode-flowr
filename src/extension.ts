@@ -6,6 +6,7 @@ import { registerSliceCommands } from './slice'
 import { registerDiagramCommands } from './diagram'
 import { trackCurrentPos } from './doc-tracker'
 import { ReconstructionContentProvider, flowrScheme } from './doc-provider'
+import { showSelectionSliceInEditor, toggleTrackSelection } from './selection-tracker'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
@@ -22,6 +23,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 	registerDiagramCommands(context)
 	registerSliceCommands(context)
+	
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackSelection', () => {
+		toggleTrackSelection()
+	}))
+	
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.showSelectionSliceInEditor', () => {
+		void showSelectionSliceInEditor()
+	}))
 	
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackPosition', async() => {
 		await trackCurrentPos()

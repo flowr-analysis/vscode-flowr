@@ -18,11 +18,13 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 	}
 	
 	// updateUri(uri: vscode.Uri, content: string): void {
-	updateContents(authority: string, content: string, path?: string): vscode.Uri {
-		const uri = makeUri(authority, path)
-		this.contents.set(uri.toString(), content)
+	updateContents(uri: vscode.Uri, content?: string) {
+		if(content !== undefined){
+			this.contents.set(uri.toString(), content)
+		} else {
+			this.contents.delete(uri.toString())
+		}
 		this.notifyListeners(uri)
-		return uri
 	}
 
 	notifyListeners(uri: vscode.Uri): void {
@@ -36,7 +38,10 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 	}
 }
 
-export function makeUri(authority: string, path?: string){
+export function makeUri(authority: string, path: string){
+	if(authority && path && !path.startsWith('/')){
+		path = '/' + path
+	}
 	const uri = vscode.Uri.from({
 		scheme:    flowrScheme,
 		authority: authority,

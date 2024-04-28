@@ -32,7 +32,22 @@
     "commands": [
       {
         "command": "vscode-flowr.trackPosition",
-        "title": "Track position",
+        "title": "Toggle Track Position",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.showPositionSliceInEditor",
+        "title": "Show Position Slice in Editor",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.trackSelection",
+        "title": "Toggle Track Selection",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.showSelectionSliceInEditor",
+        "title": "Show Selection Slice in Editor",
         "category": "flowR"
       },
       {

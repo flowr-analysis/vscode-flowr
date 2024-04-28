@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import type { NodeId } from '@eagleoutice/flowr'
+import { type NodeId } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { establishInternalSession, flowrSession, getConfig } from './extension'
 import type { SliceDisplay } from './settings'
@@ -21,7 +21,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor) {
-			activeEditor.setDecorations(sliceDecoration, [])
+			clearFlowrDecorations(activeEditor)
 		}
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor-reconstruct', async() => {
@@ -44,6 +44,16 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 		}
 	})
 	context.subscriptions.push(new vscode.Disposable(() => sliceDecoration.dispose()))
+}
+
+export function clearFlowrDecorations(editor?: vscode.TextEditor): void {
+	if(editor){
+		editor.setDecorations(sliceDecoration, [])
+		return
+	}
+	for(const editor of vscode.window.visibleTextEditors){
+		editor.setDecorations(sliceDecoration, [])
+	}
 }
 
 export async function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[]) {

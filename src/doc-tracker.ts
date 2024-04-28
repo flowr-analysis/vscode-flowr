@@ -5,6 +5,7 @@ import { makeUri } from './doc-provider'
 let flowrTracker: FlowrTracker | undefined
 
 const docTrackerAuthority = 'doc-tracker'
+const docTrackerPath = 'Positions'
 
 export async function trackCurrentPos(): Promise<void> {
 	const editor = vscode.window.activeTextEditor
@@ -17,7 +18,7 @@ export async function trackCurrentPos(): Promise<void> {
 }
 
 export async function showTrackedSlice(): Promise<vscode.TextEditor | undefined> {
-	const uri = makeUri(docTrackerAuthority)
+	const uri = makeUri(docTrackerAuthority, docTrackerPath)
 	for(const editor of vscode.window.visibleTextEditors){
 		if(editor.document.uri.toString() === uri.toString()){
 			return editor
@@ -98,14 +99,18 @@ class FlowrTracker {
 	}
 	
 	dispose(): void {
+		const provider = getReconstructionContentProvider()
+		const uri = makeUri(docTrackerAuthority, docTrackerPath)
+		provider.updateContents(uri, undefined)
 		this.deco.dispose()
 	}
 	
 	async updateOutput(): Promise<void> {
 		const provider = getReconstructionContentProvider()
 		this.updateDecos()
-		const code = await this.updateSlices() ?? '# No slice'
-		provider.updateContents(docTrackerAuthority, code)
+		const code = await this.updateSlices() || '# No slice'
+		const uri = makeUri(docTrackerAuthority, docTrackerPath)
+		provider.updateContents(uri, code)
 	}
 	
 	updateDecos(): void {

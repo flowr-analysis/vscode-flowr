@@ -77,7 +77,7 @@ export class FlowrInternalSession {
 		this.shell?.close()
 	}
 
-	async retrieveSlice(poss: vscode.Position[], editor: vscode.TextEditor, display: boolean): Promise<string> {
+	async retrieveSlice(poss: vscode.Position[], editor: vscode.TextEditor, display: boolean, showErrorMessage: boolean = true): Promise<string> {
 		if(!this.shell) {
 			return ''
 		}
@@ -86,7 +86,9 @@ export class FlowrInternalSession {
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l))
-			void vscode.window.showErrorMessage(`There was an error while extracting a slice: ${(e as Error)?.message}. See the flowR output for more information.`)
+			if(showErrorMessage){
+				void vscode.window.showErrorMessage(`There was an error while extracting a slice: ${(e as Error)?.message}. See the flowR output for more information.`)
+			}
 			return ''
 		}
 	}
