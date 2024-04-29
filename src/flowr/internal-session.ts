@@ -7,7 +7,8 @@ import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, isVerbose, updateStatusBar } 
 import { Settings } from '../settings'
 import { displaySlice } from '../slice'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
-import { printNormalizedAstToMermaid } from '@eagleoutice/flowr/core/print/normalize-printer'
+import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg'
+import { cfgToMermaid, normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid'
 
 export class FlowrInternalSession {
 
@@ -114,7 +115,19 @@ export class FlowrInternalSession {
 			shell:          this.shell,
 			request:        requestFromInput(FlowrInternalSession.consolidateNewlines(editor.document.getText()))
 		}).allRemainingSteps()
-		return printNormalizedAstToMermaid(result.normalize)
+		return normalizedAstToMermaid(result.normalize.ast)
+	}
+
+	async retrieveCfgMermaid(editor: vscode.TextEditor): Promise<string> {
+		if(!this.shell) {
+			return ''
+		}
+		const result = await new SteppingSlicer({
+			stepOfInterest: 'normalize',
+			shell:          this.shell,
+			request:        requestFromInput(FlowrInternalSession.consolidateNewlines(editor.document.getText()))
+		}).allRemainingSteps()
+		return cfgToMermaid(extractCFG(result.normalize), result.normalize)
 	}
 
 	private async extractSlice(shell: RShell, editor: vscode.TextEditor, pos: vscode.Position, display: boolean): Promise<string> {

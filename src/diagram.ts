@@ -22,7 +22,19 @@ export function registerDiagramCommands(context: vscode.ExtensionContext) {
 			}
 			const ast = await flowrSession?.retrieveAstMermaid(activeEditor)
 			if(ast) {
-				createWebview('flowr-ast', 'AST Graph', ast)
+				createWebview('flowr-ast', 'AST', ast)
+			}
+		}
+	}))
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.cfg', async() => {
+		const activeEditor = vscode.window.activeTextEditor
+		if(activeEditor) {
+			if(!flowrSession) {
+				await establishInternalSession()
+			}
+			const ast = await flowrSession?.retrieveCfgMermaid(activeEditor)
+			if(ast) {
+				createWebview('flowr-cfg', 'Control Flow Graph', ast)
 			}
 		}
 	}))
