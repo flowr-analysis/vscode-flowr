@@ -161,7 +161,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
-    "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s'"
+    "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse"
   },
   "dependencies": {
     "@eagleoutice/flowr": "^1.5.2",
