@@ -14,6 +14,18 @@ export function registerDiagramCommands(context: vscode.ExtensionContext) {
 			}
 		}
 	}))
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.ast', async() => {
+		const activeEditor = vscode.window.activeTextEditor
+		if(activeEditor) {
+			if(!flowrSession) {
+				await establishInternalSession()
+			}
+			const ast = await flowrSession?.retrieveAstMermaid(activeEditor)
+			if(ast) {
+				createWebview('flowr-ast', 'AST Graph', ast)
+			}
+		}
+	}))
 }
 
 function createWebview(id: string, name: string, mermaid: string) : vscode.WebviewPanel {

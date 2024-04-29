@@ -13,6 +13,7 @@ import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr-cli/repl/serv
 import { Settings } from '../settings'
 import { displaySlice } from '../slice'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
+import { printNormalizedAstToMermaid } from '@eagleoutice/flowr/core/print/normalize-printer'
 
 export class FlowrServerSession {
 
@@ -120,6 +121,11 @@ export class FlowrServerSession {
 	async retrieveDataflowMermaid(editor: vscode.TextEditor): Promise<string> {
 		const response = await this.requestFileAnalysis(editor)
 		return dataflowGraphToMermaid(response.results.dataflow, response.results.normalize.idMap)
+	}
+
+	async retrieveAstMermaid(editor: vscode.TextEditor): Promise<string> {
+		const response = await this.requestFileAnalysis(editor)
+		return printNormalizedAstToMermaid(response.results.normalize)
 	}
 
 	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, display: boolean): Promise<string> {
