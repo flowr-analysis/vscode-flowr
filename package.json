@@ -160,7 +160,8 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s'"
   },
   "dependencies": {
     "@eagleoutice/flowr": "^1.5.2",
