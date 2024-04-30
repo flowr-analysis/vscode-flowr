@@ -19,12 +19,11 @@ for(i in 1:(n - 1)) product <- product * i
 
 	test('reconstruct cursor', async() => {
 		await openTestFile('example.R', new vscode.Selection(7, 6, 7, 6))
-		await vscode.commands.executeCommand('vscode-flowr.slice.cursor-reconstruct')
-
-		const newDoc = vscode.window.activeTextEditor?.document
-		assert.ok(newDoc)
-		assert.ok(newDoc.fileName.startsWith('Untitled-'))
-		assert.equal(newDoc.getText(), `
+		const newEditor: vscode.TextEditor | undefined = await vscode.commands.executeCommand('vscode-flowr.slice.cursor-reconstruct')
+		assert.ok(newEditor)
+		assert.equal(vscode.window.activeTextEditor, newEditor)
+		assert.ok(newEditor.document.fileName.startsWith('Untitled-'))
+		assert.equal(newEditor.document.getText(), `
 product <- 1
 n <- 10
 for(i in 1:(n - 1)) product <- product * i
