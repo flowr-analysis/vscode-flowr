@@ -10,7 +10,7 @@ export let sliceDecoration: vscode.TextEditorDecorationType
 export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
 		const activeEditor = vscode.window.activeTextEditor
-		if(activeEditor?.selection) {
+		if(activeEditor) {
 			if(!flowrSession) {
 				await establishInternalSession()
 			}
