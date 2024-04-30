@@ -23,9 +23,11 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.internal', async() => {
 		await establishInternalSession()
+		return flowrSession
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', () => {
 		establishServerSession()
+		return flowrSession
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.disconnect', () => {
 		if(flowrSession instanceof FlowrServerSession) {

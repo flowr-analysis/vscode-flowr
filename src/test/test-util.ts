@@ -3,6 +3,7 @@
 import * as vscode from 'vscode'
 import * as assert from 'assert'
 import * as path from 'path'
+import type { FlowrInternalSession } from '../flowr/internal-session'
 
 export async function activateExtension(): Promise<void> {
 	const ext = vscode.extensions.getExtension('code-Inspect.vscode-flowr')
@@ -14,8 +15,8 @@ export async function activateExtension(): Promise<void> {
 	}, 'extension activation failed')
 
 	// force start a local shell and wait, since there seem to be some async issues with commands
-	await vscode.commands.executeCommand('vscode-flowr.session.internal')
-	await sleep(1000)
+	const session: FlowrInternalSession = await vscode.commands.executeCommand('vscode-flowr.session.internal')
+	assert.equal(session.state, 'active')
 }
 
 export async function openTestFile(name: string, selection?: vscode.Selection): Promise<vscode.TextEditor> {
