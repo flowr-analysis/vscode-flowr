@@ -11,15 +11,22 @@ export async function activateExtension(): Promise<void> {
 	await assert.doesNotReject(async() => {
 		await ext?.activate()
 	}, 'extension activation failed')
+
+	await sleep(1000)
 }
 
 export async function openTestFile(name: string, selection?: vscode.Selection): Promise<vscode.TextEditor> {
 	const file = path.resolve(__dirname, '..', '..', 'test-workspace', name)
+
 	const doc = await vscode.workspace.openTextDocument(file)
 	const editor = await vscode.window.showTextDocument(doc)
+
+	await sleep(1000)
+
 	if(selection) {
 		editor.selection = selection
 	}
+
 	return editor
 }
 
