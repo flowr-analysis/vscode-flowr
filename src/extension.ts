@@ -10,7 +10,8 @@ export const BEST_R_MAJOR = 4
 
 export let flowrSession: FlowrInternalSession | FlowrServerSession | undefined
 export let outputChannel: vscode.OutputChannel
-export let flowrStatus: vscode.StatusBarItem
+
+let flowrStatus: vscode.StatusBarItem
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Loading vscode-flowr')
