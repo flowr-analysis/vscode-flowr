@@ -3,14 +3,12 @@ import * as assert from 'assert'
 import { activateExtension, openTestFile } from './test-util'
 
 suite('slice', () => {
-	let editor: vscode.TextEditor
-
 	suiteSetup(async() => {
 		await activateExtension()
-		editor = await openTestFile('example.R')
 	})
 
 	test('slice cursor', async() => {
+		const editor = await openTestFile('example.R')
 		editor.selection = new vscode.Selection(7, 6, 7, 6)
 		const slice = await vscode.commands.executeCommand('vscode-flowr.slice.cursor')
 		assert.equal(slice, `
@@ -21,6 +19,7 @@ for(i in 1:(n - 1)) product <- product * i
 	})
 
 	test('reconstruct cursor', async() => {
+		const editor = await openTestFile('example.R')
 		editor.selection = new vscode.Selection(7, 6, 7, 6)
 		await vscode.commands.executeCommand('vscode-flowr.slice.cursor-reconstruct')
 
