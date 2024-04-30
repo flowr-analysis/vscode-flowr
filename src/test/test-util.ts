@@ -11,27 +11,14 @@ export async function activateExtension(): Promise<void> {
 	await assert.doesNotReject(async() => {
 		await ext?.activate()
 	}, 'extension activation failed')
-
-	// wait a bit to make sure everything has started fully
-	await sleep(1000)
 }
 
 export async function openTestFile(name: string, selection?: vscode.Selection): Promise<vscode.TextEditor> {
 	const file = path.resolve(__dirname, '..', '..', 'test-workspace', name)
 	const doc = await vscode.workspace.openTextDocument(file)
 	const editor = await vscode.window.showTextDocument(doc)
-
-	// wait for text document to be opened
-	await sleep(1000)
-
 	if(selection) {
 		editor.selection = selection
-		await sleep(1000)
 	}
-
 	return editor
-}
-
-export async function sleep(ms: number) {
-	return new Promise(resolve => setTimeout(resolve, ms))
 }
