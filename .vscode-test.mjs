@@ -5,6 +5,8 @@ export default defineConfig({
 	workspaceFolder: './test-workspace',
 	extensionDevelopmentPath: './',
 	mocha: {
-		timeout: 300000
+		timeout: 300000,
+		parallel: false,
+		slow: 1000
 	}
 });
