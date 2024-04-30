@@ -14,7 +14,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 			if(!flowrSession) {
 				await establishInternalSession()
 			}
-			void flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, true)
+			return await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, true)
 		}
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
@@ -31,7 +31,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 			}
 			const code = await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, false)
 			const doc =	await vscode.workspace.openTextDocument({ language: 'r', content: code })
-			void vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside)
+			return await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside)
 		}
 	}))
 
