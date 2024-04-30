@@ -6,10 +6,16 @@ import * as path from 'path'
 
 export async function activateExtension(): Promise<void> {
 	const ext = vscode.extensions.getExtension('code-Inspect.vscode-flowr')
+
 	assert.notEqual(ext, undefined, 'extension not found')
+
 	await assert.doesNotReject(async() => {
 		await ext?.activate()
 	}, 'extension activation failed')
+
+	// force start a local shell and wait, since there seem to be some async issues with commands
+	await vscode.commands.executeCommand('vscode-flowr.session.internal')
+	await sleep(1000)
 }
 
 export async function openTestFile(name: string, selection?: vscode.Selection): Promise<vscode.TextEditor> {
@@ -20,4 +26,8 @@ export async function openTestFile(name: string, selection?: vscode.Selection): 
 		editor.selection = selection
 	}
 	return editor
+}
+
+export async function sleep(ms: number) {
+	return new Promise(resolve => setTimeout(resolve, ms))
 }

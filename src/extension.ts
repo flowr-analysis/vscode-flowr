@@ -21,6 +21,9 @@ export function activate(context: vscode.ExtensionContext) {
 	registerDiagramCommands(context)
 	registerSliceCommands(context)
 
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.internal', async() => {
+		await establishInternalSession()
+	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', () => {
 		establishServerSession()
 	}))
