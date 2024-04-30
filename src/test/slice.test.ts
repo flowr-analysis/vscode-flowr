@@ -8,8 +8,7 @@ suite('slice', () => {
 	})
 
 	test('slice cursor', async() => {
-		const editor = await openTestFile('example.R')
-		editor.selection = new vscode.Selection(7, 6, 7, 6)
+		await openTestFile('example.R', new vscode.Selection(7, 6, 7, 6))
 		const slice = await vscode.commands.executeCommand('vscode-flowr.slice.cursor')
 		assert.equal(slice, `
 product <- 1
@@ -19,8 +18,7 @@ for(i in 1:(n - 1)) product <- product * i
 	})
 
 	test('reconstruct cursor', async() => {
-		const editor = await openTestFile('example.R')
-		editor.selection = new vscode.Selection(7, 6, 7, 6)
+		await openTestFile('example.R', new vscode.Selection(7, 6, 7, 6))
 		await vscode.commands.executeCommand('vscode-flowr.slice.cursor-reconstruct')
 
 		const newDoc = vscode.window.activeTextEditor?.document

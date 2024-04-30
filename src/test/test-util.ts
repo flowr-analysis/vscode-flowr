@@ -16,13 +16,18 @@ export async function activateExtension(): Promise<void> {
 	await sleep(1000)
 }
 
-export async function openTestFile(name: string): Promise<vscode.TextEditor> {
+export async function openTestFile(name: string, selection?: vscode.Selection): Promise<vscode.TextEditor> {
 	const file = path.resolve(__dirname, '..', '..', 'test-workspace', name)
 	const doc = await vscode.workspace.openTextDocument(file)
 	const editor = await vscode.window.showTextDocument(doc)
 
 	// wait for text document to be opened
 	await sleep(1000)
+
+	if(selection) {
+		editor.selection = selection
+		await sleep(1000)
+	}
 
 	return editor
 }
