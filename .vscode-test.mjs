@@ -7,8 +7,6 @@ export default defineConfig({
 	extensionDevelopmentPath: './',
 	mocha: {
 		timeout: 300000,
-		slow: 1100,
-		parallel: false,
-		jobs: 1,
+		slow: 1100
 	}
 });

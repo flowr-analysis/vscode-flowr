@@ -28,7 +28,3 @@ export async function openTestFile(name: string, selection?: vscode.Selection): 
 	}
 	return editor
 }
-
-export async function sleep(ms: number) {
-	return new Promise(resolve => setTimeout(resolve, ms))
-}
