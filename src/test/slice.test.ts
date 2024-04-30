@@ -1,10 +1,11 @@
 import * as vscode from 'vscode'
 import * as assert from 'assert'
-import { activateExtension, openTestFile } from './test-util'
+import { activateExtension, openTestFile, sleep } from './test-util'
 
 suite('slice', () => {
 	suiteSetup(async() => {
 		await activateExtension()
+		await sleep(5000)
 	})
 
 	test('slice cursor', async() => {
