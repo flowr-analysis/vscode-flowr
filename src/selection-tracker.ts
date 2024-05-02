@@ -2,41 +2,27 @@
 
 import * as vscode from 'vscode'
 import { getFlowrSession } from './extension'
-import { clearFlowrDecorations } from './slice'
 import { flowrScheme, makeUri, getReconstructionContentProvider } from './doc-provider'
+import type { SliceReturn } from './flowr/utils'
+import { clearFlowrDecorations, displaySlice } from './slice'
 
 
 const selectionTrackerAuthority = 'selection-tracker'
 const selectionTrackerPath = 'Selection'
 
 
-let selectionTracker: SelectionTracker | undefined
-
-export async function trackSelection(): Promise<void> {
-	selectionTracker = new SelectionTracker()
-	await selectionTracker.update()
-}
-
-export function stopTrackSelection(): void {
-	selectionTracker?.dispose()
-	selectionTracker = undefined
-}
-
-export function toggleTrackSelection(): void {
-	if(selectionTracker){
-		selectionTracker.dispose()
-		selectionTracker = undefined
-	} else {
-		selectionTracker = new SelectionTracker()
-		void selectionTracker.update()
-	}
+let selectionTracker: SelectionSlicer | undefined
+export function getSelectionSlicer(): SelectionSlicer {
+	selectionTracker ||= new SelectionSlicer()
+	return selectionTracker
 }
 
 export async function showSelectionSliceInEditor(): Promise<vscode.TextEditor> {
-	if(!selectionTracker){
-		await trackSelection()
+	const slicer = getSelectionSlicer()
+	if(!slicer.hasDoc){
+		await slicer.sliceSelectionOnce()
 	}
-	const uri = makeUri(selectionTrackerAuthority, selectionTrackerPath)
+	const uri = slicer.makeUri()
 	const doc = await vscode.workspace.openTextDocument(uri)
 	await vscode.languages.setTextDocumentLanguage(doc, 'r')
 	return await vscode.window.showTextDocument(doc, {
@@ -45,56 +31,95 @@ export async function showSelectionSliceInEditor(): Promise<vscode.TextEditor> {
 }
 
 
-class SelectionTracker {
-	disposables: vscode.Disposable[] = []
-	constructor() {
-		this.disposables.push(
+class SelectionSlicer {
+	changeListeners: vscode.Disposable[] = []
+	
+	hasDoc: boolean = false
+	
+	async startTrackSelection(): Promise<void> {
+		await this.update()
+		this.changeListeners.push(
 			vscode.window.onDidChangeTextEditorSelection(() => this.update()),
 			vscode.window.onDidChangeActiveTextEditor(() => this.update())
 		)
 	}
 	
-	async update(): Promise<void> {
-		const code = await updateSelectionSlice()
-		if(code === undefined){
+	async toggleTrackSelection(): Promise<void> {
+		if(this.changeListeners.length){
+			this.stopTrackSelection()
+		} else {
+			await this.startTrackSelection()
+		}
+	}
+	
+	stopTrackSelection(): void {
+		while(this.changeListeners.length){
+			this.changeListeners.pop()?.dispose()
+		}
+	}
+	
+	async sliceSelectionOnce(): Promise<void> {
+		await this.update()
+	}
+	
+	clearSelectionSlice(): void {
+		this.stopTrackSelection()
+		const provider = getReconstructionContentProvider()
+		const uri = this.makeUri()
+		provider.updateContents(uri, '')
+		clearFlowrDecorations()
+		this.hasDoc = false
+	}
+	
+	protected async update(): Promise<void> {
+		const ret = await getSelectionSlice()
+		if(ret === undefined){
 			return
 		}
 		const provider = getReconstructionContentProvider()
-		const uri = makeUri(selectionTrackerAuthority, selectionTrackerPath)
-		provider.updateContents(uri, code)
+		const uri = this.makeUri()
+		provider.updateContents(uri, ret.code)
+		this.hasDoc = true
+		await displaySlice(ret.editor, ret.sliceElements)
 	}
 	
-	dispose(): void {
-		for(const dispo of this.disposables){
-			dispo.dispose()
-		}
-		const provider = getReconstructionContentProvider()
-		const uri = makeUri(selectionTrackerAuthority, selectionTrackerPath)
-		provider.updateContents(uri, undefined)
+	makeUri(): vscode.Uri {
+		return makeUri(selectionTrackerAuthority, selectionTrackerPath)
 	}
 }
 
 
-async function updateSelectionSlice(): Promise<string | undefined> {
-	const errorCode = '# No slice'
+interface SelectionSliceReturn extends SliceReturn {
+	editor: vscode.TextEditor
+}
+async function getSelectionSlice(): Promise<SelectionSliceReturn | undefined> {
+
 	const editor = vscode.window.activeTextEditor
 	if(!editor){
-		clearFlowrDecorations()
-		return errorCode
+		return undefined
 	}
 	if(editor.document.uri.scheme === flowrScheme){
 		return undefined
 	}
+	if(editor.document.languageId.toLowerCase() !== 'r'){
+		return undefined
+	}
 	const positions = editor.selections.map(sel => sel.active)
 	if(!positions.length){
-		clearFlowrDecorations(editor)
-		return errorCode
+		// (should not happen)
+		return undefined
 	}
 	const flowrSession = await getFlowrSession()
-	const { code } = await flowrSession.retrieveSlice(positions, editor.document, false)
-	if(!code){
-		clearFlowrDecorations(editor)
-		return errorCode
+	const ret = await flowrSession.retrieveSlice(positions, editor.document, false)
+	if(!ret.sliceElements.length){
+		return {
+			code:          '# No slice',
+			sliceElements: [],
+			editor:        editor
+		}
 	}
-	return code
+	return {
+		...ret,
+		editor
+	}
 }

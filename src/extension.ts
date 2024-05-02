@@ -4,8 +4,6 @@ import { FlowrServerSession } from './flowr/server-session'
 import { Settings } from './settings'
 import { registerSliceCommands } from './slice'
 import { registerDiagramCommands } from './diagram'
-import { trackCurrentPos } from './doc-tracker'
-import { showSelectionSliceInEditor, toggleTrackSelection } from './selection-tracker'
 import type { FlowrSession } from './flowr/utils'
 
 export const MINIMUM_R_MAJOR = 3
@@ -20,18 +18,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	registerDiagramCommands(context)
 	registerSliceCommands(context)
-	
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackSelection', () => {
-		toggleTrackSelection()
-	}))
-	
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.showSelectionSliceInEditor', async() => {
-		await showSelectionSliceInEditor()
-	}))
-	
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackPosition', async() => {
-		await trackCurrentPos()
-	}))
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', async() => {
 		await establishServerSession()

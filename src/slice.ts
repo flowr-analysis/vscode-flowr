@@ -1,26 +1,36 @@
 import * as vscode from 'vscode'
 import { type NodeId } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
-import { getConfig, getFlowrSession } from './extension'
+import { getConfig } from './extension'
 import type { SliceDisplay } from './settings'
 import { Settings } from './settings'
-import type { SliceReturn } from './flowr/utils'
+import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-tracker'
+import { trackCurrentPos } from './doc-tracker'
 
 export let sliceDecoration: vscode.TextEditorDecorationType
 export let sliceCharDeco: vscode.TextEditorDecorationType
 
 export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
-		await sliceCursor(true, false)
+		await getSelectionSlicer().sliceSelectionOnce()
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
-		const activeEditor = vscode.window.activeTextEditor
-		if(activeEditor) {
-			clearFlowrDecorations(activeEditor)
-		}
+		getSelectionSlicer().clearSelectionSlice()
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor-reconstruct', async() => {
-		await sliceCursor(false, true)
+		await showSelectionSliceInEditor()
+	}))
+	
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackSelection', async() => {
+		await getSelectionSlicer().toggleTrackSelection()
+	}))
+	
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.showSelectionSliceInEditor', async() => {
+		await showSelectionSliceInEditor()
+	}))
+	
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackPosition', async() => {
+		await trackCurrentPos()
 	}))
 
 	recreateSliceDecorationType()
@@ -44,23 +54,6 @@ export function clearFlowrDecorations(editor?: vscode.TextEditor): void {
 	}
 }
 
-async function sliceCursor(display: boolean = true, reconstruct: boolean = false): Promise<SliceReturn | undefined> {
-	const activeEditor = vscode.window.activeTextEditor
-	if(!activeEditor){
-		return undefined
-	}
-	const positions = activeEditor.selections.map(sel => sel.active)
-	const session = await getFlowrSession()
-	const { code, sliceElements } = await session.retrieveSlice(positions, activeEditor.document)
-	if(display){
-		await displaySlice(activeEditor, sliceElements)
-	}
-	if(reconstruct){
-		const doc = await vscode.workspace.openTextDocument({ language: 'r', content: code })
-		void vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside)
-	}
-}
-
 export async function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[]) {
 	const sliceLines = new Set<number>(sliceElements.map(s => s.location.start.line - 1))
 	switch(getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay)) {
@@ -76,6 +69,9 @@ export async function displaySlice(editor: vscode.TextEditor, sliceElements: { i
 			break
 		}
 		case 'text': {
+			if(sliceLines.size === 0){
+				return // do not grey out the entire document
+			}
 			const decorations: vscode.DecorationOptions[] = []
 			for(let i = 0; i < editor.document.lineCount; i++) {
 				if(!sliceLines.has(i)) {

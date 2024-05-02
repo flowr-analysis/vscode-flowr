@@ -2,7 +2,7 @@ import * as vscode from 'vscode'
 import { getFlowrSession } from './extension'
 import { makeUri, getReconstructionContentProvider } from './doc-provider'
 import { getPositionAt } from './flowr/utils'
-import { displaySlice } from './slice'
+import { clearFlowrDecorations, displaySlice } from './slice'
 
 let flowrTracker: FlowrTracker | undefined
 
@@ -58,7 +58,7 @@ class FlowrTracker {
 
 	offsets: number[] = []
 	
-	deco: vscode.TextEditorDecorationType
+	targetDeco: vscode.TextEditorDecorationType
 	
 	constructor(doc: vscode.TextDocument){
 		this.doc = doc
@@ -88,11 +88,14 @@ class FlowrTracker {
 			await this.updateOutput()
 		})
 		
-		this.deco = vscode.window.createTextEditorDecorationType({
+		this.targetDeco = vscode.window.createTextEditorDecorationType({
 			before: {
+				color:           'white',
 				contentText:     '->',
-				backgroundColor: 'red'
-			}
+				backgroundColor: 'green',
+				border:          '2px solid green',
+			},
+			border: '2px solid green',
 		})
 	}
 	
@@ -100,7 +103,8 @@ class FlowrTracker {
 		const provider = getReconstructionContentProvider()
 		const uri = makeUri(docTrackerAuthority, docTrackerPath)
 		provider.updateContents(uri, undefined)
-		this.deco.dispose()
+		this.targetDeco.dispose()
+		this.clearSliceDecos()
 	}
 	
 	togglePosition(pos: vscode.Position): boolean {
@@ -130,21 +134,24 @@ class FlowrTracker {
 	
 	async updateOutput(): Promise<void> {
 		const provider = getReconstructionContentProvider()
-		this.updateDecos()
+		this.updateTargetDecos()
 		const code = await this.updateSlices() || '# No slice'
 		const uri = makeUri(docTrackerAuthority, docTrackerPath)
 		provider.updateContents(uri, code)
 	}
 	
-	updateDecos(): void {
+	updateTargetDecos(): void {
+		const ranges = []
+		for(const offset of this.offsets){
+			const pos = this.doc.positionAt(offset)
+			const range = getPositionAt(pos, this.doc)
+			if(range){
+				ranges.push(range)
+			}
+		}
 		for(const editor of vscode.window.visibleTextEditors){
 			if(editor.document === this.doc){
-				const ranges = []
-				for(const offset of this.offsets){
-					const pos = this.doc.positionAt(offset)
-					ranges.push(new vscode.Range(pos, pos))
-				}
-				editor.setDecorations(this.deco, ranges)
+				editor.setDecorations(this.targetDeco, ranges)
 			}
 		}
 	}
@@ -153,15 +160,28 @@ class FlowrTracker {
 		const session = await getFlowrSession()
 		const positions = this.offsets.map(offset => this.doc.positionAt(offset))
 		if(positions.length === 0){
+			this.clearSliceDecos()
 			return
 		}
 		const { code, sliceElements } = await session.retrieveSlice(positions, this.doc)
+		if(sliceElements.length === 0){
+			this.clearSliceDecos()
+			return
+		}
 		for(const editor of vscode.window.visibleTextEditors){
 			if(editor.document === this.doc) {
 				void displaySlice(editor, sliceElements)
 			}
 		}
 		return code
+	}
+	
+	clearSliceDecos(): void {
+		for(const editor of vscode.window.visibleTextEditors){
+			if(editor.document === this.doc) {
+				clearFlowrDecorations(editor)
+			}
+		}
 	}
 }
 
