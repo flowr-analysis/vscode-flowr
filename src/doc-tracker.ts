@@ -16,8 +16,8 @@ export async function trackCurrentPos(): Promise<void> {
 	if(!editor){
 		return
 	}
-	const pos = editor.selection.start
-	await trackPos(pos, editor.document)
+	const positions = editor.selections.map(sel => sel.start)
+	await trackPositions(positions, editor.document)
 }
 
 export async function showTrackedSlice(): Promise<vscode.TextEditor | undefined> {
@@ -38,12 +38,12 @@ export async function showTrackedSlice(): Promise<vscode.TextEditor | undefined>
 	return undefined
 }
 
-export async function trackPos(pos: vscode.Position, doc: vscode.TextDocument): Promise<FlowrTracker | undefined> {
+export async function trackPositions(positions: vscode.Position[], doc: vscode.TextDocument): Promise<FlowrTracker | undefined> {
 	const flowrTracker = docTrackers.get(doc) || new FlowrTracker(doc)
 	if(!docTrackers.has(doc)){
 		docTrackers.set(doc, flowrTracker)
 	}
-	const ret = flowrTracker.togglePosition(pos)
+	const ret = flowrTracker.togglePositions(positions)
 	if(ret){
 		await flowrTracker.updateOutput()
 	}
@@ -104,17 +104,32 @@ class FlowrTracker {
 		this.clearSliceDecos()
 	}
 	
-	togglePosition(pos: vscode.Position): boolean {
-		const offset = this.normalizeOffset(pos)
-		if(offset < 0){
+	togglePositions(positions: vscode.Position[]): boolean {
+		// convert positions to offsets
+		let offsets = positions.map(pos => this.normalizeOffset(pos))
+		offsets = offsets.filter(i => i >= 0)
+		
+		// return early if no valid offsets
+		if(offsets.length === 0){
 			return false
 		}
-		const idx = this.offsets.indexOf(offset)
-		if(idx >= 0){
-			this.offsets.splice(idx, 1)
-		} else {
-			this.offsets.push(offset)
+		
+		// add offsets that are not yet tracked
+		const toggledOffsets: number[] = []
+		for(const offset of offsets){
+			const idx = this.offsets.indexOf(offset)
+			if(idx < 0){
+				this.offsets.push(offset)
+			} else {
+				toggledOffsets.push(offset)
+			}
 		}
+		
+		// if all offsets are already tracked, toggle them off
+		if(toggledOffsets.length === offsets.length){
+			this.offsets = this.offsets.filter(offset => !toggledOffsets.includes(offset))
+		}
+		
 		return true
 	}
 	
