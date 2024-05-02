@@ -88,16 +88,21 @@ export class PositionSlicer {
 
 	positionDeco: vscode.TextEditorDecorationType
 	
-	docChangeDispo: vscode.Disposable
+	disposables: vscode.Disposable[] = []
 
 	constructor(doc: vscode.TextDocument){
 		this.doc = doc
 		
 		this.positionDeco = makeSliceDecorationTypes().slicedPos
 		
-		this.docChangeDispo = vscode.workspace.onDidChangeTextDocument(async(e) => {
+		this.disposables.push(vscode.workspace.onDidChangeTextDocument(async(e) => {
 			await this.onDocChange(e)
-		})
+		}))
+		this.disposables.push(vscode.window.onDidChangeVisibleTextEditors((editors) => {
+			if(editors.some(e => e.document === this.doc)){
+				void this.updateOutput()
+			}
+		}))
 	}
 
 	dispose(): void {
@@ -107,7 +112,9 @@ export class PositionSlicer {
 		provider.updateContents(uri, undefined)
 		this.positionDeco?.dispose()
 		this.sliceDecos?.dispose()
-		this.docChangeDispo.dispose()
+		while(this.disposables.length > 0){
+			this.disposables.pop()?.dispose()
+		}
 		this.offsets = []
 	}
 	
