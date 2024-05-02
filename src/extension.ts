@@ -53,20 +53,18 @@ export function isVerbose(): boolean {
 	return getConfig().get<boolean>(Settings.VerboseLog, false)
 }
 
+let flowrSession: FlowrSession | undefined
 export async function establishInternalSession() {
 	destroySession()
 	flowrSession = new FlowrInternalSession(outputChannel)
 	await flowrSession.initialize()
+	return flowrSession
 }
-
-let flowrSession: FlowrSession | undefined
 export async function getFlowrSession() {
 	if(flowrSession){
 		return flowrSession
 	}
-	flowrSession = new FlowrInternalSession(outputChannel)
-	await flowrSession.initialize()
-	return flowrSession
+	return await establishInternalSession()
 }
 
 export async function establishServerSession() {

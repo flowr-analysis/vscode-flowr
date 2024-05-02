@@ -1,4 +1,13 @@
 
+// The class in this file is used to provide content for the reconstruction editor
+//
+// The content of files is updated by us using the .updateContents() method.
+//
+// The content of a file is requested by vscode using the .provideTextDocumentContent() method,
+// when the corresponding URI is opened.
+//
+// To show a file, use the showUri function, defined below.
+
 import * as vscode from 'vscode'
 
 export const flowrScheme = 'flowr'
@@ -49,21 +58,16 @@ export function makeUri(authority: string, path: string){
 	return uri
 }
 
-export async function showUri(uri: vscode.Uri): Promise<Thenable<vscode.TextEditor>>
-export async function showUri(authority: string, path: string): Promise<Thenable<vscode.TextEditor>>
-export async function showUri(uri: vscode.Uri | string, path?: string): Promise<Thenable<vscode.TextEditor>> {
-	if(typeof uri === 'string'){
-		uri = makeUri(uri, path || '')
-	}
+export async function showUri(uri: vscode.Uri, language: string = 'r', viewColumn: vscode.ViewColumn = vscode.ViewColumn.Beside): Promise<Thenable<vscode.TextEditor>> {
 	for(const editor of vscode.window.visibleTextEditors){
 		if(editor.document.uri.toString() === uri.toString()){
 			return editor
 		}
 	}
 	const doc = await vscode.workspace.openTextDocument(uri)
-	await vscode.languages.setTextDocumentLanguage(doc, 'r')
+	await vscode.languages.setTextDocumentLanguage(doc, language)
 	return await vscode.window.showTextDocument(doc, {
-		viewColumn: vscode.ViewColumn.Beside
+		viewColumn: viewColumn
 	})
 }
 

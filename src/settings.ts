@@ -8,6 +8,7 @@ export enum Settings {
 
 	StyleSliceOpacity = 'style.sliceOpacity',
 	StyleSliceDisplay = 'style.sliceDisplay',
+	StyleOnlyHighlightActiveSelection = 'style.onlyHighlightActiveSelection',
 
 	Rexecutable = 'r.executable',
 }

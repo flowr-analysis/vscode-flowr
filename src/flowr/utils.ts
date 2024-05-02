@@ -3,6 +3,8 @@ import type * as vscode from 'vscode'
 import type { NodeId, SingleSlicingCriterion } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 
+// Contains utility functions and a common interface for the two FlowrSession implementations
+
 export interface SliceReturn {
 	code:          string,
 	sliceElements: { id: string, location: SourceRange }[]

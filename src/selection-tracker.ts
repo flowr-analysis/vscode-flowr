@@ -1,4 +1,7 @@
 
+// Contains the class and some functions that are used to
+// slice at the current cursor position
+// (either per command or updating as the cursor moves)
 
 import * as vscode from 'vscode'
 import { getConfig, getFlowrSession } from './extension'
@@ -7,18 +10,23 @@ import type { SliceReturn } from './flowr/utils'
 import type { DecoTypes } from './slice'
 import { displaySlice, makeSliceDecorationTypes } from './slice'
 import { docTrackers } from './doc-tracker'
+import { Settings } from './settings'
 
 
 const selectionTrackerAuthority = 'selection-tracker'
 const selectionTrackerPath = 'Selection Slice'
 
 
+// The SelectionSlicer instance
+// currently only one instance is used and never disposed
 let selectionTracker: SelectionSlicer | undefined
 export function getSelectionSlicer(): SelectionSlicer {
 	selectionTracker ||= new SelectionSlicer()
 	return selectionTracker
 }
 
+// Show the selection slice in an editor
+// If nothing is sliced, slice at the current cursor position
 export async function showSelectionSliceInEditor(): Promise<vscode.TextEditor> {
 	const slicer = getSelectionSlicer()
 	if(!slicer.hasDoc){
@@ -38,6 +46,8 @@ class SelectionSlicer {
 
 	decoratedEditors: vscode.TextEditor[] = []
 
+
+	// Turn on/off tracking of the cursor
 	async startTrackSelection(): Promise<void> {
 		await this.update()
 		this.changeListeners.push(
@@ -45,7 +55,6 @@ class SelectionSlicer {
 			vscode.window.onDidChangeActiveTextEditor(() => this.update())
 		)
 	}
-
 	async toggleTrackSelection(): Promise<void> {
 		if(this.changeListeners.length){
 			this.stopTrackSelection()
@@ -53,17 +62,18 @@ class SelectionSlicer {
 			await this.startTrackSelection()
 		}
 	}
-
 	stopTrackSelection(): void {
 		while(this.changeListeners.length){
 			this.changeListeners.pop()?.dispose()
 		}
 	}
 
+	// Slice once at the current cursor position
 	async sliceSelectionOnce(): Promise<void> {
 		await this.update()
 	}
 
+	// Stop tracking the cursor and clear the selection slice
 	clearSelectionSlice(): void {
 		this.stopTrackSelection()
 		const provider = getReconstructionContentProvider()
@@ -73,29 +83,11 @@ class SelectionSlicer {
 		this.hasDoc = false
 	}
 
-	protected async update(): Promise<void> {
-		const ret = await getSelectionSlice()
-		if(ret === undefined){
-			return
-		}
-		const provider = getReconstructionContentProvider()
-		const uri = this.makeUri()
-		provider.updateContents(uri, ret.code)
-		this.hasDoc = true
-		const clearOtherDecos = getConfig().get<boolean>('style.onlyHighlightActiveSelection', false)
-		for(const editor of this.decoratedEditors){
-			if(editor === ret.editor){
-				continue
-			}
-			if(clearOtherDecos || docTrackers.has(editor.document)){
-				this.clearSliceDecos(editor)
-			}
-		}
-		this.decos ||= makeSliceDecorationTypes()
-		await displaySlice(ret.editor, ret.sliceElements, this.decos)
-		this.decoratedEditors.push(ret.editor)
+	makeUri(): vscode.Uri {
+		return makeUri(selectionTrackerAuthority, selectionTrackerPath)
 	}
 
+	// Clear all slice decos or only the ones affecting a specific editor/document
 	clearSliceDecos(editor?: vscode.TextEditor, doc?: vscode.TextDocument): void {
 		if(!this.decos){
 			return
@@ -103,7 +95,9 @@ class SelectionSlicer {
 		if(editor){
 			editor.setDecorations(this.decos.lineSlice, [])
 			editor.setDecorations(this.decos.tokenSlice, [])
-			return
+			if(!doc){
+				return
+			}
 		}
 		if(doc){
 			for(const editor of vscode.window.visibleTextEditors){
@@ -117,17 +111,37 @@ class SelectionSlicer {
 		this.decos = undefined
 	}
 
-	makeUri(): vscode.Uri {
-		return makeUri(selectionTrackerAuthority, selectionTrackerPath)
+	protected async update(): Promise<void> {
+		const ret = await getSelectionSlice()
+		if(ret === undefined){
+			return
+		}
+		const provider = getReconstructionContentProvider()
+		const uri = this.makeUri()
+		provider.updateContents(uri, ret.code)
+		this.hasDoc = true
+		const clearOtherDecos = getConfig().get<boolean>(Settings.StyleOnlyHighlightActiveSelection, false)
+		for(const editor of this.decoratedEditors){
+			if(editor === ret.editor){
+				continue
+			}
+			if(clearOtherDecos || docTrackers.has(editor.document)){
+				this.clearSliceDecos(editor)
+			}
+		}
+		this.decos ||= makeSliceDecorationTypes()
+		await displaySlice(ret.editor, ret.sliceElements, this.decos)
+		this.decoratedEditors.push(ret.editor)
 	}
 }
 
 
+// Get the slice at the current cursor position,
+// checking that the document/selection is an R file that is not already tracked
 interface SelectionSliceReturn extends SliceReturn {
 	editor: vscode.TextEditor
 }
 async function getSelectionSlice(): Promise<SelectionSliceReturn | undefined> {
-
 	const editor = vscode.window.activeTextEditor
 	if(!editor){
 		return undefined
