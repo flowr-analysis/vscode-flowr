@@ -16,8 +16,13 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 		})
 		return dispo
 	}
+
+	notifyListeners(uri: vscode.Uri): void {
+		for(const listener of this.listeners){
+			listener(uri)
+		}
+	}
 	
-	// updateUri(uri: vscode.Uri, content: string): void {
 	updateContents(uri: vscode.Uri, content?: string) {
 		if(content !== undefined){
 			this.contents.set(uri.toString(), content)
@@ -25,12 +30,6 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 			this.contents.delete(uri.toString())
 		}
 		this.notifyListeners(uri)
-	}
-
-	notifyListeners(uri: vscode.Uri): void {
-		for(const listener of this.listeners){
-			listener(uri)
-		}
 	}
 
 	provideTextDocumentContent(uri: vscode.Uri): vscode.ProviderResult<string> {
