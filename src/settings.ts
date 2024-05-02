@@ -12,4 +12,4 @@ export enum Settings {
 	Rexecutable = 'r.executable',
 }
 
-export type SliceDisplay = 'text' | 'diff'
+export type SliceDisplay = 'text' | 'diff' | 'tokens'

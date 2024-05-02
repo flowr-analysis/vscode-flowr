@@ -5,18 +5,15 @@ import { Settings } from './settings'
 import { registerSliceCommands } from './slice'
 import { registerDiagramCommands } from './diagram'
 import { trackCurrentPos } from './doc-tracker'
-import { ReconstructionContentProvider, flowrScheme } from './doc-provider'
 import { showSelectionSliceInEditor, toggleTrackSelection } from './selection-tracker'
+import type { FlowrSession } from './flowr/utils'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
 
-export let flowrSession: FlowrInternalSession | FlowrServerSession | undefined
-export let outputChannel: vscode.OutputChannel
+let outputChannel: vscode.OutputChannel
 
-let flowrStatus: vscode.StatusBarItem
-
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
 	console.log('Loading vscode-flowr')
 
 	outputChannel = vscode.window.createOutputChannel('flowR')
@@ -28,16 +25,16 @@ export function activate(context: vscode.ExtensionContext) {
 		toggleTrackSelection()
 	}))
 	
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.showSelectionSliceInEditor', () => {
-		void showSelectionSliceInEditor()
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.showSelectionSliceInEditor', async() => {
+		await showSelectionSliceInEditor()
 	}))
 	
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackPosition', async() => {
 		await trackCurrentPos()
 	}))
 
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', () => {
-		establishServerSession()
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', async() => {
+		await establishServerSession()
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.disconnect', () => {
 		if(flowrSession instanceof FlowrServerSession) {
@@ -57,18 +54,8 @@ export function activate(context: vscode.ExtensionContext) {
 	process.on('SIGINT', () => destroySession())
 
 	if(getConfig().get<boolean>(Settings.ServerAutoConnect)) {
-		establishServerSession()
+		await establishServerSession()
 	}
-}
-
-
-let reconstructionContentProvider: ReconstructionContentProvider |undefined
-export function getReconstructionContentProvider(): ReconstructionContentProvider {
-	if(!reconstructionContentProvider){
-		reconstructionContentProvider = new ReconstructionContentProvider()
-		vscode.workspace.registerTextDocumentContentProvider(flowrScheme, reconstructionContentProvider)
-	}
-	return reconstructionContentProvider
 }
 
 
@@ -86,6 +73,7 @@ export async function establishInternalSession() {
 	await flowrSession.initialize()
 }
 
+let flowrSession: FlowrSession | undefined
 export async function getFlowrSession() {
 	if(flowrSession){
 		return flowrSession
@@ -95,10 +83,10 @@ export async function getFlowrSession() {
 	return flowrSession
 }
 
-export function establishServerSession() {
+export async function establishServerSession() {
 	destroySession()
 	flowrSession = new FlowrServerSession(outputChannel)
-	flowrSession.initialize()
+	await flowrSession.initialize()
 }
 
 export function destroySession() {
@@ -106,6 +94,7 @@ export function destroySession() {
 	flowrSession = undefined
 }
 
+let flowrStatus: vscode.StatusBarItem
 export function updateStatusBar() {
 	if(flowrSession instanceof FlowrServerSession) {
 		flowrStatus.show()

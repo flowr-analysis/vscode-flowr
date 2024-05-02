@@ -128,11 +128,13 @@
           "default": "text",
           "enum": [
             "text",
-            "diff"
+            "diff",
+            "tokens"
           ],
           "enumDescriptions": [
             "Code that isn't part of the current slice will be grayed out in the active editor.",
-            "Open a diff view that shows the current slice and the rest of the file."
+            "Open a diff view that shows the current slice and the rest of the file.",
+            "Highlight the tokens that are part of the current slice."
           ],
           "markdownDescription": "The way that slices should be displayed."
         },

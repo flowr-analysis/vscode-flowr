@@ -1,6 +1,8 @@
 import * as vscode from 'vscode'
-import { getFlowrSession, getReconstructionContentProvider } from './extension'
-import { makeUri } from './doc-provider'
+import { getFlowrSession } from './extension'
+import { makeUri, getReconstructionContentProvider } from './doc-provider'
+import { getPositionAt } from './flowr/utils'
+import { displaySlice } from './slice'
 
 let flowrTracker: FlowrTracker | undefined
 
@@ -35,21 +37,18 @@ export async function showTrackedSlice(): Promise<vscode.TextEditor | undefined>
 	return undefined
 }
 
-export async function trackPos(pos: vscode.Position, doc: vscode.TextDocument): Promise<void> {
+export async function trackPos(pos: vscode.Position, doc: vscode.TextDocument): Promise<boolean> {
 	if(!flowrTracker){
 		flowrTracker = new FlowrTracker(doc)
 	} else if(flowrTracker.doc !== doc){
 		flowrTracker.dispose()
 		flowrTracker = new FlowrTracker(doc)
 	}
-	const offset = doc.offsetAt(pos)
-	const idx = flowrTracker.offsets.indexOf(offset)
-	if(idx >= 0){
-		flowrTracker.offsets.splice(idx, 1)
-	} else {
-		flowrTracker.offsets.push(offset)
+	const ret = flowrTracker.togglePosition(pos)
+	if(ret){
+		await flowrTracker.updateOutput()
 	}
-	await flowrTracker.updateOutput()
+	return ret
 }
 
 class FlowrTracker {
@@ -83,11 +82,10 @@ class FlowrTracker {
 						offset = offset1
 					}
 				}
-				this.offsets[i] = offset
+				this.offsets[i] = this.normalizeOffset(offset)
 			}
 			this.offsets = this.offsets.filter(i => i >= 0)
 			await this.updateOutput()
-			
 		})
 		
 		this.deco = vscode.window.createTextEditorDecorationType({
@@ -103,6 +101,31 @@ class FlowrTracker {
 		const uri = makeUri(docTrackerAuthority, docTrackerPath)
 		provider.updateContents(uri, undefined)
 		this.deco.dispose()
+	}
+	
+	togglePosition(pos: vscode.Position): boolean {
+		const offset = this.normalizeOffset(pos)
+		if(offset < 0){
+			return false
+		}
+		const idx = this.offsets.indexOf(offset)
+		if(idx >= 0){
+			this.offsets.splice(idx, 1)
+		} else {
+			this.offsets.push(offset)
+		}
+		return true
+	}
+	
+	normalizeOffset(offsetOrPos: number | vscode.Position): number {
+		if(typeof offsetOrPos === 'number'){
+			offsetOrPos = this.doc.positionAt(offsetOrPos)
+		}
+		const range = getPositionAt(offsetOrPos, this.doc)
+		if(!range){
+			return -1
+		}
+		return this.doc.offsetAt(range.start)
 	}
 	
 	async updateOutput(): Promise<void> {
@@ -128,16 +151,17 @@ class FlowrTracker {
 	
 	async updateSlices(): Promise<string | undefined> {
 		const session = await getFlowrSession()
-		const poss = this.offsets.map(offset => this.doc.positionAt(offset))
-		if(poss.length === 0){
+		const positions = this.offsets.map(offset => this.doc.positionAt(offset))
+		if(positions.length === 0){
 			return
 		}
+		const { code, sliceElements } = await session.retrieveSlice(positions, this.doc)
 		for(const editor of vscode.window.visibleTextEditors){
-			if(editor.document === this.doc){
-				return await session.retrieveSlice(poss, editor, true)
+			if(editor.document === this.doc) {
+				void displaySlice(editor, sliceElements)
 			}
 		}
-		return undefined
+		return code
 	}
 }
 

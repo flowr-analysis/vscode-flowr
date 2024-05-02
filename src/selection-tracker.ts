@@ -1,9 +1,9 @@
 
 
 import * as vscode from 'vscode'
-import { getFlowrSession, getReconstructionContentProvider } from './extension'
+import { getFlowrSession } from './extension'
 import { clearFlowrDecorations } from './slice'
-import { flowrScheme, makeUri } from './doc-provider'
+import { flowrScheme, makeUri, getReconstructionContentProvider } from './doc-provider'
 
 
 const selectionTrackerAuthority = 'selection-tracker'
@@ -85,13 +85,13 @@ async function updateSelectionSlice(): Promise<string | undefined> {
 	if(editor.document.uri.scheme === flowrScheme){
 		return undefined
 	}
-	const poss = editor.selections.map(sel => sel.active)
-	if(!poss.length){
+	const positions = editor.selections.map(sel => sel.active)
+	if(!positions.length){
 		clearFlowrDecorations(editor)
 		return errorCode
 	}
 	const flowrSession = await getFlowrSession()
-	const code = await flowrSession.retrieveSlice(poss, editor, true, false)
+	const { code } = await flowrSession.retrieveSlice(positions, editor.document, false)
 	if(!code){
 		clearFlowrDecorations(editor)
 		return errorCode

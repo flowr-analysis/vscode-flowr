@@ -49,3 +49,13 @@ export function makeUri(authority: string, path: string){
 	})
 	return uri
 }
+
+let reconstructionContentProvider: ReconstructionContentProvider | undefined
+export function getReconstructionContentProvider(): ReconstructionContentProvider {
+	if(!reconstructionContentProvider) {
+		reconstructionContentProvider = new ReconstructionContentProvider()
+		vscode.workspace.registerTextDocumentContentProvider(flowrScheme, reconstructionContentProvider)
+	}
+	return reconstructionContentProvider
+}
+
