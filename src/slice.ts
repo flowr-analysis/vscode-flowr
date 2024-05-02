@@ -7,6 +7,7 @@ import { Settings } from './settings'
 import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-tracker'
 import { trackCurrentPos } from './doc-tracker'
 
+export let selectionSliceDecoration: vscode.TextEditorDecorationType
 export let sliceDecoration: vscode.TextEditorDecorationType
 export let sliceCharDeco: vscode.TextEditorDecorationType
 
@@ -39,22 +40,28 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 			recreateSliceDecorationType()
 		}
 	})
-	context.subscriptions.push(new vscode.Disposable(() => sliceDecoration.dispose()))
+	context.subscriptions.push(new vscode.Disposable(() => selectionSliceDecoration.dispose()))
 }
 
-export function clearFlowrDecorations(editor?: vscode.TextEditor): void {
+export function clearFlowrDecorations(editor?: vscode.TextEditor, onlySelection: boolean = false): void {
 	if(editor){
-		editor.setDecorations(sliceDecoration, [])
-		editor.setDecorations(sliceCharDeco, [])
+		editor.setDecorations(selectionSliceDecoration, [])
+		if(!onlySelection){
+			editor.setDecorations(sliceDecoration, [])
+			editor.setDecorations(sliceCharDeco, [])
+		}
 		return
 	}
 	for(const editor of vscode.window.visibleTextEditors){
-		editor.setDecorations(sliceDecoration, [])
-		editor.setDecorations(sliceCharDeco, [])
+		editor.setDecorations(selectionSliceDecoration, [])
+		if(!onlySelection){
+			editor.setDecorations(sliceDecoration, [])
+			editor.setDecorations(sliceCharDeco, [])
+		}
 	}
 }
 
-export async function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[]) {
+export async function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[], decos: DecoTypes) {
 	const sliceLines = new Set<number>(sliceElements.map(s => s.location.start.line - 1))
 	switch(getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay)) {
 		case 'tokens': {
@@ -64,8 +71,7 @@ export async function displaySlice(editor: vscode.TextEditor, sliceElements: { i
 				console.log(editor.document.getText(range))
 				ranges.push(range)
 			}
-			const deco = sliceCharDeco
-			editor.setDecorations(deco, ranges)
+			editor.setDecorations(decos.tokenSlice, ranges)
 			break
 		}
 		case 'text': {
@@ -78,7 +84,7 @@ export async function displaySlice(editor: vscode.TextEditor, sliceElements: { i
 					decorations.push({ range: new vscode.Range(i, 0, i, editor.document.lineAt(i).text.length) })
 				}
 			}
-			editor.setDecorations(sliceDecoration, decorations)
+			editor.setDecorations(decos.lineSlice, decorations)
 			break
 		}
 		case 'diff': {
@@ -96,6 +102,10 @@ export async function displaySlice(editor: vscode.TextEditor, sliceElements: { i
 }
 
 function recreateSliceDecorationType() {
+	selectionSliceDecoration?.dispose()
+	selectionSliceDecoration = vscode.window.createTextEditorDecorationType({
+		opacity: getConfig().get<number>(Settings.StyleSliceOpacity)?.toString()
+	})
 	sliceDecoration?.dispose()
 	sliceDecoration = vscode.window.createTextEditorDecorationType({
 		opacity: getConfig().get<number>(Settings.StyleSliceOpacity)?.toString()
@@ -105,4 +115,37 @@ function recreateSliceDecorationType() {
 		backgroundColor: 'green',
 		borderRadius:    '2px'
 	})
+}
+
+export interface DecoTypes {
+	lineSlice:  vscode.TextEditorDecorationType
+	tokenSlice: vscode.TextEditorDecorationType
+	trackedPos: vscode.TextEditorDecorationType
+	dispose(): void
+}
+export function makeSliceDecorationTypes(): DecoTypes {
+	const ret: DecoTypes = {
+		lineSlice: vscode.window.createTextEditorDecorationType({
+			opacity: getConfig().get<number>(Settings.StyleSliceOpacity)?.toString()
+		}),
+		tokenSlice: vscode.window.createTextEditorDecorationType({
+			backgroundColor: 'green',
+			borderRadius:    '2px'
+		}),
+		trackedPos: vscode.window.createTextEditorDecorationType({
+			before: {
+				color:           'white',
+				contentText:     '->',
+				backgroundColor: 'green',
+				border:          '2px solid green',
+			},
+			border: '2px solid green',
+		}),
+		dispose() {
+			this.lineSlice.dispose()
+			this.tokenSlice.dispose()
+			this.trackedPos.dispose()
+		}
+	}
+	return ret
 }

@@ -138,6 +138,11 @@
           ],
           "markdownDescription": "The way that slices should be displayed."
         },
+        "vscode-flowr.style.onlyHighlightActiveSelection": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Whether to only highlight the selection in the active editor."
+        },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,

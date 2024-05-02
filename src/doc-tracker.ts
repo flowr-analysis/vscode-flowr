@@ -2,12 +2,15 @@ import * as vscode from 'vscode'
 import { getFlowrSession } from './extension'
 import { makeUri, getReconstructionContentProvider } from './doc-provider'
 import { getPositionAt } from './flowr/utils'
-import { clearFlowrDecorations, displaySlice } from './slice'
-
-let flowrTracker: FlowrTracker | undefined
+import type { DecoTypes } from './slice'
+import { displaySlice, makeSliceDecorationTypes } from './slice'
+import * as path from 'path'
+import { getSelectionSlicer } from './selection-tracker'
 
 const docTrackerAuthority = 'doc-tracker'
-const docTrackerPath = 'Positions'
+const docTrackerPath = 'Slice'
+
+export const docTrackers: Map<vscode.TextDocument, FlowrTracker> = new Map()
 
 export async function trackCurrentPos(): Promise<void> {
 	const editor = vscode.window.activeTextEditor
@@ -16,7 +19,7 @@ export async function trackCurrentPos(): Promise<void> {
 	}
 	const pos = editor.selection.start
 	await trackPos(pos, editor.document)
-	await showTrackedSlice()
+	// await showTrackedSlice()
 }
 
 export async function showTrackedSlice(): Promise<vscode.TextEditor | undefined> {
@@ -37,18 +40,23 @@ export async function showTrackedSlice(): Promise<vscode.TextEditor | undefined>
 	return undefined
 }
 
-export async function trackPos(pos: vscode.Position, doc: vscode.TextDocument): Promise<boolean> {
-	if(!flowrTracker){
-		flowrTracker = new FlowrTracker(doc)
-	} else if(flowrTracker.doc !== doc){
-		flowrTracker.dispose()
-		flowrTracker = new FlowrTracker(doc)
+export async function trackPos(pos: vscode.Position, doc: vscode.TextDocument): Promise<FlowrTracker | undefined> {
+	const flowrTracker = docTrackers.get(doc) || new FlowrTracker(doc)
+	if(!docTrackers.has(doc)){
+		docTrackers.set(doc, flowrTracker)
 	}
 	const ret = flowrTracker.togglePosition(pos)
 	if(ret){
 		await flowrTracker.updateOutput()
 	}
-	return ret
+	if(flowrTracker.offsets.length === 0){
+		flowrTracker.dispose()
+		docTrackers.delete(doc)
+		return undefined
+	} else {
+		getSelectionSlicer().clearSliceDecos(undefined, doc)
+	}
+	return flowrTracker
 }
 
 class FlowrTracker {
@@ -58,11 +66,11 @@ class FlowrTracker {
 
 	offsets: number[] = []
 	
-	targetDeco: vscode.TextEditorDecorationType
+	decos: DecoTypes | undefined = undefined
 	
 	constructor(doc: vscode.TextDocument){
 		this.doc = doc
-
+		
 		vscode.workspace.onDidChangeTextDocument(async(e) => {
 			console.log(e.document.getText())
 			if(e.document !== this.doc) {
@@ -87,23 +95,14 @@ class FlowrTracker {
 			this.offsets = this.offsets.filter(i => i >= 0)
 			await this.updateOutput()
 		})
-		
-		this.targetDeco = vscode.window.createTextEditorDecorationType({
-			before: {
-				color:           'white',
-				contentText:     '->',
-				backgroundColor: 'green',
-				border:          '2px solid green',
-			},
-			border: '2px solid green',
-		})
 	}
 	
 	dispose(): void {
 		const provider = getReconstructionContentProvider()
 		const uri = makeUri(docTrackerAuthority, docTrackerPath)
 		provider.updateContents(uri, undefined)
-		this.targetDeco.dispose()
+		this.decos?.dispose()
+		this.decos = undefined
 		this.clearSliceDecos()
 	}
 	
@@ -136,8 +135,14 @@ class FlowrTracker {
 		const provider = getReconstructionContentProvider()
 		this.updateTargetDecos()
 		const code = await this.updateSlices() || '# No slice'
-		const uri = makeUri(docTrackerAuthority, docTrackerPath)
+		this.updateTargetDecos()
+		const uri = this.makeUri()
 		provider.updateContents(uri, code)
+	}
+	
+	makeUri(): vscode.Uri {
+		const docPath = path.join(this.doc.uri.path, docTrackerPath)
+		return makeUri(docTrackerAuthority, docPath)
 	}
 	
 	updateTargetDecos(): void {
@@ -151,7 +156,8 @@ class FlowrTracker {
 		}
 		for(const editor of vscode.window.visibleTextEditors){
 			if(editor.document === this.doc){
-				editor.setDecorations(this.targetDeco, ranges)
+				this.decos ||= makeSliceDecorationTypes()
+				editor.setDecorations(this.decos.trackedPos, ranges)
 			}
 		}
 	}
@@ -170,18 +176,16 @@ class FlowrTracker {
 		}
 		for(const editor of vscode.window.visibleTextEditors){
 			if(editor.document === this.doc) {
-				void displaySlice(editor, sliceElements)
+				this.decos ||= makeSliceDecorationTypes()
+				void displaySlice(editor, sliceElements, this.decos)
 			}
 		}
 		return code
 	}
 	
 	clearSliceDecos(): void {
-		for(const editor of vscode.window.visibleTextEditors){
-			if(editor.document === this.doc) {
-				clearFlowrDecorations(editor)
-			}
-		}
+		this.decos?.dispose()
+		this.decos = undefined
 	}
 }
 

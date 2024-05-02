@@ -1,10 +1,12 @@
 
 
 import * as vscode from 'vscode'
-import { getFlowrSession } from './extension'
+import { getConfig, getFlowrSession } from './extension'
 import { flowrScheme, makeUri, getReconstructionContentProvider } from './doc-provider'
 import type { SliceReturn } from './flowr/utils'
-import { clearFlowrDecorations, displaySlice } from './slice'
+import type { DecoTypes } from './slice'
+import { displaySlice, makeSliceDecorationTypes } from './slice'
+import { docTrackers } from './doc-tracker'
 
 
 const selectionTrackerAuthority = 'selection-tracker'
@@ -35,6 +37,10 @@ class SelectionSlicer {
 	changeListeners: vscode.Disposable[] = []
 	
 	hasDoc: boolean = false
+	
+	decos: DecoTypes | undefined
+	
+	decoratedEditors: vscode.TextEditor[] = []
 	
 	async startTrackSelection(): Promise<void> {
 		await this.update()
@@ -67,7 +73,7 @@ class SelectionSlicer {
 		const provider = getReconstructionContentProvider()
 		const uri = this.makeUri()
 		provider.updateContents(uri, '')
-		clearFlowrDecorations()
+		this.clearSliceDecos()
 		this.hasDoc = false
 	}
 	
@@ -80,7 +86,39 @@ class SelectionSlicer {
 		const uri = this.makeUri()
 		provider.updateContents(uri, ret.code)
 		this.hasDoc = true
-		await displaySlice(ret.editor, ret.sliceElements)
+		const clearOtherDecos = getConfig().get<boolean>('style.onlyHighlightActiveSelection', false)
+		for(const editor of this.decoratedEditors){
+			if(editor === ret.editor){
+				continue
+			}
+			if(clearOtherDecos || docTrackers.has(editor.document)){
+				this.clearSliceDecos(editor)
+			}
+		}
+		this.decos ||= makeSliceDecorationTypes()
+		await displaySlice(ret.editor, ret.sliceElements, this.decos)
+		this.decoratedEditors.push(ret.editor)
+	}
+	
+	clearSliceDecos(editor?: vscode.TextEditor, doc?: vscode.TextDocument): void {
+		if(!this.decos){
+			return
+		}
+		if(editor){
+			editor.setDecorations(this.decos.lineSlice, [])
+			editor.setDecorations(this.decos.tokenSlice, [])
+			return
+		}
+		if(doc){
+			for(const editor of vscode.window.visibleTextEditors){
+				if(editor.document === doc){
+					this.clearSliceDecos(editor)
+				}
+			}
+			return
+		}
+		this.decos?.dispose()
+		this.decos = undefined
 	}
 	
 	makeUri(): vscode.Uri {
@@ -102,6 +140,9 @@ async function getSelectionSlice(): Promise<SelectionSliceReturn | undefined> {
 		return undefined
 	}
 	if(editor.document.languageId.toLowerCase() !== 'r'){
+		return undefined
+	}
+	if(docTrackers.has(editor.document)){
 		return undefined
 	}
 	const positions = editor.selections.map(sel => sel.active)
