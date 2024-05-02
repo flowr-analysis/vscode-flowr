@@ -9,7 +9,7 @@ import { flowrScheme, makeUri, getReconstructionContentProvider, showUri } from 
 import type { SliceReturn } from './flowr/utils'
 import type { DecoTypes } from './slice'
 import { displaySlice, makeSliceDecorationTypes } from './slice'
-import { docSlicers } from './position-slicer'
+import { positionSlicers } from './position-slicer'
 import { Settings } from './settings'
 
 
@@ -125,7 +125,7 @@ class SelectionSlicer {
 			if(editor === ret.editor){
 				continue
 			}
-			if(clearOtherDecos || docSlicers.has(editor.document)){
+			if(clearOtherDecos || positionSlicers.has(editor.document)){
 				this.clearSliceDecos(editor)
 			}
 		}
@@ -152,7 +152,7 @@ async function getSelectionSlice(): Promise<SelectionSliceReturn | undefined> {
 	if(editor.document.languageId.toLowerCase() !== 'r'){
 		return undefined
 	}
-	if(docSlicers.has(editor.document)){
+	if(positionSlicers.has(editor.document)){
 		return undefined
 	}
 	const positions = editor.selections.map(sel => sel.active)

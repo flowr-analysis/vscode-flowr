@@ -5,11 +5,7 @@ import { getConfig } from './extension'
 import type { SliceDisplay } from './settings'
 import { Settings } from './settings'
 import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-slicer'
-import { disposeActivePositionSlicer, getActivePositionSlicer, addCurrentPositions } from './position-slicer'
-
-export let selectionSliceDecoration: vscode.TextEditorDecorationType
-export let sliceDecoration: vscode.TextEditorDecorationType
-export let sliceCharDeco: vscode.TextEditorDecorationType
+import { disposeActivePositionSlicer, getActivePositionSlicer, addCurrentPositions, positionSlicers } from './position-slicer'
 
 export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
@@ -30,13 +26,15 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 		await addCurrentPositions()
 	}))
 
-	recreateSliceDecorationType()
 	vscode.workspace.onDidChangeConfiguration(e => {
-		if(e.affectsConfiguration(`${Settings.Category}.${Settings.StyleSliceOpacity}`)) {
-			recreateSliceDecorationType()
+		if(e.affectsConfiguration(`${Settings.Category}`)) {
+			const selSlicer = getSelectionSlicer()
+			selSlicer.clearSliceDecos()
+			for(const [, positionSlicer] of positionSlicers){
+				void positionSlicer.updateOutput(true)
+			}
 		}
 	})
-	context.subscriptions.push(new vscode.Disposable(() => selectionSliceDecoration.dispose()))
 }
 
 async function showReconstructionInEditor(): Promise<vscode.TextEditor | undefined> {
@@ -58,24 +56,6 @@ function clearSliceOutput(): void {
 	}
 	const slicer = getSelectionSlicer()
 	slicer.clearSelectionSlice()
-}
-
-export function clearFlowrDecorations(editor?: vscode.TextEditor, onlySelection: boolean = false): void {
-	if(editor){
-		editor.setDecorations(selectionSliceDecoration, [])
-		if(!onlySelection){
-			editor.setDecorations(sliceDecoration, [])
-			editor.setDecorations(sliceCharDeco, [])
-		}
-		return
-	}
-	for(const editor of vscode.window.visibleTextEditors){
-		editor.setDecorations(selectionSliceDecoration, [])
-		if(!onlySelection){
-			editor.setDecorations(sliceDecoration, [])
-			editor.setDecorations(sliceCharDeco, [])
-		}
-	}
 }
 
 export async function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[], decos: DecoTypes) {
@@ -116,22 +96,6 @@ export async function displaySlice(editor: vscode.TextEditor, sliceElements: { i
 			break
 		}
 	}
-}
-
-function recreateSliceDecorationType() {
-	selectionSliceDecoration?.dispose()
-	selectionSliceDecoration = vscode.window.createTextEditorDecorationType({
-		opacity: getConfig().get<number>(Settings.StyleSliceOpacity)?.toString()
-	})
-	sliceDecoration?.dispose()
-	sliceDecoration = vscode.window.createTextEditorDecorationType({
-		opacity: getConfig().get<number>(Settings.StyleSliceOpacity)?.toString()
-	})
-	sliceCharDeco?.dispose()
-	sliceCharDeco = vscode.window.createTextEditorDecorationType({
-		backgroundColor: 'green',
-		borderRadius:    '2px'
-	})
 }
 
 export interface DecoTypes {

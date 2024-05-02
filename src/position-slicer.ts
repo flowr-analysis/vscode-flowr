@@ -15,7 +15,7 @@ const positionSlicerSuffix = 'Slice'
 
 // A map of all active position slicers
 // Slicers are removed when they have no more tracked positions
-export const docSlicers: Map<vscode.TextDocument, PositionSlicer> = new Map()
+export const positionSlicers: Map<vscode.TextDocument, PositionSlicer> = new Map()
 
 
 // Add the current cursor position(s) in the active editor to the list of slice criteria
@@ -36,7 +36,7 @@ export function getActivePositionSlicer(): PositionSlicer | undefined {
 		return undefined
 	}
 	const doc = editor.document
-	return docSlicers.get(doc)
+	return positionSlicers.get(doc)
 }
 // If the active document has a position slicer, dispose it and return true, else false
 export function disposeActivePositionSlicer(): boolean {
@@ -45,7 +45,7 @@ export function disposeActivePositionSlicer(): boolean {
 		return false
 	}
 	slicer.dispose()
-	docSlicers.delete(slicer.doc)
+	positionSlicers.delete(slicer.doc)
 	return true
 }
 
@@ -53,9 +53,9 @@ export function disposeActivePositionSlicer(): boolean {
 // Add a list of positions in a document to the slice criteria
 export async function addPositions(positions: vscode.Position[], doc: vscode.TextDocument): Promise<PositionSlicer | undefined> {
 	// Get or create a slicer for the document
-	const flowrSlicer = docSlicers.get(doc) || new PositionSlicer(doc)
-	if(!docSlicers.has(doc)){
-		docSlicers.set(doc, flowrSlicer)
+	const flowrSlicer = positionSlicers.get(doc) || new PositionSlicer(doc)
+	if(!positionSlicers.has(doc)){
+		positionSlicers.set(doc, flowrSlicer)
 	}
 	
 	// Try to toggle the indicated positions
@@ -68,7 +68,7 @@ export async function addPositions(positions: vscode.Position[], doc: vscode.Tex
 	if(flowrSlicer.offsets.length === 0){
 		// Dispose the slicer if no positions are sliced (anymore)
 		flowrSlicer.dispose()
-		docSlicers.delete(doc)
+		positionSlicers.delete(doc)
 		return undefined
 	} else {
 		// If the slicer is active, make sure there are no selection-slice decorations in its editors
@@ -140,7 +140,12 @@ export class PositionSlicer {
 		return showUri(uri)
 	}
 
-	async updateOutput(): Promise<void> {
+	async updateOutput(resetDecos: boolean = false): Promise<void> {
+		if(resetDecos){
+			this.clearSliceDecos()
+			this.positionDeco.dispose()
+			this.positionDeco = makeSliceDecorationTypes().slicedPos
+		}
 		const provider = getReconstructionContentProvider()
 		this.updateTargetDecos()
 		const code = await this.updateSlices() || '# No slice'
