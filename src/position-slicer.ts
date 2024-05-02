@@ -87,13 +87,15 @@ export class PositionSlicer {
 	sliceDecos: DecoTypes | undefined = undefined
 
 	positionDeco: vscode.TextEditorDecorationType
+	
+	docChangeDispo: vscode.Disposable
 
 	constructor(doc: vscode.TextDocument){
 		this.doc = doc
 		
 		this.positionDeco = makeSliceDecorationTypes().slicedPos
 		
-		vscode.workspace.onDidChangeTextDocument(async(e) => {
+		this.docChangeDispo = vscode.workspace.onDidChangeTextDocument(async(e) => {
 			await this.onDocChange(e)
 		})
 	}
@@ -105,6 +107,8 @@ export class PositionSlicer {
 		provider.updateContents(uri, undefined)
 		this.positionDeco?.dispose()
 		this.sliceDecos?.dispose()
+		this.docChangeDispo.dispose()
+		this.offsets = []
 	}
 	
 	togglePositions(positions: vscode.Position[]): boolean {
@@ -171,16 +175,13 @@ export class PositionSlicer {
 		const newOffsets: number[] = [	]
 		for(let offset of this.offsets) {
 			for(const cc of e.contentChanges) {
-				const offset1 = shiftOffset(offset, cc)
-				if(!offset1){
-					offset = -1
+				offset = shiftOffset(offset, cc)
+				if(offset < 0){
 					break
-				} else {
-					offset = offset1
 				}
 			}
 			offset = this.normalizeOffset(offset)
-			if(offset >= 0){
+			if(offset >= 0 && !newOffsets.includes(offset)){
 				newOffsets.push(offset)
 			}
 		}
@@ -193,6 +194,9 @@ export class PositionSlicer {
 	protected normalizeOffset(offsetOrPos: number | vscode.Position): number {
 		// Convert a position to an offset and move it to the beginning of the word
 		if(typeof offsetOrPos === 'number'){
+			if(offsetOrPos < 0){
+				return -1
+			}
 			offsetOrPos = this.doc.positionAt(offsetOrPos)
 		}
 		const range = getPositionAt(offsetOrPos, this.doc)
@@ -248,14 +252,14 @@ export class PositionSlicer {
 	}
 }
 
-function shiftOffset(offset: number, cc: vscode.TextDocumentContentChangeEvent): number | undefined {
+function shiftOffset(offset: number, cc: vscode.TextDocumentContentChangeEvent): number {
 	if(cc.rangeOffset > offset){
 		// pos is before range -> no change
 		return offset
 	}
 	if(cc.rangeLength + cc.rangeOffset > offset){
 		// pos is inside range -> invalidate pos
-		return undefined
+		return -1
 	}
 	// pos is after range -> adjust pos
 	const offsetDelta = cc.text.length - cc.rangeLength
