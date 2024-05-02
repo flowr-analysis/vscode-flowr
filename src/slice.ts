@@ -21,11 +21,11 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackSelection', async() => {
 		await getSelectionSlicer().toggleTrackSelection()
 	}))
-	
+
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.showSliceInEditor', async() => {
 		await showReconstructionInEditor()
 	}))
-	
+
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackPosition', async() => {
 		await trackCurrentPos()
 	}))

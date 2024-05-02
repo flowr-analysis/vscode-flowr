@@ -140,7 +140,7 @@ export class FlowrServerSession implements FlowrSession {
 			'filetoken': '@tmp',
 			'criterion': criteria
 		})
-		
+
 		const sliceElements = makeSliceElements(sliceResponse.results.slice.result, id => idToLocation.get(id))
 
 		if(isVerbose()) {

@@ -63,12 +63,12 @@ class FlowrTracker {
 	doc: vscode.TextDocument
 
 	offsets: number[] = []
-	
+
 	decos: DecoTypes | undefined = undefined
-	
+
 	constructor(doc: vscode.TextDocument){
 		this.doc = doc
-		
+
 		vscode.workspace.onDidChangeTextDocument(async(e) => {
 			console.log(e.document.getText())
 			if(e.document !== this.doc) {
@@ -94,7 +94,7 @@ class FlowrTracker {
 			await this.updateOutput()
 		})
 	}
-	
+
 	dispose(): void {
 		const provider = getReconstructionContentProvider()
 		const uri = makeUri(docTrackerAuthority, docTrackerSuffix)
@@ -103,17 +103,17 @@ class FlowrTracker {
 		this.decos = undefined
 		this.clearSliceDecos()
 	}
-	
+
 	togglePositions(positions: vscode.Position[]): boolean {
 		// convert positions to offsets
 		let offsets = positions.map(pos => this.normalizeOffset(pos))
 		offsets = offsets.filter(i => i >= 0)
-		
+
 		// return early if no valid offsets
 		if(offsets.length === 0){
 			return false
 		}
-		
+
 		// add offsets that are not yet tracked
 		const toggledOffsets: number[] = []
 		for(const offset of offsets){
@@ -124,20 +124,20 @@ class FlowrTracker {
 				toggledOffsets.push(offset)
 			}
 		}
-		
+
 		// if all offsets are already tracked, toggle them off
 		if(toggledOffsets.length === offsets.length){
 			this.offsets = this.offsets.filter(offset => !toggledOffsets.includes(offset))
 		}
-		
+
 		return true
 	}
-	
+
 	async showReconstruction(): Promise<vscode.TextEditor> {
 		const uri = this.makeUri()
 		return showUri(uri)
 	}
-	
+
 	normalizeOffset(offsetOrPos: number | vscode.Position): number {
 		if(typeof offsetOrPos === 'number'){
 			offsetOrPos = this.doc.positionAt(offsetOrPos)
@@ -148,7 +148,7 @@ class FlowrTracker {
 		}
 		return this.doc.offsetAt(range.start)
 	}
-	
+
 	async updateOutput(): Promise<void> {
 		const provider = getReconstructionContentProvider()
 		this.updateTargetDecos()
@@ -157,12 +157,12 @@ class FlowrTracker {
 		const uri = this.makeUri()
 		provider.updateContents(uri, code)
 	}
-	
+
 	makeUri(): vscode.Uri {
 		const docPath = this.doc.uri.path + ` - ${docTrackerSuffix}`
 		return makeUri(docTrackerAuthority, docPath)
 	}
-	
+
 	updateTargetDecos(): void {
 		const ranges = []
 		for(const offset of this.offsets){
@@ -179,7 +179,7 @@ class FlowrTracker {
 			}
 		}
 	}
-	
+
 	async updateSlices(): Promise<string | undefined> {
 		const session = await getFlowrSession()
 		const positions = this.offsets.map(offset => this.doc.positionAt(offset))
@@ -200,7 +200,7 @@ class FlowrTracker {
 		}
 		return code
 	}
-	
+
 	clearSliceDecos(): void {
 		this.decos?.dispose()
 		this.decos = undefined

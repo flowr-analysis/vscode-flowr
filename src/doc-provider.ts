@@ -8,7 +8,7 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 	listeners: ((e: vscode.Uri) => unknown)[] = []
 
 	contents: Map<string, string> = new Map()
-	
+
 	onDidChange(listener: (e: vscode.Uri) => unknown): vscode.Disposable {
 		this.listeners.push(listener)
 		const dispo = new vscode.Disposable(() => {
@@ -22,7 +22,7 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 			listener(uri)
 		}
 	}
-	
+
 	updateContents(uri: vscode.Uri, content?: string) {
 		if(content !== undefined){
 			this.contents.set(uri.toString(), content)

@@ -113,7 +113,7 @@ export class FlowrInternalSession implements FlowrSession {
 	private async extractSlice(shell: RShell, document: vscode.TextDocument, positions: vscode.Position[]): Promise<SliceReturn> {
 		const filename = document.fileName
 		const content = consolidateNewlines(document.getText())
-		
+
 		const criteria = makeSlicingCriteria(positions, document, isVerbose())
 
 		const slicer = new SteppingSlicer({

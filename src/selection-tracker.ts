@@ -31,13 +31,13 @@ export async function showSelectionSliceInEditor(): Promise<vscode.TextEditor> {
 
 class SelectionSlicer {
 	changeListeners: vscode.Disposable[] = []
-	
+
 	hasDoc: boolean = false
-	
+
 	decos: DecoTypes | undefined
-	
+
 	decoratedEditors: vscode.TextEditor[] = []
-	
+
 	async startTrackSelection(): Promise<void> {
 		await this.update()
 		this.changeListeners.push(
@@ -45,7 +45,7 @@ class SelectionSlicer {
 			vscode.window.onDidChangeActiveTextEditor(() => this.update())
 		)
 	}
-	
+
 	async toggleTrackSelection(): Promise<void> {
 		if(this.changeListeners.length){
 			this.stopTrackSelection()
@@ -53,17 +53,17 @@ class SelectionSlicer {
 			await this.startTrackSelection()
 		}
 	}
-	
+
 	stopTrackSelection(): void {
 		while(this.changeListeners.length){
 			this.changeListeners.pop()?.dispose()
 		}
 	}
-	
+
 	async sliceSelectionOnce(): Promise<void> {
 		await this.update()
 	}
-	
+
 	clearSelectionSlice(): void {
 		this.stopTrackSelection()
 		const provider = getReconstructionContentProvider()
@@ -72,7 +72,7 @@ class SelectionSlicer {
 		this.clearSliceDecos()
 		this.hasDoc = false
 	}
-	
+
 	protected async update(): Promise<void> {
 		const ret = await getSelectionSlice()
 		if(ret === undefined){
@@ -95,7 +95,7 @@ class SelectionSlicer {
 		await displaySlice(ret.editor, ret.sliceElements, this.decos)
 		this.decoratedEditors.push(ret.editor)
 	}
-	
+
 	clearSliceDecos(editor?: vscode.TextEditor, doc?: vscode.TextDocument): void {
 		if(!this.decos){
 			return
@@ -116,7 +116,7 @@ class SelectionSlicer {
 		this.decos?.dispose()
 		this.decos = undefined
 	}
-	
+
 	makeUri(): vscode.Uri {
 		return makeUri(selectionTrackerAuthority, selectionTrackerPath)
 	}
