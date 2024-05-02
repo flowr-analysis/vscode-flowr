@@ -36,18 +36,13 @@
         "category": "flowR"
       },
       {
-        "command": "vscode-flowr.showPositionSliceInEditor",
-        "title": "Show Position Slice in Editor",
-        "category": "flowR"
-      },
-      {
         "command": "vscode-flowr.trackSelection",
         "title": "Toggle Track Selection",
         "category": "flowR"
       },
       {
-        "command": "vscode-flowr.showSelectionSliceInEditor",
-        "title": "Show Selection Slice in Editor",
+        "command": "vscode-flowr.showSliceInEditor",
+        "title": "Show Slice in Editor",
         "category": "flowR"
       },
       {
@@ -66,12 +61,6 @@
         "command": "vscode-flowr.slice.clear",
         "title": "Clear Slice Presentation",
         "icon": "$(refresh)",
-        "category": "flowR"
-      },
-      {
-        "command": "vscode-flowr.slice.cursor-reconstruct",
-        "title": "Slice for Cursor Position (Reconstruct)",
-        "icon": "$(run)",
         "category": "flowR"
       },
       {
@@ -152,6 +141,10 @@
     },
     "menus": {
       "editor/context": [
+        {
+          "command": "vscode-flowr.trackPosition",
+          "when": "resourceLangId == r"
+        },
         {
           "command": "vscode-flowr.slice.cursor",
           "when": "resourceLangId == r"

@@ -5,7 +5,7 @@ import { getConfig } from './extension'
 import type { SliceDisplay } from './settings'
 import { Settings } from './settings'
 import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-tracker'
-import { trackCurrentPos } from './doc-tracker'
+import { docTrackers, trackCurrentPos } from './doc-tracker'
 
 export let selectionSliceDecoration: vscode.TextEditorDecorationType
 export let sliceDecoration: vscode.TextEditorDecorationType
@@ -18,16 +18,12 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
 		getSelectionSlicer().clearSelectionSlice()
 	}))
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor-reconstruct', async() => {
-		await showSelectionSliceInEditor()
-	}))
-	
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackSelection', async() => {
 		await getSelectionSlicer().toggleTrackSelection()
 	}))
 	
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.showSelectionSliceInEditor', async() => {
-		await showSelectionSliceInEditor()
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.showSliceInEditor', async() => {
+		await showReconstructionInEditor()
 	}))
 	
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackPosition', async() => {
@@ -41,6 +37,19 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 		}
 	})
 	context.subscriptions.push(new vscode.Disposable(() => selectionSliceDecoration.dispose()))
+}
+
+async function showReconstructionInEditor(): Promise<vscode.TextEditor | undefined> {
+	const editor = vscode.window.activeTextEditor
+	if(!editor){
+		return
+	}
+	const doc = editor.document
+	const docTracker = docTrackers.get(doc)
+	if(docTracker){
+		return await docTracker.showReconstruction()
+	}
+	return await showSelectionSliceInEditor()
 }
 
 export function clearFlowrDecorations(editor?: vscode.TextEditor, onlySelection: boolean = false): void {

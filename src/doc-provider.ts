@@ -50,6 +50,24 @@ export function makeUri(authority: string, path: string){
 	return uri
 }
 
+export async function showUri(uri: vscode.Uri): Promise<Thenable<vscode.TextEditor>>
+export async function showUri(authority: string, path: string): Promise<Thenable<vscode.TextEditor>>
+export async function showUri(uri: vscode.Uri | string, path?: string): Promise<Thenable<vscode.TextEditor>> {
+	if(typeof uri === 'string'){
+		uri = makeUri(uri, path || '')
+	}
+	for(const editor of vscode.window.visibleTextEditors){
+		if(editor.document.uri.toString() === uri.toString()){
+			return editor
+		}
+	}
+	const doc = await vscode.workspace.openTextDocument(uri)
+	await vscode.languages.setTextDocumentLanguage(doc, 'r')
+	return await vscode.window.showTextDocument(doc, {
+		viewColumn: vscode.ViewColumn.Beside
+	})
+}
+
 let reconstructionContentProvider: ReconstructionContentProvider | undefined
 export function getReconstructionContentProvider(): ReconstructionContentProvider {
 	if(!reconstructionContentProvider) {

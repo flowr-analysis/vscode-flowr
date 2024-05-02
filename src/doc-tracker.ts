@@ -1,14 +1,13 @@
 import * as vscode from 'vscode'
 import { getFlowrSession } from './extension'
-import { makeUri, getReconstructionContentProvider } from './doc-provider'
+import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider'
 import { getPositionAt } from './flowr/utils'
 import type { DecoTypes } from './slice'
 import { displaySlice, makeSliceDecorationTypes } from './slice'
-import * as path from 'path'
 import { getSelectionSlicer } from './selection-tracker'
 
 const docTrackerAuthority = 'doc-tracker'
-const docTrackerPath = 'Slice'
+const docTrackerSuffix = 'Slice'
 
 export const docTrackers: Map<vscode.TextDocument, FlowrTracker> = new Map()
 
@@ -19,11 +18,10 @@ export async function trackCurrentPos(): Promise<void> {
 	}
 	const pos = editor.selection.start
 	await trackPos(pos, editor.document)
-	// await showTrackedSlice()
 }
 
 export async function showTrackedSlice(): Promise<vscode.TextEditor | undefined> {
-	const uri = makeUri(docTrackerAuthority, docTrackerPath)
+	const uri = makeUri(docTrackerAuthority, docTrackerSuffix)
 	for(const editor of vscode.window.visibleTextEditors){
 		if(editor.document.uri.toString() === uri.toString()){
 			return editor
@@ -99,7 +97,7 @@ class FlowrTracker {
 	
 	dispose(): void {
 		const provider = getReconstructionContentProvider()
-		const uri = makeUri(docTrackerAuthority, docTrackerPath)
+		const uri = makeUri(docTrackerAuthority, docTrackerSuffix)
 		provider.updateContents(uri, undefined)
 		this.decos?.dispose()
 		this.decos = undefined
@@ -118,6 +116,11 @@ class FlowrTracker {
 			this.offsets.push(offset)
 		}
 		return true
+	}
+	
+	async showReconstruction(): Promise<vscode.TextEditor> {
+		const uri = this.makeUri()
+		return showUri(uri)
 	}
 	
 	normalizeOffset(offsetOrPos: number | vscode.Position): number {
@@ -141,7 +144,7 @@ class FlowrTracker {
 	}
 	
 	makeUri(): vscode.Uri {
-		const docPath = path.join(this.doc.uri.path, docTrackerPath)
+		const docPath = this.doc.uri.path + ` - ${docTrackerSuffix}`
 		return makeUri(docTrackerAuthority, docPath)
 	}
 	

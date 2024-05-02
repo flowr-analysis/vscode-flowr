@@ -2,7 +2,7 @@
 
 import * as vscode from 'vscode'
 import { getConfig, getFlowrSession } from './extension'
-import { flowrScheme, makeUri, getReconstructionContentProvider } from './doc-provider'
+import { flowrScheme, makeUri, getReconstructionContentProvider, showUri } from './doc-provider'
 import type { SliceReturn } from './flowr/utils'
 import type { DecoTypes } from './slice'
 import { displaySlice, makeSliceDecorationTypes } from './slice'
@@ -10,7 +10,7 @@ import { docTrackers } from './doc-tracker'
 
 
 const selectionTrackerAuthority = 'selection-tracker'
-const selectionTrackerPath = 'Selection'
+const selectionTrackerPath = 'Selection Slice'
 
 
 let selectionTracker: SelectionSlicer | undefined
@@ -25,11 +25,7 @@ export async function showSelectionSliceInEditor(): Promise<vscode.TextEditor> {
 		await slicer.sliceSelectionOnce()
 	}
 	const uri = slicer.makeUri()
-	const doc = await vscode.workspace.openTextDocument(uri)
-	await vscode.languages.setTextDocumentLanguage(doc, 'r')
-	return await vscode.window.showTextDocument(doc, {
-		viewColumn: vscode.ViewColumn.Beside
-	})
+	return await showUri(uri)
 }
 
 
