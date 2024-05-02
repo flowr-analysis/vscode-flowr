@@ -4,8 +4,8 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { getConfig } from './extension'
 import type { SliceDisplay } from './settings'
 import { Settings } from './settings'
-import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-tracker'
-import { docTrackers, trackCurrentPos } from './doc-tracker'
+import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-slicer'
+import { disposeActivePositionSlicer, getActivePositionSlicer, addCurrentPositions } from './position-slicer'
 
 export let selectionSliceDecoration: vscode.TextEditorDecorationType
 export let sliceDecoration: vscode.TextEditorDecorationType
@@ -16,18 +16,18 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 		await getSelectionSlicer().sliceSelectionOnce()
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
-		getSelectionSlicer().clearSelectionSlice()
+		clearSliceOutput()
 	}))
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackSelection', async() => {
-		await getSelectionSlicer().toggleTrackSelection()
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.follow.cursor', async() => {
+		await getSelectionSlicer().toggleFollowSelection()
 	}))
 
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.showSliceInEditor', async() => {
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.show.in.editor', async() => {
 		await showReconstructionInEditor()
 	}))
 
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.trackPosition', async() => {
-		await trackCurrentPos()
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.position', async() => {
+		await addCurrentPositions()
 	}))
 
 	recreateSliceDecorationType()
@@ -40,16 +40,24 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 }
 
 async function showReconstructionInEditor(): Promise<vscode.TextEditor | undefined> {
+	const positionSlicer = getActivePositionSlicer()
+	if(positionSlicer){
+		return await positionSlicer.showReconstruction()
+	}
+	return await showSelectionSliceInEditor()
+}
+
+function clearSliceOutput(): void {
 	const editor = vscode.window.activeTextEditor
 	if(!editor){
 		return
 	}
-	const doc = editor.document
-	const docTracker = docTrackers.get(doc)
-	if(docTracker){
-		return await docTracker.showReconstruction()
+	const clearedPositionSlicer = disposeActivePositionSlicer()
+	if(clearedPositionSlicer){
+		return
 	}
-	return await showSelectionSliceInEditor()
+	const slicer = getSelectionSlicer()
+	slicer.clearSelectionSlice()
 }
 
 export function clearFlowrDecorations(editor?: vscode.TextEditor, onlySelection: boolean = false): void {
@@ -129,7 +137,7 @@ function recreateSliceDecorationType() {
 export interface DecoTypes {
 	lineSlice:  vscode.TextEditorDecorationType
 	tokenSlice: vscode.TextEditorDecorationType
-	trackedPos: vscode.TextEditorDecorationType
+	slicedPos:  vscode.TextEditorDecorationType
 	dispose(): void
 }
 export function makeSliceDecorationTypes(): DecoTypes {
@@ -139,9 +147,8 @@ export function makeSliceDecorationTypes(): DecoTypes {
 		}),
 		tokenSlice: vscode.window.createTextEditorDecorationType({
 			backgroundColor: 'green',
-			borderRadius:    '2px'
 		}),
-		trackedPos: vscode.window.createTextEditorDecorationType({
+		slicedPos: vscode.window.createTextEditorDecorationType({
 			before: {
 				color:           'white',
 				contentText:     '->',
@@ -153,7 +160,7 @@ export function makeSliceDecorationTypes(): DecoTypes {
 		dispose() {
 			this.lineSlice.dispose()
 			this.tokenSlice.dispose()
-			this.trackedPos.dispose()
+			this.slicedPos.dispose()
 		}
 	}
 	return ret

@@ -31,36 +31,36 @@
   "contributes": {
     "commands": [
       {
-        "command": "vscode-flowr.trackPosition",
-        "title": "Toggle Track Position",
-        "category": "flowR"
-      },
-      {
-        "command": "vscode-flowr.trackSelection",
-        "title": "Toggle Track Selection",
-        "category": "flowR"
-      },
-      {
-        "command": "vscode-flowr.showSliceInEditor",
-        "title": "Show Slice in Editor",
-        "category": "flowR"
-      },
-      {
-        "command": "vscode-flowr.dataflow",
-        "title": "Show Dataflow Graph",
-        "icon": "$(graph)",
-        "category": "flowR"
-      },
-      {
         "command": "vscode-flowr.slice.cursor",
         "title": "Slice for Cursor Position",
         "icon": "$(search)",
         "category": "flowR"
       },
       {
+        "command": "vscode-flowr.slice.position",
+        "title": "Toggle Slice at the Current Position",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.slice.follow.cursor",
+        "title": "Toggle Slice Following the Cursor",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.slice.show.in.editor",
+        "title": "Show Current Slice in Editor",
+        "category": "flowR"
+      },
+      {
         "command": "vscode-flowr.slice.clear",
-        "title": "Clear Slice Presentation",
+        "title": "Clear Current Slice Presentation",
         "icon": "$(refresh)",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.dataflow",
+        "title": "Show Dataflow Graph",
+        "icon": "$(graph)",
         "category": "flowR"
       },
       {
@@ -142,7 +142,7 @@
     "menus": {
       "editor/context": [
         {
-          "command": "vscode-flowr.trackPosition",
+          "command": "vscode-flowr.slice.position",
           "when": "resourceLangId == r"
         },
         {
@@ -156,6 +156,11 @@
       ]
     },
     "keybindings": [
+      {
+        "command": "vscode-flowr.slice.position",
+        "key": "alt+p",
+        "when": "resourceLangId == r"
+      },
       {
         "command": "vscode-flowr.slice.cursor",
         "key": "alt+s",

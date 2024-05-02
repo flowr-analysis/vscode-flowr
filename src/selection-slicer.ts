@@ -9,20 +9,20 @@ import { flowrScheme, makeUri, getReconstructionContentProvider, showUri } from 
 import type { SliceReturn } from './flowr/utils'
 import type { DecoTypes } from './slice'
 import { displaySlice, makeSliceDecorationTypes } from './slice'
-import { docTrackers } from './doc-tracker'
+import { docSlicers } from './position-slicer'
 import { Settings } from './settings'
 
 
-const selectionTrackerAuthority = 'selection-tracker'
-const selectionTrackerPath = 'Selection Slice'
+const selectionSlicerAuthority = 'selection-slicer'
+const selectionSlicerPath = 'Selection Slice'
 
 
-// The SelectionSlicer instance
+// Get the active SelectionSlicer instance
 // currently only one instance is used and never disposed
-let selectionTracker: SelectionSlicer | undefined
+let selectionSlicer: SelectionSlicer | undefined
 export function getSelectionSlicer(): SelectionSlicer {
-	selectionTracker ||= new SelectionSlicer()
-	return selectionTracker
+	selectionSlicer ||= new SelectionSlicer()
+	return selectionSlicer
 }
 
 // Show the selection slice in an editor
@@ -47,22 +47,22 @@ class SelectionSlicer {
 	decoratedEditors: vscode.TextEditor[] = []
 
 
-	// Turn on/off tracking of the cursor
-	async startTrackSelection(): Promise<void> {
+	// Turn on/off following of the cursor
+	async startFollowSelection(): Promise<void> {
 		await this.update()
 		this.changeListeners.push(
 			vscode.window.onDidChangeTextEditorSelection(() => this.update()),
 			vscode.window.onDidChangeActiveTextEditor(() => this.update())
 		)
 	}
-	async toggleTrackSelection(): Promise<void> {
+	async toggleFollowSelection(): Promise<void> {
 		if(this.changeListeners.length){
-			this.stopTrackSelection()
+			this.stopFollowSelection()
 		} else {
-			await this.startTrackSelection()
+			await this.startFollowSelection()
 		}
 	}
-	stopTrackSelection(): void {
+	stopFollowSelection(): void {
 		while(this.changeListeners.length){
 			this.changeListeners.pop()?.dispose()
 		}
@@ -73,9 +73,9 @@ class SelectionSlicer {
 		await this.update()
 	}
 
-	// Stop tracking the cursor and clear the selection slice
+	// Stop following the cursor and clear the selection slice output
 	clearSelectionSlice(): void {
-		this.stopTrackSelection()
+		this.stopFollowSelection()
 		const provider = getReconstructionContentProvider()
 		const uri = this.makeUri()
 		provider.updateContents(uri, '')
@@ -84,7 +84,7 @@ class SelectionSlicer {
 	}
 
 	makeUri(): vscode.Uri {
-		return makeUri(selectionTrackerAuthority, selectionTrackerPath)
+		return makeUri(selectionSlicerAuthority, selectionSlicerPath)
 	}
 
 	// Clear all slice decos or only the ones affecting a specific editor/document
@@ -125,7 +125,7 @@ class SelectionSlicer {
 			if(editor === ret.editor){
 				continue
 			}
-			if(clearOtherDecos || docTrackers.has(editor.document)){
+			if(clearOtherDecos || docSlicers.has(editor.document)){
 				this.clearSliceDecos(editor)
 			}
 		}
@@ -152,7 +152,7 @@ async function getSelectionSlice(): Promise<SelectionSliceReturn | undefined> {
 	if(editor.document.languageId.toLowerCase() !== 'r'){
 		return undefined
 	}
-	if(docTrackers.has(editor.document)){
+	if(docSlicers.has(editor.document)){
 		return undefined
 	}
 	const positions = editor.selections.map(sel => sel.active)

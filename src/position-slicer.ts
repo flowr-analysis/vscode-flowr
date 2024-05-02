@@ -1,6 +1,6 @@
 
 // Contains the class and some functions that are used to track positions in a document
-// and display ther slices
+// and display their slices
 
 import * as vscode from 'vscode'
 import { getFlowrSession } from './extension'
@@ -8,55 +8,76 @@ import { makeUri, getReconstructionContentProvider, showUri } from './doc-provid
 import { getPositionAt } from './flowr/utils'
 import type { DecoTypes } from './slice'
 import { displaySlice, makeSliceDecorationTypes } from './slice'
-import { getSelectionSlicer } from './selection-tracker'
+import { getSelectionSlicer } from './selection-slicer'
 
-const docTrackerAuthority = 'doc-tracker'
-const docTrackerSuffix = 'Slice'
+const positionSlicerAuthority = 'doc-slicer'
+const positionSlicerSuffix = 'Slice'
 
-// A map of all active position trackers
-// Trackers are removed when they have no more tracked positions
-export const docTrackers: Map<vscode.TextDocument, PositionTracker> = new Map()
+// A map of all active position slicers
+// Slicers are removed when they have no more tracked positions
+export const docSlicers: Map<vscode.TextDocument, PositionSlicer> = new Map()
 
 
-// Track the current cursor position(s) in the active editor
-export async function trackCurrentPos(): Promise<void> {
+// Add the current cursor position(s) in the active editor to the list of slice criteria
+export async function addCurrentPositions(): Promise<void> {
 	const editor = vscode.window.activeTextEditor
 	if(!editor){
 		return
 	}
 	const positions = editor.selections.map(sel => sel.start)
-	await trackPositions(positions, editor.document)
+	await addPositions(positions, editor.document)
 }
 
 
-// Track a list of positions in a document
-export async function trackPositions(positions: vscode.Position[], doc: vscode.TextDocument): Promise<PositionTracker | undefined> {
-	// Get or create a tracker for the document
-	const flowrTracker = docTrackers.get(doc) || new PositionTracker(doc)
-	if(!docTrackers.has(doc)){
-		docTrackers.set(doc, flowrTracker)
+// Get the position slicer for the active doc, if any
+export function getActivePositionSlicer(): PositionSlicer | undefined {
+	const editor = vscode.window.activeTextEditor
+	if(!editor){
+		return undefined
+	}
+	const doc = editor.document
+	return docSlicers.get(doc)
+}
+// If the active document has a position slicer, dispose it and return true, else false
+export function disposeActivePositionSlicer(): boolean {
+	const slicer = getActivePositionSlicer()
+	if(!slicer){
+		return false
+	}
+	slicer.dispose()
+	docSlicers.delete(slicer.doc)
+	return true
+}
+
+
+// Add a list of positions in a document to the slice criteria
+export async function addPositions(positions: vscode.Position[], doc: vscode.TextDocument): Promise<PositionSlicer | undefined> {
+	// Get or create a slicer for the document
+	const flowrSlicer = docSlicers.get(doc) || new PositionSlicer(doc)
+	if(!docSlicers.has(doc)){
+		docSlicers.set(doc, flowrSlicer)
 	}
 	
 	// Try to toggle the indicated positions
-	const ret = flowrTracker.togglePositions(positions)
+	const ret = flowrSlicer.togglePositions(positions)
 	if(ret){
 		// Update the output if any positions were toggled
-		await flowrTracker.updateOutput()
+		await flowrSlicer.updateOutput()
 	}
 
-	if(flowrTracker.offsets.length === 0){
-		// Dispose the tracker if no positions are tracked (anymore)
-		flowrTracker.dispose()
-		docTrackers.delete(doc)
+	if(flowrSlicer.offsets.length === 0){
+		// Dispose the slicer if no positions are sliced (anymore)
+		flowrSlicer.dispose()
+		docSlicers.delete(doc)
 		return undefined
 	} else {
-		// If the tracker is active, make sure there are no selection-slice decorations in its editors
+		// If the slicer is active, make sure there are no selection-slice decorations in its editors
 		getSelectionSlicer().clearSliceDecos(undefined, doc)
 	}
-	return flowrTracker
+	return flowrSlicer
 }
 
-class PositionTracker {
+export class PositionSlicer {
 	listeners: ((e: vscode.Uri) => unknown)[] = []
 
 	doc: vscode.TextDocument
@@ -70,7 +91,7 @@ class PositionTracker {
 	constructor(doc: vscode.TextDocument){
 		this.doc = doc
 		
-		this.positionDeco = makeSliceDecorationTypes().trackedPos
+		this.positionDeco = makeSliceDecorationTypes().slicedPos
 		
 		vscode.workspace.onDidChangeTextDocument(async(e) => {
 			await this.onDocChange(e)
@@ -80,7 +101,7 @@ class PositionTracker {
 	dispose(): void {
 		// Clear the content provider, decorations and tracked positions
 		const provider = getReconstructionContentProvider()
-		const uri = makeUri(docTrackerAuthority, docTrackerSuffix)
+		const uri = makeUri(positionSlicerAuthority, positionSlicerSuffix)
 		provider.updateContents(uri, undefined)
 		this.positionDeco?.dispose()
 		this.sliceDecos?.dispose()
@@ -128,8 +149,8 @@ class PositionTracker {
 	}
 
 	makeUri(): vscode.Uri {
-		const docPath = this.doc.uri.path + ` - ${docTrackerSuffix}`
-		return makeUri(docTrackerAuthority, docPath)
+		const docPath = this.doc.uri.path + ` - ${positionSlicerSuffix}`
+		return makeUri(positionSlicerAuthority, docPath)
 	}
 
 	protected async onDocChange(e: vscode.TextDocumentChangeEvent): Promise<void> {
@@ -141,7 +162,7 @@ class PositionTracker {
 			return
 		}
 
-		// Compute new tracked offsets after the changes
+		// Compute new offsets after the changes
 		const newOffsets: number[] = [	]
 		for(let offset of this.offsets) {
 			for(const cc of e.contentChanges) {
@@ -177,7 +198,7 @@ class PositionTracker {
 	}
 
 	protected updateTargetDecos(): void {
-		// Update the decorations in the editors that show the tracked positions
+		// Update the decorations in the relevant editors
 		const ranges = []
 		for(const offset of this.offsets){
 			const pos = this.doc.positionAt(offset)
