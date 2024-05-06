@@ -19,18 +19,24 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerDiagramCommands(context)
 	registerSliceCommands(context)
 
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', async() => {
-		await establishServerSession()
-	}))
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.disconnect', () => {
-		if(flowrSession instanceof FlowrServerSession) {
-			destroySession()
-		}
-	}))
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-flowr.session.connect', async() => {
+			await establishServerSession()
+		})
+	)
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-flowr.session.disconnect', () => {
+			if(flowrSession instanceof FlowrServerSession) {
+				destroySession()
+			}
+		})
+	)
 
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.report', () => {
-		void vscode.env.openExternal(vscode.Uri.parse('https://github.com/Code-Inspect/flowr/issues/new/choose'))
-	}))
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-flowr.report', () => {
+			void vscode.env.openExternal(vscode.Uri.parse('https://github.com/Code-Inspect/flowr/issues/new/choose'))
+		})
+	)
 
 	flowrStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
 	context.subscriptions.push(flowrStatus)
@@ -61,7 +67,7 @@ export async function establishInternalSession() {
 	return flowrSession
 }
 export async function getFlowrSession() {
-	if(flowrSession){
+	if(flowrSession) {
 		return flowrSession
 	}
 	return await establishInternalSession()
@@ -83,13 +89,14 @@ export function updateStatusBar() {
 	if(flowrSession instanceof FlowrServerSession) {
 		flowrStatus.show()
 		flowrStatus.text = `$(cloud) flowR server ${flowrSession.state}`
-		flowrStatus.tooltip = flowrSession.state === 'connected' ?
-			`R version ${flowrSession.rVersion}\nflowR version ${flowrSession.flowrVersion}` : undefined
+		flowrStatus.tooltip =
+			flowrSession.state === 'connected'
+				? `R version ${flowrSession.rVersion}\nflowR version ${flowrSession.flowrVersion}`
+				: undefined
 	} else if(flowrSession instanceof FlowrInternalSession) {
 		flowrStatus.show()
 		flowrStatus.text = `$(console) flowR shell ${flowrSession.state}`
-		flowrStatus.tooltip = flowrSession.state === 'active' ?
-			`R version ${flowrSession.rVersion}` : undefined
+		flowrStatus.tooltip = flowrSession.state === 'active' ? `R version ${flowrSession.rVersion}` : undefined
 	} else {
 		flowrStatus.hide()
 	}
