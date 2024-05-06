@@ -11,5 +11,8 @@
     // run eslint when saving to format
     "eslint.format.enable": true,
     "editor.formatOnSave": true,
-    "eslint.enable": true
+    "eslint.enable": true,
+    "[typescript]": {
+        "editor.defaultFormatter": "dbaeumer.vscode-eslint"
+    },
 }
