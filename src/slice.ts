@@ -65,7 +65,6 @@ export async function displaySlice(editor: vscode.TextEditor, sliceElements: { i
 			const ranges = []
 			for(const el of sliceElements){
 				const range = new vscode.Range(el.location.start.line - 1, el.location.start.column - 1, el.location.end.line - 1, el.location.end.column)
-				console.log(editor.document.getText(range))
 				ranges.push(range)
 			}
 			editor.setDecorations(decos.tokenSlice, ranges)
@@ -105,21 +104,22 @@ export interface DecoTypes {
 	dispose(): void
 }
 export function makeSliceDecorationTypes(): DecoTypes {
+	const config = getConfig()
+	const tokenColor = config.get<string>('style.tokenBackgroundColor', 'green')
 	const ret: DecoTypes = {
 		lineSlice: vscode.window.createTextEditorDecorationType({
-			opacity: getConfig().get<number>(Settings.StyleSliceOpacity)?.toString()
+			opacity: config.get<number>(Settings.StyleSliceOpacity)?.toString()
 		}),
 		tokenSlice: vscode.window.createTextEditorDecorationType({
-			backgroundColor: 'green',
+			backgroundColor: `${tokenColor}`,
 		}),
 		slicedPos: vscode.window.createTextEditorDecorationType({
 			before: {
-				color:           'white',
-				contentText:     '->',
-				backgroundColor: 'green',
-				border:          '2px solid green',
+				contentText:     '\u2192',
+				backgroundColor: `${tokenColor}`,
+				border:          `2px solid ${tokenColor}`,
 			},
-			border: '2px solid green',
+			border: `2px solid ${tokenColor}`,
 		}),
 		dispose() {
 			this.lineSlice.dispose()

@@ -127,6 +127,11 @@
           ],
           "markdownDescription": "The way that slices should be displayed."
         },
+        "vscode-flowr.style.tokenBackgroundColor": {
+          "type": "string",
+          "default": "rgba(0, 127, 0, 0.5)",
+          "markdownDescription": "The background color for highlighted tokens. This can be any valid CSS color, e.g. `#ff0000`, `rgb(255, 0, 0)`,`rgba(0, 127, 0, 0.5)`, `green`. Theme colors can be used as described [here](https://code.visualstudio.com/api/extension-guides/webview#theming-webview-content), e.g. `var(--vscode-editor-selectionBackground)`."
+        },
         "vscode-flowr.style.onlyHighlightActiveSelection": {
           "type": "boolean",
           "default": false,
