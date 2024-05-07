@@ -1,3 +1,6 @@
+# Version 0.2.0 (2024-05-07)
+- Allow slicing for multiple cursors, automatic updates of the slice based on the selection, placement of markers and improved preview of reconstructed slice, all thanks to @ManuelHentschel in [#81](https://github.com/Code-Inspect/vscode-flowr/pull/81)!
+
 # Version 0.1.1 (2024-04-13)
 - Fixed dataflow display not taking up its max width correctly
 
