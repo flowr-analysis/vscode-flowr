@@ -48,7 +48,7 @@
       },
       {
         "command": "vscode-flowr.slice.show.in.editor",
-        "title": "Show Current Slice in Editor",
+        "title": "Show Current Slice in Editor (Reconstruct)",
         "category": "flowR"
       },
       {
