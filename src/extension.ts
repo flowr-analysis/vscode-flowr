@@ -19,18 +19,19 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerDiagramCommands(context)
 	registerSliceCommands(context)
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand('vscode-flowr.session.connect', async() => {
-			await establishServerSession()
-		})
-	)
-	context.subscriptions.push(
-		vscode.commands.registerCommand('vscode-flowr.session.disconnect', () => {
-			if(flowrSession instanceof FlowrServerSession) {
-				destroySession()
-			}
-		})
-	)
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.internal', async() => {
+		await establishInternalSession()
+		return flowrSession
+	}))
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', async() => {
+		await establishServerSession()
+		return flowrSession
+	}))
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.disconnect', () => {
+		if(flowrSession instanceof FlowrServerSession) {
+			destroySession()
+		}
+	}))
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vscode-flowr.report', () => {

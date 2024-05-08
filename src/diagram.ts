@@ -7,7 +7,7 @@ export function registerDiagramCommands(context: vscode.ExtensionContext) {
 		if(activeEditor) {
 			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document)
 			if(mermaid) {
-				createWebview('flowr-dataflow', 'Dataflow Graph', mermaid)
+				return { mermaid, webview: createWebview('flowr-dataflow', 'Dataflow Graph', mermaid) }
 			}
 		}
 	}))

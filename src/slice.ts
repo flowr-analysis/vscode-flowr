@@ -9,7 +9,7 @@ import { disposeActivePositionSlicer, getActivePositionSlicer, addCurrentPositio
 
 export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
-		await getSelectionSlicer().sliceSelectionOnce()
+		return await getSelectionSlicer().sliceSelectionOnce()
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
 		clearSliceOutput()
@@ -19,7 +19,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 	}))
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.show.in.editor', async() => {
-		await showReconstructionInEditor()
+		return await showReconstructionInEditor()
 	}))
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.position', async() => {

@@ -69,8 +69,8 @@ class SelectionSlicer {
 	}
 
 	// Slice once at the current cursor position
-	async sliceSelectionOnce(): Promise<void> {
-		await this.update()
+	async sliceSelectionOnce(): Promise<string> {
+		return await this.update()
 	}
 
 	// Stop following the cursor and clear the selection slice output
@@ -111,10 +111,10 @@ class SelectionSlicer {
 		this.decos = undefined
 	}
 
-	protected async update(): Promise<void> {
+	protected async update(): Promise<string> {
 		const ret = await getSelectionSlice()
 		if(ret === undefined){
-			return
+			return ''
 		}
 		const provider = getReconstructionContentProvider()
 		const uri = this.makeUri()
@@ -132,6 +132,7 @@ class SelectionSlicer {
 		this.decos ||= makeSliceDecorationTypes()
 		await displaySlice(ret.editor, ret.sliceElements, this.decos)
 		this.decoratedEditors.push(ret.editor)
+		return ret.code
 	}
 }
 

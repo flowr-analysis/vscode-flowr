@@ -76,6 +76,12 @@
         "category": "flowR"
       },
       {
+        "command": "vscode-flowr.session.internal",
+        "title": "Start Local flowR Shell",
+        "icon": "$(terminal)",
+        "category": "flowR"
+      },
+      {
         "command": "vscode-flowr.session.connect",
         "title": "Connect to flowR Server",
         "icon": "$(server)",
