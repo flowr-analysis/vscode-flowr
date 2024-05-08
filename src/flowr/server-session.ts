@@ -10,6 +10,8 @@ import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from 
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr-cli/repl/server/messages/hello'
 import { Settings } from '../settings'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
+import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg'
+import { cfgToMermaid, normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid'
 import type { FlowrSession, SliceReturn } from './utils'
 import { consolidateNewlines, makeSliceElements, makeSlicingCriteria } from './utils'
 
@@ -121,8 +123,17 @@ export class FlowrServerSession implements FlowrSession {
 		return dataflowGraphToMermaid(response.results.dataflow, response.results.normalize.idMap)
 	}
 
-	async retrieveSlice(positions: vscode.Position[], document: vscode.TextDocument): Promise<SliceReturn> {
+	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
+		const response = await this.requestFileAnalysis(document)
+		return normalizedAstToMermaid(response.results.normalize.ast)
+	}
 
+	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
+		const response = await this.requestFileAnalysis(document)
+		return cfgToMermaid(extractCFG(response.results.normalize), response.results.normalize)
+	}
+
+	async retrieveSlice(positions: vscode.Position[], document: vscode.TextDocument): Promise<SliceReturn> {
 		const criteria = makeSlicingCriteria(positions, document, isVerbose())
 
 		const response = await this.requestFileAnalysis(document)

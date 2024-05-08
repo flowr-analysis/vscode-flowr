@@ -4,6 +4,8 @@ import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutic
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, isVerbose, updateStatusBar } from '../extension'
 import { Settings } from '../settings'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
+import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg'
+import { cfgToMermaid, normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid'
 import type { FlowrSession, SliceReturn } from './utils'
 import { consolidateNewlines, makeSliceElements, makeSlicingCriteria } from './utils'
 
@@ -36,6 +38,7 @@ export class FlowrInternalSession implements FlowrSession {
 		if(executable !== undefined && executable.length > 0) {
 			options = { ...options, pathToRExecutable: executable }
 		}
+		this.outputChannel.appendLine(`Using options ${JSON.stringify(options)}`)
 
 		this.shell = new RShell(options)
 		this.shell.tryToInjectHomeLibPath()
@@ -108,6 +111,30 @@ export class FlowrInternalSession implements FlowrSession {
 			request:        requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
 		return dataflowGraphToMermaid(result.dataflow, result.normalize.idMap)
+	}
+
+	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
+		if(!this.shell) {
+			return ''
+		}
+		const result = await new SteppingSlicer({
+			stepOfInterest: 'normalize',
+			shell:          this.shell,
+			request:        requestFromInput(consolidateNewlines(document.getText()))
+		}).allRemainingSteps()
+		return normalizedAstToMermaid(result.normalize.ast)
+	}
+
+	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
+		if(!this.shell) {
+			return ''
+		}
+		const result = await new SteppingSlicer({
+			stepOfInterest: 'normalize',
+			shell:          this.shell,
+			request:        requestFromInput(consolidateNewlines(document.getText()))
+		}).allRemainingSteps()
+		return cfgToMermaid(extractCFG(result.normalize), result.normalize)
 	}
 
 	private async extractSlice(shell: RShell, document: vscode.TextDocument, positions: vscode.Position[]): Promise<SliceReturn> {

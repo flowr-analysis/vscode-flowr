@@ -19,6 +19,8 @@ export interface FlowrSession {
 		showErrorMessage?: boolean
 	) => Promise<SliceReturn>
 	retrieveDataflowMermaid: (document: vscode.TextDocument) => Promise<string>
+	retrieveAstMermaid:      (document: vscode.TextDocument) => Promise<string>
+	retrieveCfgMermaid:      (document: vscode.TextDocument) => Promise<string>
 }
 
 export function getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {
