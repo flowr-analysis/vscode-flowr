@@ -14,7 +14,7 @@
     "email": "florian.sihler@uni-ulm.de"
   },
   "license": "GPL-3.0",
-  "version": "0.1.1",
+  "version": "0.2.1",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -26,22 +26,10 @@
     "flowR",
     "R"
   ],
-  "activationEvents": [
-    "onLanguage:r",
-    "onLanguage:debian-control.r",
-    "onLanguage:namespace.r",
-    "onLanguage:buildignore.r",
-    "workspaceContains:**/*.{r,R}"
-  ],
+  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "vscode-flowr.dataflow",
-        "title": "Show Dataflow Graph",
-        "icon": "$(graph)",
-        "category": "flowR"
-      },
       {
         "command": "vscode-flowr.ast",
         "title": "Show AST",
@@ -61,15 +49,30 @@
         "category": "flowR"
       },
       {
+        "command": "vscode-flowr.slice.position",
+        "title": "Toggle Continuous Slice at Current Position",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.slice.follow.cursor",
+        "title": "Toggle Continuous Slice at Cursor",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.slice.show.in.editor",
+        "title": "Show Current Slice in Editor (Reconstruct)",
+        "category": "flowR"
+      },
+      {
         "command": "vscode-flowr.slice.clear",
-        "title": "Clear Slice Presentation",
+        "title": "Clear Current Slice Presentation",
         "icon": "$(refresh)",
         "category": "flowR"
       },
       {
-        "command": "vscode-flowr.slice.cursor-reconstruct",
-        "title": "Slice for Cursor Position (Reconstruct)",
-        "icon": "$(run)",
+        "command": "vscode-flowr.dataflow",
+        "title": "Show Dataflow Graph",
+        "icon": "$(graph)",
         "category": "flowR"
       },
       {
@@ -126,13 +129,25 @@
           "default": "text",
           "enum": [
             "text",
-            "diff"
+            "diff",
+            "tokens"
           ],
           "enumDescriptions": [
             "Code that isn't part of the current slice will be grayed out in the active editor.",
-            "Open a diff view that shows the current slice and the rest of the file."
+            "Open a diff view that shows the current slice and the rest of the file.",
+            "Highlight the tokens that are part of the current slice."
           ],
           "markdownDescription": "The way that slices should be displayed."
+        },
+        "vscode-flowr.style.tokenBackgroundColor": {
+          "type": "string",
+          "default": "rgba(0, 127, 0, 0.5)",
+          "markdownDescription": "The background color for highlighted tokens. This can be any valid CSS color, e.g. `#ff0000`, `rgb(255, 0, 0)`,`rgba(0, 127, 0, 0.5)`, `green`. Theme colors can be used as described [here](https://code.visualstudio.com/api/extension-guides/webview#theming-webview-content), e.g. `var(--vscode-editor-selectionBackground)`."
+        },
+        "vscode-flowr.style.onlyHighlightActiveSelection": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Whether to only highlight the selection in the active editor."
         },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
@@ -144,6 +159,10 @@
     "menus": {
       "editor/context": [
         {
+          "command": "vscode-flowr.slice.position",
+          "when": "resourceLangId == r"
+        },
+        {
           "command": "vscode-flowr.slice.cursor",
           "when": "resourceLangId == r"
         },
@@ -154,6 +173,11 @@
       ]
     },
     "keybindings": [
+      {
+        "command": "vscode-flowr.slice.position",
+        "key": "alt+p",
+        "when": "resourceLangId == r"
+      },
       {
         "command": "vscode-flowr.slice.cursor",
         "key": "alt+s",
@@ -172,7 +196,8 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse"
   },
   "dependencies": {
     "@eagleoutice/flowr": "^1.5.2",

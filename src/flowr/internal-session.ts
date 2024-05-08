@@ -1,16 +1,15 @@
 import * as vscode from 'vscode'
-import type { NodeId, RShellOptions, SingleSlicingCriterion } from '@eagleoutice/flowr'
+import type { RShellOptions } from '@eagleoutice/flowr'
 import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
-import type { SourceRange } from '@eagleoutice/flowr/util/range'
-import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, isVerbose, updateStatusBar } from '../extension'
 import { Settings } from '../settings'
-import { displaySlice } from '../slice'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
 import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg'
 import { cfgToMermaid, normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid'
+import type { FlowrSession, SliceReturn } from './utils'
+import { consolidateNewlines, makeSliceElements, makeSlicingCriteria } from './utils'
 
-export class FlowrInternalSession {
+export class FlowrInternalSession implements FlowrSession {
 
 	public state:    'inactive' | 'loading' | 'active' | 'failure'
 	public rVersion: string | undefined
@@ -80,70 +79,72 @@ export class FlowrInternalSession {
 		this.shell?.close()
 	}
 
-	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, display: boolean): Promise<string> {
+	async retrieveSlice(positions: vscode.Position[], document: vscode.TextDocument, showErrorMessage: boolean = true): Promise<SliceReturn> {
 		if(!this.shell) {
-			return ''
+			return {
+				code:          '',
+				sliceElements: []
+			}
 		}
 		try {
-			return await this.extractSlice(this.shell, editor, pos, display)
+			return await this.extractSlice(this.shell, document, positions)
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l))
-			void vscode.window.showErrorMessage(`There was an error while extracting a slice: ${(e as Error)?.message}. See the flowR output for more information.`)
-			return ''
+			if(showErrorMessage){
+				void vscode.window.showErrorMessage(`There was an error while extracting a slice: ${(e as Error)?.message}. See the flowR output for more information.`)
+			}
+			return {
+				code:          '',
+				sliceElements: []
+			}
 		}
 	}
 
-	async retrieveDataflowMermaid(editor: vscode.TextEditor): Promise<string> {
+	async retrieveDataflowMermaid(document: vscode.TextDocument): Promise<string> {
 		if(!this.shell) {
 			return ''
 		}
 		const result = await new SteppingSlicer({
 			stepOfInterest: 'dataflow',
 			shell:          this.shell,
-			request:        requestFromInput(FlowrInternalSession.consolidateNewlines(editor.document.getText()))
+			request:        requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
 		return dataflowGraphToMermaid(result.dataflow, result.normalize.idMap)
 	}
 
-	async retrieveAstMermaid(editor: vscode.TextEditor): Promise<string> {
+	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
 		if(!this.shell) {
 			return ''
 		}
 		const result = await new SteppingSlicer({
 			stepOfInterest: 'normalize',
 			shell:          this.shell,
-			request:        requestFromInput(FlowrInternalSession.consolidateNewlines(editor.document.getText()))
+			request:        requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
 		return normalizedAstToMermaid(result.normalize.ast)
 	}
 
-	async retrieveCfgMermaid(editor: vscode.TextEditor): Promise<string> {
+	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
 		if(!this.shell) {
 			return ''
 		}
 		const result = await new SteppingSlicer({
 			stepOfInterest: 'normalize',
 			shell:          this.shell,
-			request:        requestFromInput(FlowrInternalSession.consolidateNewlines(editor.document.getText()))
+			request:        requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
 		return cfgToMermaid(extractCFG(result.normalize), result.normalize)
 	}
 
-	private async extractSlice(shell: RShell, editor: vscode.TextEditor, pos: vscode.Position, display: boolean): Promise<string> {
-		const filename = editor.document.fileName
-		const content = FlowrInternalSession.consolidateNewlines(editor.document.getText())
+	private async extractSlice(shell: RShell, document: vscode.TextDocument, positions: vscode.Position[]): Promise<SliceReturn> {
+		const filename = document.fileName
+		const content = consolidateNewlines(document.getText())
 
-		const range = FlowrInternalSession.getPositionAt(pos, editor.document)
-		pos = range?.start ?? pos
-
-		if(isVerbose()) {
-			this.outputChannel.appendLine(`Extracting slice at ${pos.line + 1}:${pos.character + 1} in ${filename}`)
-			this.outputChannel.appendLine(`Token: ${editor.document.getText(range)}`)
-		}
+		const criteria = makeSlicingCriteria(positions, document, isVerbose())
 
 		const slicer = new SteppingSlicer({
-			criterion:      [FlowrInternalSession.toSlicingCriterion(pos)],
+			criterion:      criteria,
 			filename,
 			shell,
 			request:        requestFromInput(content),
@@ -151,35 +152,14 @@ export class FlowrInternalSession {
 		})
 		const result = await slicer.allRemainingSteps()
 
-		// we should be more robust here
-		const sliceElements = [...result.slice.result]
-			.map(id => ({ id, location: result.normalize.idMap.get(id)?.location }))
-			.filter(e => isNotUndefined(e.location)) as { id: NodeId, location: SourceRange }[]
-		// sort by start
-		sliceElements.sort((a: { location: SourceRange }, b: { location: SourceRange }) => {
-			return a.location.start.line - b.location.start.line || a.location.start.column - b.location.start.column
-		})
+		const sliceElements = makeSliceElements(result.slice.result, id => result.normalize.idMap.get(id)?.location)
 
-		if(display) {
-			void displaySlice(editor, sliceElements)
-		}
 		if(isVerbose()) {
 			this.outputChannel.appendLine('slice: ' + JSON.stringify([...result.slice.result]))
 		}
-		return result.reconstruct.code
-	}
-
-	public static getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {
-		const re = /([a-zA-Z0-9._:])+/
-		const wordRange = document.getWordRangeAtPosition(position, re)
-		return wordRange
-	}
-
-	public static consolidateNewlines(text: string) {
-		return text.replace(/\r\n/g, '\n')
-	}
-
-	public static toSlicingCriterion(pos: vscode.Position): SingleSlicingCriterion {
-		return `${pos.line + 1}:${pos.character + 1}`
+		return {
+			code: result.reconstruct.code,
+			sliceElements
+		}
 	}
 }

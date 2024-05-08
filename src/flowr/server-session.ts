@@ -6,17 +6,16 @@ import type { SliceResponseMessage } from '@eagleoutice/flowr-cli/repl/server/me
 import type { NodeId } from '@eagleoutice/flowr'
 import { visitAst } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
-import { isNotUndefined } from '@eagleoutice/flowr/util/assert'
-import { FlowrInternalSession } from './internal-session'
 import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from '../extension'
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr-cli/repl/server/messages/hello'
 import { Settings } from '../settings'
-import { displaySlice } from '../slice'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
 import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg'
 import { cfgToMermaid, normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid'
+import type { FlowrSession, SliceReturn } from './utils'
+import { consolidateNewlines, makeSliceElements, makeSlicingCriteria } from './utils'
 
-export class FlowrServerSession {
+export class FlowrServerSession implements FlowrSession {
 
 	public state:        'inactive' | 'connecting' | 'connected' | 'not connected'
 	public flowrVersion: string | undefined
@@ -119,27 +118,25 @@ export class FlowrServerSession {
 		})
 	}
 
-	async retrieveDataflowMermaid(editor: vscode.TextEditor): Promise<string> {
-		const response = await this.requestFileAnalysis(editor)
+	async retrieveDataflowMermaid(document: vscode.TextDocument): Promise<string> {
+		const response = await this.requestFileAnalysis(document)
 		return dataflowGraphToMermaid(response.results.dataflow, response.results.normalize.idMap)
 	}
 
-	async retrieveAstMermaid(editor: vscode.TextEditor): Promise<string> {
-		const response = await this.requestFileAnalysis(editor)
+	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
+		const response = await this.requestFileAnalysis(document)
 		return normalizedAstToMermaid(response.results.normalize.ast)
 	}
 
-	async retrieveCfgMermaid(editor: vscode.TextEditor): Promise<string> {
-		const response = await this.requestFileAnalysis(editor)
+	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
+		const response = await this.requestFileAnalysis(document)
 		return cfgToMermaid(extractCFG(response.results.normalize), response.results.normalize)
 	}
 
-	async retrieveSlice(pos: vscode.Position, editor: vscode.TextEditor, display: boolean): Promise<string> {
-		const range = FlowrInternalSession.getPositionAt(pos, editor.document)
-		pos = range?.start ?? pos
+	async retrieveSlice(positions: vscode.Position[], document: vscode.TextDocument): Promise<SliceReturn> {
+		const criteria = makeSlicingCriteria(positions, document, isVerbose())
 
-		const response = await this.requestFileAnalysis(editor)
-
+		const response = await this.requestFileAnalysis(document)
 		// now we want to collect all ids from response in a map again (id -> location)
 		const idToLocation = new Map<NodeId, SourceRange>()
 		visitAst(response.results.normalize.ast, n => {
@@ -152,32 +149,28 @@ export class FlowrServerSession {
 			'type':      'request-slice',
 			'id':        String(this.idCounter++),
 			'filetoken': '@tmp',
-			'criterion': [FlowrInternalSession.toSlicingCriterion(pos)]
-		})
-		const sliceElements = [...sliceResponse.results.slice.result].map(id => ({ id, location: idToLocation.get(id) }))
-			.filter(e => isNotUndefined(e.location)) as { id: NodeId, location: SourceRange; }[]
-		// sort by start
-		sliceElements.sort((a: { location: SourceRange; }, b: { location: SourceRange; }) => {
-			return a.location.start.line - b.location.start.line || a.location.start.column - b.location.start.column
+			'criterion': criteria
 		})
 
-		if(display) {
-			void displaySlice(editor, sliceElements)
-		}
+		const sliceElements = makeSliceElements(sliceResponse.results.slice.result, id => idToLocation.get(id))
+
 		if(isVerbose()) {
 			this.outputChannel.appendLine('slice: ' + JSON.stringify([...sliceResponse.results.slice.result]))
 		}
-		return sliceResponse.results.reconstruct.code
+		return {
+			code: sliceResponse.results.reconstruct.code,
+			sliceElements
+		}
 	}
 
-	private async requestFileAnalysis(editor: vscode.TextEditor): Promise<FileAnalysisResponseMessageJson> {
+	private async requestFileAnalysis(document: vscode.TextDocument): Promise<FileAnalysisResponseMessageJson> {
 		return await this.sendCommandWithResponse<FileAnalysisResponseMessageJson>({
 			type:      'request-file-analysis',
 			id:        String(this.idCounter++),
-			filename:  editor.document.fileName,
+			filename:  document.fileName,
 			format:    'json',
 			filetoken: '@tmp',
-			content:   FlowrInternalSession.consolidateNewlines(editor.document.getText())
+			content:   consolidateNewlines(document.getText())
 		})
 	}
 }

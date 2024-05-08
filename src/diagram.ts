@@ -1,14 +1,11 @@
 import * as vscode from 'vscode'
-import { establishInternalSession, flowrSession } from './extension'
+import { getFlowrSession } from './extension'
 
 export function registerDiagramCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dataflow', async() => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor) {
-			if(!flowrSession) {
-				await establishInternalSession()
-			}
-			const mermaid = await flowrSession?.retrieveDataflowMermaid(activeEditor)
+			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document)
 			if(mermaid) {
 				createWebview('flowr-dataflow', 'Dataflow Graph', mermaid)
 			}
@@ -17,10 +14,7 @@ export function registerDiagramCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.ast', async() => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor) {
-			if(!flowrSession) {
-				await establishInternalSession()
-			}
-			const ast = await flowrSession?.retrieveAstMermaid(activeEditor)
+			const ast = await (await getFlowrSession()).retrieveAstMermaid(activeEditor.document)
 			if(ast) {
 				createWebview('flowr-ast', 'AST', ast)
 			}
@@ -29,12 +23,9 @@ export function registerDiagramCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.cfg', async() => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor) {
-			if(!flowrSession) {
-				await establishInternalSession()
-			}
-			const ast = await flowrSession?.retrieveCfgMermaid(activeEditor)
-			if(ast) {
-				createWebview('flowr-cfg', 'Control Flow Graph', ast)
+			const cfg = await (await getFlowrSession()).retrieveCfgMermaid(activeEditor.document)
+			if(cfg) {
+				createWebview('flowr-cfg', 'Control Flow Graph', cfg)
 			}
 		}
 	}))
