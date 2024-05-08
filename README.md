@@ -18,7 +18,7 @@ Optionally, you can also use one of the two "Toggle Continuous Slice" options, w
 
 You can also view the reconstruction of a piece of code based on the current slice. The "Show Current Slice in Editor (Reconstruct)" command opens a view next to the current editor that will automatically update the reconstruction as you slice.
 
-To clear the slice highlighting, use the "Clear Slice Presentation" command.
+To clear the slice highlighting, use the "Clear Current Slice Presentation" command.
 
 ![A screenshot of the extension being used to reconstruct a slice](media/reconstruct.png)
 
