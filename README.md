@@ -14,7 +14,7 @@ Although it is not required, we recommend using the [R extension](https://market
 
 You can generate a [slice](https://github.com/Code-Inspect/flowr/wiki/Terminology#program-slice) of the currently highlighted variable in any R code by using the "Slice for Cursor Position" command. All code that is not part of the generated slice will then be grayed out.
 
-Optionally, you can also use one of the two "Continuously Slice" options, which will automatically cause the slice to be updated when code changes occur or when the cursor is moved.
+Optionally, you can also use one of the two "Toggle Continuous Slice" options, which will automatically cause the slice to be updated when code changes occur or when the cursor is moved.
 
 You can also view the reconstruction of a piece of code based on the current slice. The "Show Current Slice in Editor (Reconstruct)" command opens a view next to the current editor that will automatically update the reconstruction as you slice.
 
