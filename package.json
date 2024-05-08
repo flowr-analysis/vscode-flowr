@@ -38,12 +38,12 @@
       },
       {
         "command": "vscode-flowr.slice.position",
-        "title": "Toggle Slice at the Current Position",
+        "title": "Continuously Slice at Current Position",
         "category": "flowR"
       },
       {
         "command": "vscode-flowr.slice.follow.cursor",
-        "title": "Toggle Slice Following the Cursor",
+        "title": "Continuously Slice at Cursor",
         "category": "flowR"
       },
       {
