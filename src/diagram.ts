@@ -11,6 +11,24 @@ export function registerDiagramCommands(context: vscode.ExtensionContext) {
 			}
 		}
 	}))
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.ast', async() => {
+		const activeEditor = vscode.window.activeTextEditor
+		if(activeEditor) {
+			const ast = await (await getFlowrSession()).retrieveAstMermaid(activeEditor.document)
+			if(ast) {
+				createWebview('flowr-ast', 'AST', ast)
+			}
+		}
+	}))
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.cfg', async() => {
+		const activeEditor = vscode.window.activeTextEditor
+		if(activeEditor) {
+			const cfg = await (await getFlowrSession()).retrieveCfgMermaid(activeEditor.document)
+			if(cfg) {
+				createWebview('flowr-cfg', 'Control Flow Graph', cfg)
+			}
+		}
+	}))
 }
 
 function createWebview(id: string, name: string, mermaid: string) : vscode.WebviewPanel {
