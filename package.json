@@ -38,17 +38,17 @@
       },
       {
         "command": "vscode-flowr.slice.position",
-        "title": "Toggle Slice at the Current Position",
+        "title": "Toggle Continuous Slice at Current Position",
         "category": "flowR"
       },
       {
         "command": "vscode-flowr.slice.follow.cursor",
-        "title": "Toggle Slice Following the Cursor",
+        "title": "Toggle Continuous Slice at Cursor",
         "category": "flowR"
       },
       {
         "command": "vscode-flowr.slice.show.in.editor",
-        "title": "Show Current Slice in Editor",
+        "title": "Show Current Slice in Editor (Reconstruct)",
         "category": "flowR"
       },
       {
