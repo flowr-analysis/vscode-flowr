@@ -32,13 +32,13 @@
     "commands": [
       {
         "command": "vscode-flowr.ast",
-        "title": "Show AST",
+        "title": "Show Abstract Syntax Tree of the File",
         "icon": "$(graph)",
         "category": "flowR"
       },
       {
         "command": "vscode-flowr.cfg",
-        "title": "Show Control Flow Graph",
+        "title": "Show Control Flow Graph of the File",
         "icon": "$(graph)",
         "category": "flowR"
       },
