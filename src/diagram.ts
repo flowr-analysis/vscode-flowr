@@ -1,14 +1,11 @@
 import * as vscode from 'vscode'
-import { establishInternalSession, flowrSession } from './extension'
+import { getFlowrSession } from './extension'
 
 export function registerDiagramCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dataflow', async() => {
 		const activeEditor = vscode.window.activeTextEditor
 		if(activeEditor) {
-			if(!flowrSession) {
-				await establishInternalSession()
-			}
-			const mermaid = await flowrSession?.retrieveDataflowMermaid(activeEditor)
+			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document)
 			if(mermaid) {
 				return { mermaid, webview: createWebview('flowr-dataflow', 'Dataflow Graph', mermaid) }
 			}

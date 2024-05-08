@@ -1,60 +1,86 @@
 import * as vscode from 'vscode'
-import type { NodeId } from '@eagleoutice/flowr'
+import { type NodeId } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
-import { establishInternalSession, flowrSession, getConfig } from './extension'
+import { getConfig } from './extension'
 import type { SliceDisplay } from './settings'
 import { Settings } from './settings'
-
-export let sliceDecoration: vscode.TextEditorDecorationType
+import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-slicer'
+import { disposeActivePositionSlicer, getActivePositionSlicer, addCurrentPositions, positionSlicers } from './position-slicer'
 
 export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
-		const activeEditor = vscode.window.activeTextEditor
-		if(activeEditor) {
-			if(!flowrSession) {
-				await establishInternalSession()
-			}
-			return await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, true)
-		}
+		return await getSelectionSlicer().sliceSelectionOnce()
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
-		const activeEditor = vscode.window.activeTextEditor
-		if(activeEditor) {
-			activeEditor.setDecorations(sliceDecoration, [])
-		}
+		clearSliceOutput()
 	}))
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor-reconstruct', async() => {
-		const activeEditor = vscode.window.activeTextEditor
-		if(activeEditor) {
-			if(!flowrSession) {
-				await establishInternalSession()
-			}
-			const code = await flowrSession?.retrieveSlice(activeEditor.selection.active, activeEditor, false)
-			const doc =	await vscode.workspace.openTextDocument({ language: 'r', content: code })
-			return await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside)
-		}
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.follow.cursor', async() => {
+		await getSelectionSlicer().toggleFollowSelection()
 	}))
 
-	recreateSliceDecorationType()
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.show.in.editor', async() => {
+		return await showReconstructionInEditor()
+	}))
+
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.position', async() => {
+		await addCurrentPositions()
+	}))
+
 	vscode.workspace.onDidChangeConfiguration(e => {
-		if(e.affectsConfiguration(`${Settings.Category}.${Settings.StyleSliceOpacity}`)) {
-			recreateSliceDecorationType()
+		if(e.affectsConfiguration(`${Settings.Category}`)) {
+			const selSlicer = getSelectionSlicer()
+			selSlicer.clearSliceDecos()
+			for(const [, positionSlicer] of positionSlicers){
+				void positionSlicer.updateOutput(true)
+			}
 		}
 	})
-	context.subscriptions.push(new vscode.Disposable(() => sliceDecoration.dispose()))
 }
 
-export async function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[]) {
+async function showReconstructionInEditor(): Promise<vscode.TextEditor | undefined> {
+	const positionSlicer = getActivePositionSlicer()
+	if(positionSlicer){
+		return await positionSlicer.showReconstruction()
+	}
+	return await showSelectionSliceInEditor()
+}
+
+function clearSliceOutput(): void {
+	const editor = vscode.window.activeTextEditor
+	if(!editor){
+		return
+	}
+	const clearedPositionSlicer = disposeActivePositionSlicer()
+	if(clearedPositionSlicer){
+		return
+	}
+	const slicer = getSelectionSlicer()
+	slicer.clearSelectionSlice()
+}
+
+export async function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[], decos: DecoTypes) {
 	const sliceLines = new Set<number>(sliceElements.map(s => s.location.start.line - 1))
 	switch(getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay)) {
+		case 'tokens': {
+			const ranges = []
+			for(const el of sliceElements){
+				const range = new vscode.Range(el.location.start.line - 1, el.location.start.column - 1, el.location.end.line - 1, el.location.end.column)
+				ranges.push(range)
+			}
+			editor.setDecorations(decos.tokenSlice, ranges)
+			break
+		}
 		case 'text': {
+			if(sliceLines.size === 0){
+				return // do not grey out the entire document
+			}
 			const decorations: vscode.DecorationOptions[] = []
 			for(let i = 0; i < editor.document.lineCount; i++) {
 				if(!sliceLines.has(i)) {
 					decorations.push({ range: new vscode.Range(i, 0, i, editor.document.lineAt(i).text.length) })
 				}
 			}
-			editor.setDecorations(sliceDecoration, decorations)
+			editor.setDecorations(decos.lineSlice, decorations)
 			break
 		}
 		case 'diff': {
@@ -71,9 +97,35 @@ export async function displaySlice(editor: vscode.TextEditor, sliceElements: { i
 	}
 }
 
-function recreateSliceDecorationType() {
-	sliceDecoration?.dispose()
-	sliceDecoration = vscode.window.createTextEditorDecorationType({
-		opacity: getConfig().get<number>(Settings.StyleSliceOpacity)?.toString()
-	})
+export interface DecoTypes {
+	lineSlice:  vscode.TextEditorDecorationType
+	tokenSlice: vscode.TextEditorDecorationType
+	slicedPos:  vscode.TextEditorDecorationType
+	dispose(): void
+}
+export function makeSliceDecorationTypes(): DecoTypes {
+	const config = getConfig()
+	const tokenColor = config.get<string>('style.tokenBackgroundColor', 'green')
+	const ret: DecoTypes = {
+		lineSlice: vscode.window.createTextEditorDecorationType({
+			opacity: config.get<number>(Settings.StyleSliceOpacity)?.toString()
+		}),
+		tokenSlice: vscode.window.createTextEditorDecorationType({
+			backgroundColor: `${tokenColor}`,
+		}),
+		slicedPos: vscode.window.createTextEditorDecorationType({
+			before: {
+				contentText:     '\u2192',
+				backgroundColor: `${tokenColor}`,
+				border:          `2px solid ${tokenColor}`,
+			},
+			border: `2px solid ${tokenColor}`,
+		}),
+		dispose() {
+			this.lineSlice.dispose()
+			this.tokenSlice.dispose()
+			this.slicedPos.dispose()
+		}
+	}
+	return ret
 }
