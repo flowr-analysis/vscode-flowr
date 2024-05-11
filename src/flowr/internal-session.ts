@@ -5,12 +5,13 @@ import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-p
 import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg'
 import type { FlowrSession, SliceReturn } from './utils'
 import { consolidateNewlines, makeSliceElements, makeSlicingCriteria } from './utils'
-import { RShell, RShellOptions, RShellReviveOptions } from '@eagleoutice/flowr/r-bridge/shell';
-import { PipelineExecutor } from '@eagleoutice/flowr/core/pipeline-executor';
-import { DEFAULT_DATAFLOW_PIPELINE, DEFAULT_NORMALIZE_PIPELINE, DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
-import { requestFromInput } from '@eagleoutice/flowr/r-bridge/retriever';
-import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
-import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
+import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell'
+import { RShell, RShellReviveOptions } from '@eagleoutice/flowr/r-bridge/shell'
+import { PipelineExecutor } from '@eagleoutice/flowr/core/pipeline-executor'
+import { DEFAULT_DATAFLOW_PIPELINE, DEFAULT_NORMALIZE_PIPELINE, DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines'
+import { requestFromInput } from '@eagleoutice/flowr/r-bridge/retriever'
+import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast'
+import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg'
 
 export class FlowrInternalSession implements FlowrSession {
 
@@ -109,8 +110,8 @@ export class FlowrInternalSession implements FlowrSession {
 			return ''
 		}
 		const result = await new PipelineExecutor(DEFAULT_DATAFLOW_PIPELINE,{
-			shell:          this.shell,
-			request:        requestFromInput(consolidateNewlines(document.getText()))
+			shell:   this.shell,
+			request: requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
 		return dataflowGraphToMermaid(result.dataflow)
 	}
@@ -120,8 +121,8 @@ export class FlowrInternalSession implements FlowrSession {
 			return ''
 		}
 		const result = await new PipelineExecutor(DEFAULT_NORMALIZE_PIPELINE, {
-			shell:          this.shell,
-			request:        requestFromInput(consolidateNewlines(document.getText()))
+			shell:   this.shell,
+			request: requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
 		return normalizedAstToMermaid(result.normalize.ast)
 	}
@@ -131,8 +132,8 @@ export class FlowrInternalSession implements FlowrSession {
 			return ''
 		}
 		const result = await new PipelineExecutor(DEFAULT_NORMALIZE_PIPELINE, {
-			shell:          this.shell,
-			request:        requestFromInput(consolidateNewlines(document.getText()))
+			shell:   this.shell,
+			request: requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
 		return cfgToMermaid(extractCFG(result.normalize), result.normalize)
 	}
@@ -143,9 +144,9 @@ export class FlowrInternalSession implements FlowrSession {
 		const criteria = makeSlicingCriteria(positions, document, isVerbose())
 
 		const slicer = new PipelineExecutor(DEFAULT_SLICING_PIPELINE, {
-			criterion:      criteria,
+			criterion: criteria,
 			shell,
-			request:        requestFromInput(content)
+			request:   requestFromInput(content)
 		})
 		const result = await slicer.allRemainingSteps()
 

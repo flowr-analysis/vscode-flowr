@@ -13,7 +13,7 @@ import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast'
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg'
 import type { FlowrSession, SliceReturn } from './utils'
 import { consolidateNewlines, makeSliceElements, makeSlicingCriteria } from './utils'
-import { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id'
+import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id'
 import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/visitor'
 export class FlowrServerSession implements FlowrSession {
 
