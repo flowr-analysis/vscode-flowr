@@ -206,8 +206,7 @@
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^1.5.2",
-    "@eagleoutice/flowr-cli": "^0.0.3"
+    "@eagleoutice/flowr": "^2.0.0"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.6",
@@ -216,7 +215,7 @@
     "@vscode/test-cli": "^0.0.6",
     "@vscode/test-electron": "^2.3.9",
     "typescript": "^5.3.3",
-    "@eagleoutice/eslint-config-flowr": "^1.0.2"
+    "@eagleoutice/eslint-config-flowr": "^1.0.8"
   },
   "eslintConfig": {
     "extends": [
