@@ -1,3 +1,6 @@
+# Version 0.3.0 (2024-05-11)
+- Upgrade to [flowr v2.0.0](https://github.com/Code-Inspect/flowr/releases/tag/v2.0.0), see the [release notes](https://github.com/Code-Inspect/flowr/releases/tag/v2.0.0) for more information on the changes.
+
 # Version 0.2.1 (2024-05-09)
 - Documenting the new features in the README ([#83](https://github.com/Code-Inspect/vscode-flowr/pull/83)) and improving the command names.
 
