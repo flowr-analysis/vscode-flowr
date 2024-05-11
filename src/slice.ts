@@ -1,11 +1,11 @@
 import * as vscode from 'vscode'
-import { type NodeId } from '@eagleoutice/flowr'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { getConfig } from './extension'
 import type { SliceDisplay } from './settings'
 import { Settings } from './settings'
 import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-slicer'
 import { disposeActivePositionSlicer, getActivePositionSlicer, addCurrentPositions, positionSlicers } from './position-slicer'
+import { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 
 export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
@@ -59,12 +59,12 @@ function clearSliceOutput(): void {
 }
 
 export async function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[], decos: DecoTypes) {
-	const sliceLines = new Set<number>(sliceElements.map(s => s.location.start.line - 1))
+	const sliceLines = new Set<number>(sliceElements.map(s => s.location[0] - 1))
 	switch(getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay)) {
 		case 'tokens': {
 			const ranges = []
 			for(const el of sliceElements){
-				const range = new vscode.Range(el.location.start.line - 1, el.location.start.column - 1, el.location.end.line - 1, el.location.end.column)
+				const range = new vscode.Range(el.location[0] - 1, el.location[1] - 1, el.location[2] - 1, el.location[3])
 				ranges.push(range)
 			}
 			editor.setDecorations(decos.tokenSlice, ranges)

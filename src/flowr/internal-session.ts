@@ -1,13 +1,16 @@
 import * as vscode from 'vscode'
-import type { RShellOptions } from '@eagleoutice/flowr'
-import { LAST_STEP, requestFromInput, RShell, SteppingSlicer } from '@eagleoutice/flowr'
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, isVerbose, updateStatusBar } from '../extension'
 import { Settings } from '../settings'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
 import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg'
-import { cfgToMermaid, normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid'
 import type { FlowrSession, SliceReturn } from './utils'
 import { consolidateNewlines, makeSliceElements, makeSlicingCriteria } from './utils'
+import { RShell, RShellOptions, RShellReviveOptions } from '@eagleoutice/flowr/r-bridge/shell';
+import { PipelineExecutor } from '@eagleoutice/flowr/core/pipeline-executor';
+import { DEFAULT_DATAFLOW_PIPELINE, DEFAULT_NORMALIZE_PIPELINE, DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
+import { requestFromInput } from '@eagleoutice/flowr/r-bridge/retriever';
+import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
+import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 
 export class FlowrInternalSession implements FlowrSession {
 
@@ -31,7 +34,7 @@ export class FlowrInternalSession implements FlowrSession {
 		this.outputChannel.appendLine('Starting flowR shell')
 
 		let options: Partial<RShellOptions> = {
-			revive:      'always',
+			revive:      RShellReviveOptions.Always,
 			sessionName: 'flowr - vscode'
 		}
 		const executable = getConfig().get<string>(Settings.Rexecutable)?.trim()
@@ -105,20 +108,18 @@ export class FlowrInternalSession implements FlowrSession {
 		if(!this.shell) {
 			return ''
 		}
-		const result = await new SteppingSlicer({
-			stepOfInterest: 'dataflow',
+		const result = await new PipelineExecutor(DEFAULT_DATAFLOW_PIPELINE,{
 			shell:          this.shell,
 			request:        requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
-		return dataflowGraphToMermaid(result.dataflow, result.normalize.idMap)
+		return dataflowGraphToMermaid(result.dataflow)
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
 		if(!this.shell) {
 			return ''
 		}
-		const result = await new SteppingSlicer({
-			stepOfInterest: 'normalize',
+		const result = await new PipelineExecutor(DEFAULT_NORMALIZE_PIPELINE, {
 			shell:          this.shell,
 			request:        requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
@@ -129,8 +130,7 @@ export class FlowrInternalSession implements FlowrSession {
 		if(!this.shell) {
 			return ''
 		}
-		const result = await new SteppingSlicer({
-			stepOfInterest: 'normalize',
+		const result = await new PipelineExecutor(DEFAULT_NORMALIZE_PIPELINE, {
 			shell:          this.shell,
 			request:        requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
@@ -138,17 +138,14 @@ export class FlowrInternalSession implements FlowrSession {
 	}
 
 	private async extractSlice(shell: RShell, document: vscode.TextDocument, positions: vscode.Position[]): Promise<SliceReturn> {
-		const filename = document.fileName
 		const content = consolidateNewlines(document.getText())
 
 		const criteria = makeSlicingCriteria(positions, document, isVerbose())
 
-		const slicer = new SteppingSlicer({
+		const slicer = new PipelineExecutor(DEFAULT_SLICING_PIPELINE, {
 			criterion:      criteria,
-			filename,
 			shell,
-			request:        requestFromInput(content),
-			stepOfInterest: LAST_STEP
+			request:        requestFromInput(content)
 		})
 		const result = await slicer.allRemainingSteps()
 

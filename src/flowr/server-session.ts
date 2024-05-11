@@ -1,20 +1,20 @@
 import * as net from 'net'
 import * as vscode from 'vscode'
-import type { FlowrMessage } from '@eagleoutice/flowr-cli/repl'
-import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr-cli/repl/server/messages/analysis'
-import type { SliceResponseMessage } from '@eagleoutice/flowr-cli/repl/server/messages/slice'
-import type { NodeId } from '@eagleoutice/flowr'
-import { visitAst } from '@eagleoutice/flowr'
+import type { FlowrMessage } from '@eagleoutice/flowr/cli/repl/server/messages/messages'
+import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/repl/server/messages/analysis'
+import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/slice'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from '../extension'
-import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr-cli/repl/server/messages/hello'
+import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/hello'
 import { Settings } from '../settings'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
 import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg'
-import { cfgToMermaid, normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid'
+import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast'
+import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg'
 import type { FlowrSession, SliceReturn } from './utils'
 import { consolidateNewlines, makeSliceElements, makeSlicingCriteria } from './utils'
-
+import { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id'
+import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/visitor'
 export class FlowrServerSession implements FlowrSession {
 
 	public state:        'inactive' | 'connecting' | 'connected' | 'not connected'
@@ -120,7 +120,7 @@ export class FlowrServerSession implements FlowrSession {
 
 	async retrieveDataflowMermaid(document: vscode.TextDocument): Promise<string> {
 		const response = await this.requestFileAnalysis(document)
-		return dataflowGraphToMermaid(response.results.dataflow, response.results.normalize.idMap)
+		return dataflowGraphToMermaid(response.results.dataflow)
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {

@@ -1,13 +1,14 @@
 import type * as vscode from 'vscode'
 
-import type { NodeId, SingleSlicingCriterion } from '@eagleoutice/flowr'
+import { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
+import { SingleSlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
 export interface SliceReturn {
 	code:          string,
-	sliceElements: { id: string, location: SourceRange }[]
+	sliceElements: { id: NodeId, location: SourceRange }[]
 }
 
 export interface FlowrSession {
@@ -51,8 +52,8 @@ export function makeSlicingCriteria(positions: vscode.Position[], doc: vscode.Te
 	return criteria
 }
 
-export function makeSliceElements(sliceResponse: Set<NodeId>, idToLocation: (id: string) => SourceRange | undefined): { id: string, location: SourceRange }[] {
-	const sliceElements: { id: string, location: SourceRange }[] = []
+export function makeSliceElements(sliceResponse: ReadonlySet<NodeId>, idToLocation: (id: NodeId) => SourceRange | undefined): { id: NodeId, location: SourceRange }[] {
+	const sliceElements: { id: NodeId, location: SourceRange }[] = []
 	for(const id of sliceResponse){
 		const location = idToLocation(id)
 		if(location){
@@ -62,7 +63,7 @@ export function makeSliceElements(sliceResponse: Set<NodeId>, idToLocation: (id:
 
 	// sort by start
 	sliceElements.sort((a, b) => {
-		return a.location.start.line - b.location.start.line || a.location.start.column - b.location.start.column
+		return a.location[0] - b.location[0] || a.location[1] - b.location[1]
 	})
 	return sliceElements
 }
