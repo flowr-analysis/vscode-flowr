@@ -5,6 +5,7 @@ import { Settings } from './settings'
 import { registerSliceCommands } from './slice'
 import { registerDiagramCommands } from './diagram'
 import type { FlowrSession } from './flowr/utils'
+import { flowrVersion } from '@eagleoutice/flowr/util/version'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
@@ -91,13 +92,15 @@ export function updateStatusBar() {
 		flowrStatus.show()
 		flowrStatus.text = `$(cloud) flowR server ${flowrSession.state}`
 		flowrStatus.tooltip =
-			flowrSession.state === 'connected'
-				? `R version ${flowrSession.rVersion}\nflowR version ${flowrSession.flowrVersion}`
-				: undefined
+			flowrSession.state === 'connected'?
+				`R version ${flowrSession.rVersion}\nflowR version ${flowrSession.flowrVersion}` :
+				undefined
 	} else if(flowrSession instanceof FlowrInternalSession) {
 		flowrStatus.show()
 		flowrStatus.text = `$(console) flowR shell ${flowrSession.state}`
-		flowrStatus.tooltip = flowrSession.state === 'active' ? `R version ${flowrSession.rVersion}` : undefined
+		flowrStatus.tooltip = flowrSession.state === 'active' ?
+			`R version ${flowrSession.rVersion}\nflowR version ${flowrVersion().toString()}` :
+			undefined
 	} else {
 		flowrStatus.hide()
 	}
