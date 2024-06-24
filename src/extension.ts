@@ -92,7 +92,7 @@ export function updateStatusBar() {
 		flowrStatus.show()
 		flowrStatus.text = `$(cloud) flowR server ${flowrSession.state}`
 		flowrStatus.tooltip =
-			flowrSession.state === 'connected'?
+			flowrSession.state === 'connected' ?
 				`R version ${flowrSession.rVersion}\nflowR version ${flowrSession.flowrVersion}` :
 				undefined
 	} else if(flowrSession instanceof FlowrInternalSession) {
