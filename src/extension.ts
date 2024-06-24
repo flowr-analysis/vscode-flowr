@@ -111,23 +111,23 @@ export function updateSessionStatusBar() {
 }
 
 export function updateSlicingStatusBar() {
-	let text = ''
+	const slicingTypes = []
 	const slicingFiles = []
 
 	if(selectionSlicer?.changeListeners.length) {
-		text += 'Slicing at cursor'
+		slicingTypes.push('cursor')
 	}
 
 	if(positionSlicers.size) {
-		text += text ? ', positions' : 'Slicing at positions'
+		slicingTypes.push('positions')
 		for(const [doc] of positionSlicers) {
 			slicingFiles.push(doc.fileName)
 		}
 	}
 
-	if(text) {
+	if(slicingTypes.length) {
 		slicingStatus.show()
-		slicingStatus.text = text
+		slicingStatus.text = `Slicing at ${slicingTypes.join(', ')}`
 		slicingStatus.tooltip = slicingFiles.length ? `Slicing in files\n${slicingFiles.join('\n')}` : undefined
 	} else {
 		slicingStatus.hide()
