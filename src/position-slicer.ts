@@ -3,7 +3,7 @@
 // and display their slices
 
 import * as vscode from 'vscode'
-import { getFlowrSession } from './extension'
+import { getFlowrSession, updateSlicingStatusBar } from './extension'
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider'
 import { getPositionAt } from './flowr/utils'
 import type { DecoTypes } from './slice'
@@ -46,6 +46,7 @@ export function disposeActivePositionSlicer(): boolean {
 	}
 	slicer.dispose()
 	positionSlicers.delete(slicer.doc)
+	updateSlicingStatusBar()
 	return true
 }
 
@@ -57,7 +58,7 @@ export async function addPositions(positions: vscode.Position[], doc: vscode.Tex
 	if(!positionSlicers.has(doc)){
 		positionSlicers.set(doc, flowrSlicer)
 	}
-	
+
 	// Try to toggle the indicated positions
 	const ret = flowrSlicer.togglePositions(positions)
 	if(ret){
@@ -69,6 +70,7 @@ export async function addPositions(positions: vscode.Position[], doc: vscode.Tex
 		// Dispose the slicer if no positions are sliced (anymore)
 		flowrSlicer.dispose()
 		positionSlicers.delete(doc)
+		updateSlicingStatusBar()
 		return undefined
 	} else {
 		// If the slicer is active, make sure there are no selection-slice decorations in its editors
@@ -87,14 +89,14 @@ export class PositionSlicer {
 	sliceDecos: DecoTypes | undefined = undefined
 
 	positionDeco: vscode.TextEditorDecorationType
-	
+
 	disposables: vscode.Disposable[] = []
 
 	constructor(doc: vscode.TextDocument){
 		this.doc = doc
-		
+
 		this.positionDeco = makeSliceDecorationTypes().slicedPos
-		
+
 		this.disposables.push(vscode.workspace.onDidChangeTextDocument(async(e) => {
 			await this.onDocChange(e)
 		}))
@@ -117,7 +119,7 @@ export class PositionSlicer {
 		}
 		this.offsets = []
 	}
-	
+
 	togglePositions(positions: vscode.Position[]): boolean {
 		// convert positions to offsets
 		let offsets = positions.map(pos => this.normalizeOffset(pos))
@@ -162,6 +164,7 @@ export class PositionSlicer {
 		const code = await this.updateSlices() || '# No slice'
 		const uri = this.makeUri()
 		provider.updateContents(uri, code)
+		updateSlicingStatusBar()
 	}
 
 	makeUri(): vscode.Uri {
@@ -193,7 +196,7 @@ export class PositionSlicer {
 			}
 		}
 		this.offsets = newOffsets
-		
+
 		// Update decos and editor output
 		await this.updateOutput()
 	}

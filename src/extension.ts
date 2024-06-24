@@ -5,11 +5,16 @@ import { Settings } from './settings'
 import { registerSliceCommands } from './slice'
 import { registerDiagramCommands } from './diagram'
 import type { FlowrSession } from './flowr/utils'
+import { selectionSlicer } from './selection-slicer'
+import { positionSlicers } from './position-slicer'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
 
 let outputChannel: vscode.OutputChannel
+let sessionStatus: vscode.StatusBarItem
+let slicingStatus: vscode.StatusBarItem
+let flowrSession: FlowrSession | undefined
 
 export async function activate(context: vscode.ExtensionContext) {
 	console.log('Loading vscode-flowr')
@@ -39,9 +44,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	)
 
-	flowrStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
-	context.subscriptions.push(flowrStatus)
-	updateStatusBar()
+	sessionStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
+	context.subscriptions.push(sessionStatus)
+	updateSessionStatusBar()
+
+	slicingStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99)
+	context.subscriptions.push(slicingStatus)
+	updateSlicingStatusBar()
 
 	context.subscriptions.push(new vscode.Disposable(() => destroySession()))
 	process.on('SIGINT', () => destroySession())
@@ -60,7 +69,6 @@ export function isVerbose(): boolean {
 	return getConfig().get<boolean>(Settings.VerboseLog, false)
 }
 
-let flowrSession: FlowrSession | undefined
 export async function establishInternalSession() {
 	destroySession()
 	flowrSession = new FlowrInternalSession(outputChannel)
@@ -85,20 +93,43 @@ export function destroySession() {
 	flowrSession = undefined
 }
 
-let flowrStatus: vscode.StatusBarItem
-export function updateStatusBar() {
+export function updateSessionStatusBar() {
 	if(flowrSession instanceof FlowrServerSession) {
-		flowrStatus.show()
-		flowrStatus.text = `$(cloud) flowR server ${flowrSession.state}`
-		flowrStatus.tooltip =
+		sessionStatus.show()
+		sessionStatus.text = `$(cloud) flowR server ${flowrSession.state}`
+		sessionStatus.tooltip =
 			flowrSession.state === 'connected'
 				? `R version ${flowrSession.rVersion}\nflowR version ${flowrSession.flowrVersion}`
 				: undefined
 	} else if(flowrSession instanceof FlowrInternalSession) {
-		flowrStatus.show()
-		flowrStatus.text = `$(console) flowR shell ${flowrSession.state}`
-		flowrStatus.tooltip = flowrSession.state === 'active' ? `R version ${flowrSession.rVersion}` : undefined
+		sessionStatus.show()
+		sessionStatus.text = `$(console) flowR shell ${flowrSession.state}`
+		sessionStatus.tooltip = flowrSession.state === 'active' ? `R version ${flowrSession.rVersion}` : undefined
 	} else {
-		flowrStatus.hide()
+		sessionStatus.hide()
+	}
+}
+
+export function updateSlicingStatusBar() {
+	let text = ''
+	const slicingFiles = []
+
+	if(selectionSlicer?.changeListeners.length) {
+		text += 'Slicing at cursor'
+	}
+
+	if(positionSlicers.size) {
+		text += text ? ', positions' : 'Slicing at positions'
+		for(const [doc] of positionSlicers) {
+			slicingFiles.push(doc.fileName)
+		}
+	}
+
+	if(text) {
+		slicingStatus.show()
+		slicingStatus.text = text
+		slicingStatus.tooltip = slicingFiles.length ? `Slicing in files\n${slicingFiles.join('\n')}` : undefined
+	} else {
+		slicingStatus.hide()
 	}
 }

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, isVerbose, updateStatusBar } from '../extension'
+import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, isVerbose, updateSessionStatusBar } from '../extension'
 import { Settings } from '../settings'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
 import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg'
@@ -25,12 +25,12 @@ export class FlowrInternalSession implements FlowrSession {
 		this.outputChannel = outputChannel
 
 		this.state = 'inactive'
-		updateStatusBar()
+		updateSessionStatusBar()
 	}
 
 	async initialize() {
 		this.state = 'loading'
-		updateStatusBar()
+		updateSessionStatusBar()
 
 		this.outputChannel.appendLine('Starting flowR shell')
 
@@ -63,7 +63,7 @@ export class FlowrInternalSession implements FlowrSession {
 					})
 
 				this.state = 'failure'
-				updateStatusBar()
+				updateSessionStatusBar()
 			} else {
 				this.outputChannel.appendLine(`Using R version ${version.toString()}`)
 				if(version.major < MINIMUM_R_MAJOR) {
@@ -74,7 +74,7 @@ export class FlowrInternalSession implements FlowrSession {
 
 				this.state = 'active'
 				this.rVersion = version.toString()
-				updateStatusBar()
+				updateSessionStatusBar()
 			}
 		})
 	}
