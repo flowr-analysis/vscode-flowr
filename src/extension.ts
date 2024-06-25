@@ -12,8 +12,7 @@ export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
 
 let outputChannel: vscode.OutputChannel
-let sessionStatus: vscode.StatusBarItem
-let slicingStatus: vscode.StatusBarItem
+let statusBarItem: vscode.StatusBarItem
 let flowrSession: FlowrSession | undefined
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -44,13 +43,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	)
 
-	sessionStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
-	context.subscriptions.push(sessionStatus)
-	updateSessionStatusBar()
-
-	slicingStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99)
-	context.subscriptions.push(slicingStatus)
-	updateSlicingStatusBar()
+	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
+	context.subscriptions.push(statusBarItem)
+	updateStatusBar()
 
 	context.subscriptions.push(new vscode.Disposable(() => destroySession()))
 	process.on('SIGINT', () => destroySession())
@@ -93,31 +88,27 @@ export function destroySession() {
 	flowrSession = undefined
 }
 
-export function updateSessionStatusBar() {
-	if(flowrSession instanceof FlowrServerSession) {
-		sessionStatus.show()
-		sessionStatus.text = `$(cloud) flowR server ${flowrSession.state}`
-		sessionStatus.tooltip =
-			flowrSession.state === 'connected'
-				? `R version ${flowrSession.rVersion}\nflowR version ${flowrSession.flowrVersion}`
-				: undefined
-	} else if(flowrSession instanceof FlowrInternalSession) {
-		sessionStatus.show()
-		sessionStatus.text = `$(console) flowR shell ${flowrSession.state}`
-		sessionStatus.tooltip = flowrSession.state === 'active' ? `R version ${flowrSession.rVersion}` : undefined
-	} else {
-		sessionStatus.hide()
-	}
-}
+export function updateStatusBar() {
+	const text = []
+	const tooltip = []
 
-export function updateSlicingStatusBar() {
+	if(flowrSession instanceof FlowrServerSession) {
+		text.push(`$(cloud) flowR ${flowrSession.state}`)
+		if(flowrSession.state === 'connected') {
+			tooltip.push(`R version ${flowrSession.rVersion}\nflowR version ${flowrSession.flowrVersion}`)
+		}
+	} else if(flowrSession instanceof FlowrInternalSession) {
+		text.push(`$(console) flowR ${flowrSession.state}`)
+		if(flowrSession.state === 'active') {
+			tooltip.push(`R version ${flowrSession.rVersion}`)
+		}
+	}
+
 	const slicingTypes = []
 	const slicingFiles = []
-
 	if(selectionSlicer?.changeListeners.length) {
 		slicingTypes.push('cursor')
 	}
-
 	if(positionSlicers.size) {
 		slicingTypes.push('positions')
 		for(const [doc] of positionSlicers) {
@@ -126,10 +117,17 @@ export function updateSlicingStatusBar() {
 	}
 
 	if(slicingTypes.length) {
-		slicingStatus.show()
-		slicingStatus.text = `Slicing at ${slicingTypes.join(', ')}`
-		slicingStatus.tooltip = slicingFiles.length ? `Slicing in files\n${slicingFiles.join('\n')}` : undefined
+		text.push(`$(lightbulb) Slicing ${slicingTypes.join(', ')}`)
+		if(slicingFiles.length) {
+			tooltip.push(`Slicing in files\n${slicingFiles.join('\n')}`)
+		}
+	}
+
+	if(text.length) {
+		statusBarItem.show()
+		statusBarItem.text = text.join(' ')
+		statusBarItem.tooltip = tooltip.length ? tooltip.join('\n\n') : undefined
 	} else {
-		slicingStatus.hide()
+		statusBarItem.hide()
 	}
 }

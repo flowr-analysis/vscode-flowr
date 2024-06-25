@@ -4,7 +4,7 @@ import type { FlowrMessage } from '@eagleoutice/flowr/cli/repl/server/messages/m
 import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/repl/server/messages/analysis'
 import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/slice'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
-import { establishInternalSession, getConfig, isVerbose, updateSessionStatusBar } from '../extension'
+import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from '../extension'
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/hello'
 import { Settings } from '../settings'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
@@ -29,19 +29,19 @@ export class FlowrServerSession implements FlowrSession {
 		this.outputChannel = outputChannel
 
 		this.state = 'inactive'
-		updateSessionStatusBar()
+		updateStatusBar()
 	}
 
 	initialize() {
 		this.state = 'connecting'
-		updateSessionStatusBar()
+		updateStatusBar()
 
 		// the first response will be flowR's hello message
 		void this.awaitResponse().then(r => {
 			const info = JSON.parse(r) as FlowrHelloResponseMessage
 			this.rVersion = info.versions.r
 			this.flowrVersion = info.versions.flowr
-			updateSessionStatusBar()
+			updateStatusBar()
 		})
 
 		const host = getConfig().get<string>(Settings.ServerHost, 'localhost')
@@ -49,7 +49,7 @@ export class FlowrServerSession implements FlowrSession {
 		this.outputChannel.appendLine(`Connecting to flowR server at ${host}:${port}`)
 		this.socket = net.createConnection(port, host, () => {
 			this.state = 'connected'
-			updateSessionStatusBar()
+			updateStatusBar()
 			this.outputChannel.appendLine('Connected to flowR server')
 		})
 		this.socket.on('error', e => {
@@ -69,7 +69,7 @@ export class FlowrServerSession implements FlowrSession {
 		this.socket.on('close', () => {
 			this.outputChannel.appendLine('flowR server connection closed')
 			this.state = 'not connected'
-			updateSessionStatusBar()
+			updateStatusBar()
 		})
 		this.socket.on('data', str => this.handleResponse(String(str)))
 	}

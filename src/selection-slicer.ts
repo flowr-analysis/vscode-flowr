@@ -4,7 +4,7 @@
 // (either per command or updating as the cursor moves)
 
 import * as vscode from 'vscode'
-import { getConfig, getFlowrSession, updateSlicingStatusBar } from './extension'
+import { getConfig, getFlowrSession, updateStatusBar } from './extension'
 import { flowrScheme, makeUri, getReconstructionContentProvider, showUri } from './doc-provider'
 import type { SliceReturn } from './flowr/utils'
 import type { DecoTypes } from './slice'
@@ -54,7 +54,7 @@ class SelectionSlicer {
 			vscode.window.onDidChangeTextEditorSelection(() => this.update()),
 			vscode.window.onDidChangeActiveTextEditor(() => this.update())
 		)
-		updateSlicingStatusBar()
+		updateStatusBar()
 	}
 	async toggleFollowSelection(): Promise<void> {
 		if(this.changeListeners.length){
@@ -67,7 +67,7 @@ class SelectionSlicer {
 		while(this.changeListeners.length){
 			this.changeListeners.pop()?.dispose()
 		}
-		updateSlicingStatusBar()
+		updateStatusBar()
 	}
 
 	// Slice once at the current cursor position
