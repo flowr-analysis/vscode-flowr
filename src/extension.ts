@@ -89,8 +89,8 @@ export function destroySession() {
 }
 
 export function updateStatusBar() {
-	const text = []
-	const tooltip = []
+	const text: string[] = []
+	const tooltip: string[] = []
 
 	if(flowrSession instanceof FlowrServerSession) {
 		text.push(`$(cloud) flowR ${flowrSession.state}`)
@@ -104,29 +104,29 @@ export function updateStatusBar() {
 		}
 	}
 
-	const slicingTypes = []
-	const slicingFiles = []
+	const slicingTypes: string[] = []
+	const slicingFiles: string[] = []
 	if(selectionSlicer?.changeListeners.length) {
 		slicingTypes.push('cursor')
 	}
 	if(positionSlicers.size) {
-		slicingTypes.push('positions')
-		for(const [doc] of positionSlicers) {
-			slicingFiles.push(doc.fileName)
+		slicingTypes.push(`${[...positionSlicers].reduce((i, [,s]) => i + s.offsets.length, 0)} positions`)
+		for(const [doc,slicer] of positionSlicers) {
+			slicingFiles.push(`${vscode.workspace.asRelativePath(doc.fileName)} (${slicer.offsets.length} positions)`)
 		}
 	}
 
 	if(slicingTypes.length) {
 		text.push(`$(lightbulb) Slicing ${slicingTypes.join(', ')}`)
 		if(slicingFiles.length) {
-			tooltip.push(`Slicing in files\n${slicingFiles.join('\n')}`)
+			tooltip.push(`Slicing in\n${slicingFiles.map(f => `- ${f}`).join('\n')}`)
 		}
 	}
 
 	if(text.length) {
 		statusBarItem.show()
 		statusBarItem.text = text.join(' ')
-		statusBarItem.tooltip = tooltip.length ? tooltip.join('\n\n') : undefined
+		statusBarItem.tooltip = tooltip.length ? tooltip.reduce((m, s) => m.appendMarkdown('\n\n').appendMarkdown(s), new vscode.MarkdownString()) : undefined
 	} else {
 		statusBarItem.hide()
 	}
