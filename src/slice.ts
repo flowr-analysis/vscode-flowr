@@ -94,7 +94,8 @@ export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: Nod
 
 			const uri = makeUri('slice-diff-view', 'Slice Diff View')
 			getReconstructionContentProvider().updateContents(uri, sliceContent.join('\n'))
-			void vscode.commands.executeCommand('vscode.diff', uri, editor.document.uri)
+			void vscode.commands.executeCommand('vscode.diff', uri, editor.document.uri, 'Slice Diff View',
+				{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true } as vscode.TextDocumentShowOptions)
 			break
 		}
 	}
