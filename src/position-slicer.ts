@@ -57,7 +57,7 @@ export async function addPositions(positions: vscode.Position[], doc: vscode.Tex
 	if(!positionSlicers.has(doc)){
 		positionSlicers.set(doc, flowrSlicer)
 	}
-	
+
 	// Try to toggle the indicated positions
 	const ret = flowrSlicer.togglePositions(positions)
 	if(ret){
@@ -87,14 +87,14 @@ export class PositionSlicer {
 	sliceDecos: DecoTypes | undefined = undefined
 
 	positionDeco: vscode.TextEditorDecorationType
-	
+
 	disposables: vscode.Disposable[] = []
 
 	constructor(doc: vscode.TextDocument){
 		this.doc = doc
-		
+
 		this.positionDeco = makeSliceDecorationTypes().slicedPos
-		
+
 		this.disposables.push(vscode.workspace.onDidChangeTextDocument(async(e) => {
 			await this.onDocChange(e)
 		}))
@@ -117,7 +117,7 @@ export class PositionSlicer {
 		}
 		this.offsets = []
 	}
-	
+
 	togglePositions(positions: vscode.Position[]): boolean {
 		// convert positions to offsets
 		let offsets = positions.map(pos => this.normalizeOffset(pos))
@@ -193,7 +193,7 @@ export class PositionSlicer {
 			}
 		}
 		this.offsets = newOffsets
-		
+
 		// Update decos and editor output
 		await this.updateOutput()
 	}
@@ -247,7 +247,7 @@ export class PositionSlicer {
 		for(const editor of vscode.window.visibleTextEditors){
 			if(editor.document === this.doc) {
 				this.sliceDecos ||= makeSliceDecorationTypes()
-				void displaySlice(editor, sliceElements, this.sliceDecos)
+				displaySlice(editor, sliceElements, this.sliceDecos)
 			}
 		}
 		return code
