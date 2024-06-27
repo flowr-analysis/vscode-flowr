@@ -206,7 +206,7 @@
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.0.10"
+    "@eagleoutice/flowr": "^2.0.11"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.6",
