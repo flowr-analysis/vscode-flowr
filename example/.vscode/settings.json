@@ -1,3 +1,4 @@
 {
-    "vscode-flowr.verboseLog": true
+    "vscode-flowr.verboseLog": true,
+    "vscode-flowr.style.sliceDisplay": "diff"
 }
