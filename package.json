@@ -14,7 +14,7 @@
     "email": "florian.sihler@uni-ulm.de"
   },
   "license": "GPL-3.0",
-  "version": "0.3.2",
+  "version": "0.3.4",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -206,7 +206,7 @@
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.0.9"
+    "@eagleoutice/flowr": "^2.0.11"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.6",

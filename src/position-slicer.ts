@@ -250,7 +250,7 @@ export class PositionSlicer {
 		for(const editor of vscode.window.visibleTextEditors){
 			if(editor.document === this.doc) {
 				this.sliceDecos ||= makeSliceDecorationTypes()
-				void displaySlice(editor, sliceElements, this.sliceDecos)
+				displaySlice(editor, sliceElements, this.sliceDecos)
 			}
 		}
 		return code

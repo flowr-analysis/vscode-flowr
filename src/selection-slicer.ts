@@ -132,7 +132,7 @@ class SelectionSlicer {
 			}
 		}
 		this.decos ||= makeSliceDecorationTypes()
-		await displaySlice(ret.editor, ret.sliceElements, this.decos)
+		displaySlice(ret.editor, ret.sliceElements, this.decos)
 		this.decoratedEditors.push(ret.editor)
 		return ret.code
 	}

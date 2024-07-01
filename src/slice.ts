@@ -6,6 +6,7 @@ import { Settings } from './settings'
 import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-slicer'
 import { disposeActivePositionSlicer, getActivePositionSlicer, addCurrentPositions, positionSlicers } from './position-slicer'
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id'
+import { getReconstructionContentProvider, makeUri } from './doc-provider'
 
 export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
@@ -58,7 +59,7 @@ function clearSliceOutput(): void {
 	slicer.clearSelectionSlice()
 }
 
-export async function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[], decos: DecoTypes) {
+export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[], decos: DecoTypes) {
 	const sliceLines = new Set<number>(sliceElements.map(s => s.location[0] - 1))
 	switch(getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay)) {
 		case 'tokens': {
@@ -90,8 +91,11 @@ export async function displaySlice(editor: vscode.TextEditor, sliceElements: { i
 					sliceContent.push(editor.document.lineAt(i).text)
 				}
 			}
-			const sliceDoc = await vscode.workspace.openTextDocument({ language: 'r', content: sliceContent.join('\n') })
-			void vscode.commands.executeCommand('vscode.diff', sliceDoc.uri, editor.document.uri)
+
+			const uri = makeUri('slice-diff-view', 'Slice Diff View')
+			getReconstructionContentProvider().updateContents(uri, sliceContent.join('\n'))
+			void vscode.commands.executeCommand('vscode.diff', uri, editor.document.uri, 'Slice Diff View',
+				{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true } as vscode.TextDocumentShowOptions)
 			break
 		}
 	}
