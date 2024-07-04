@@ -3,7 +3,7 @@
 // and display their slices
 
 import * as vscode from 'vscode'
-import { getFlowrSession } from './extension'
+import { getFlowrSession, updateStatusBar } from './extension'
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider'
 import { getPositionAt } from './flowr/utils'
 import type { DecoTypes } from './slice'
@@ -46,6 +46,7 @@ export function disposeActivePositionSlicer(): boolean {
 	}
 	slicer.dispose()
 	positionSlicers.delete(slicer.doc)
+	updateStatusBar()
 	return true
 }
 
@@ -69,6 +70,7 @@ export async function addPositions(positions: vscode.Position[], doc: vscode.Tex
 		// Dispose the slicer if no positions are sliced (anymore)
 		flowrSlicer.dispose()
 		positionSlicers.delete(doc)
+		updateStatusBar()
 		return undefined
 	} else {
 		// If the slicer is active, make sure there are no selection-slice decorations in its editors
@@ -162,6 +164,7 @@ export class PositionSlicer {
 		const code = await this.updateSlices() || '# No slice'
 		const uri = this.makeUri()
 		provider.updateContents(uri, code)
+		updateStatusBar()
 	}
 
 	makeUri(): vscode.Uri {

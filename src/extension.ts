@@ -5,12 +5,16 @@ import { Settings } from './settings'
 import { registerSliceCommands } from './slice'
 import { registerDiagramCommands } from './diagram'
 import type { FlowrSession } from './flowr/utils'
+import { selectionSlicer } from './selection-slicer'
+import { positionSlicers } from './position-slicer'
 import { flowrVersion } from '@eagleoutice/flowr/util/version'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
 
 let outputChannel: vscode.OutputChannel
+let statusBarItem: vscode.StatusBarItem
+let flowrSession: FlowrSession | undefined
 
 export async function activate(context: vscode.ExtensionContext) {
 	console.log('Loading vscode-flowr')
@@ -40,8 +44,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	)
 
-	flowrStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
-	context.subscriptions.push(flowrStatus)
+	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
+	context.subscriptions.push(statusBarItem)
 	updateStatusBar()
 
 	context.subscriptions.push(new vscode.Disposable(() => destroySession()))
@@ -61,7 +65,6 @@ export function isVerbose(): boolean {
 	return getConfig().get<boolean>(Settings.VerboseLog, false)
 }
 
-let flowrSession: FlowrSession | undefined
 export async function establishInternalSession() {
 	destroySession()
 	flowrSession = new FlowrInternalSession(outputChannel)
@@ -86,22 +89,46 @@ export function destroySession() {
 	flowrSession = undefined
 }
 
-let flowrStatus: vscode.StatusBarItem
 export function updateStatusBar() {
+	const text: string[] = []
+	const tooltip: string[] = []
+
 	if(flowrSession instanceof FlowrServerSession) {
-		flowrStatus.show()
-		flowrStatus.text = `$(cloud) flowR server ${flowrSession.state}`
-		flowrStatus.tooltip =
-			flowrSession.state === 'connected' ?
-				`R version ${flowrSession.rVersion}\nflowR version ${flowrSession.flowrVersion}` :
-				undefined
+		text.push(`$(cloud) flowR ${flowrSession.state}`)
+		if(flowrSession.state === 'connected') {
+			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrSession.flowrVersion}`)
+		}
 	} else if(flowrSession instanceof FlowrInternalSession) {
-		flowrStatus.show()
-		flowrStatus.text = `$(console) flowR shell ${flowrSession.state}`
-		flowrStatus.tooltip = flowrSession.state === 'active' ?
-			`R version ${flowrSession.rVersion}\nflowR version ${flowrVersion().toString()}` :
-			undefined
+		text.push(`$(console) flowR ${flowrSession.state}`)
+		if(flowrSession.state === 'active') {
+			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}`)
+		}
+	}
+
+	const slicingTypes: string[] = []
+	const slicingFiles: string[] = []
+	if(selectionSlicer?.changeListeners.length) {
+		slicingTypes.push('cursor')
+	}
+	if(positionSlicers.size) {
+		slicingTypes.push(`${[...positionSlicers].reduce((i, [,s]) => i + s.offsets.length, 0)} positions`)
+		for(const [doc,slicer] of positionSlicers) {
+			slicingFiles.push(`${vscode.workspace.asRelativePath(doc.fileName)} (${slicer.offsets.length} positions)`)
+		}
+	}
+
+	if(slicingTypes.length) {
+		text.push(`$(lightbulb) Slicing ${slicingTypes.join(', ')}`)
+		if(slicingFiles.length) {
+			tooltip.push(`Slicing in\n${slicingFiles.map(f => `- ${f}`).join('\n')}`)
+		}
+	}
+
+	if(text.length) {
+		statusBarItem.show()
+		statusBarItem.text = text.join(' ')
+		statusBarItem.tooltip = tooltip.length ? tooltip.reduce((m, s) => m.appendMarkdown('\n\n').appendMarkdown(s), new vscode.MarkdownString()) : undefined
 	} else {
-		flowrStatus.hide()
+		statusBarItem.hide()
 	}
 }
