@@ -51,8 +51,12 @@ class SelectionSlicer {
 	async startFollowSelection(): Promise<void> {
 		await this.update()
 		this.changeListeners.push(
-			vscode.window.onDidChangeTextEditorSelection(() => this.update()),
-			vscode.window.onDidChangeActiveTextEditor(() => this.update())
+			vscode.window.onDidChangeTextEditorSelection(e => {
+				if(this.decoratedEditors.includes(e.textEditor)) {
+					void this.update()
+				}
+			}),
+			vscode.window.onDidChangeActiveTextEditor(() => void this.update())
 		)
 		updateStatusBar()
 	}
