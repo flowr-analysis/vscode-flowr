@@ -141,7 +141,7 @@ export class FlowrServerSession implements FlowrSession {
 		const idToLocation = new Map<NodeId, SourceRange>()
 		visitAst(response.results.normalize.ast, n => {
 			// backwards compat for server versions before 2.0.2, which used a "flavor" rather than a "named" boolean
-			if(n.flavor == 'named') {
+			if(n.flavor === 'named') {
 				n['name' + 'd'] = true
 			}
 
