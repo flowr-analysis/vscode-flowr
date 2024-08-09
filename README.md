@@ -1,6 +1,6 @@
 # vscode-flowr
 
-[![Marketplace](https://badgen.net/vs-marketplace/v/flowr-analysis.vscode-flowr)](https://marketplace.visualstudio.com/items?itemName=flowr-analysis.vscode-flowr)
+[![Marketplace](https://badgen.net/vs-marketplace/v/code-inspect.vscode-flowr)](https://marketplace.visualstudio.com/items?itemName=code-inspect.vscode-flowr)
 
 This is the *flowR* extension for Visual Studio Code which allows you to retrieve program slices directly within your IDE. For more information on *flowR* and its capabilities, please check out [the main repository](https://github.com/flowr-analysis/flowr).
 
