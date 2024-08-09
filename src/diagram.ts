@@ -54,7 +54,9 @@ function createDocument(mermaid: string) {
 		mermaid.initialize({
 			startOnLoad: false,
 			securityLevel: 'loose',
-			theme: '${theme}'
+			theme: '${theme}',
+			maxTextSize: 500000,
+			maxEdges: 5000
 		})
 	</script>
 
