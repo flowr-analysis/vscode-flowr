@@ -40,7 +40,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vscode-flowr.report', () => {
-			void vscode.env.openExternal(vscode.Uri.parse('https://github.com/Code-Inspect/flowr/issues/new/choose'))
+			void vscode.env.openExternal(vscode.Uri.parse('https://github.com/flowr-analysis/flowr/issues/new/choose'))
 		})
 	)
 

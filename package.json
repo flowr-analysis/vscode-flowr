@@ -3,14 +3,14 @@
   "publisher": "code-inspect",
   "displayName": "R Slicer (flowR)",
   "description": "Slicing and analyzing R code courtesy of flowR",
-  "homepage": "https://github.com/Code-Inspect/vscode-flowr/blob/main/README.md",
+  "homepage": "https://github.com/flowr-analysis/vscode-flowr/blob/main/README.md",
   "icon": "media/flowR.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Code-Inspect/vscode-flowr"
+    "url": "https://github.com/flowr-analysis/vscode-flowr"
   },
   "bugs": {
-    "url": "https://github.com/Code-Inspect/vscode-flowr/issues",
+    "url": "https://github.com/flowr-analysis/vscode-flowr/issues",
     "email": "florian.sihler@uni-ulm.de"
   },
   "license": "GPL-3.0",
@@ -106,17 +106,17 @@
         "vscode-flowr.server.host": {
           "type": "string",
           "default": "localhost",
-          "markdownDescription": "The host to use when connecting to a [flowR server](https://github.com/Code-Inspect/flowr/wiki/Interface#-communicating-with-the-server)."
+          "markdownDescription": "The host to use when connecting to a [flowR server](https://github.com/flowr-analysis/flowr/wiki/Interface#-communicating-with-the-server)."
         },
         "vscode-flowr.server.port": {
           "type": "number",
           "default": 1042,
-          "markdownDescription": "The port to use when connecting to a [flowR server](https://github.com/Code-Inspect/flowr/wiki/Interface#-communicating-with-the-server)."
+          "markdownDescription": "The port to use when connecting to a [flowR server](https://github.com/flowr-analysis/flowr/wiki/Interface#-communicating-with-the-server)."
         },
         "vscode-flowr.server.autoConnect": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Whether to auto-connect to a [flowR server](https://github.com/Code-Inspect/flowr/wiki/Interface#-communicating-with-the-server) when the extension is loaded."
+          "markdownDescription": "Whether to auto-connect to a [flowR server](https://github.com/flowr-analysis/flowr/wiki/Interface#-communicating-with-the-server) when the extension is loaded."
         },
         "vscode-flowr.r.executable": {
           "type": "string",

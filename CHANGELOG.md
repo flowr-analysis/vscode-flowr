@@ -1,11 +1,11 @@
 # Version 0.3.0 (2024-05-11)
-- Upgrade to [flowr v2.0.0](https://github.com/Code-Inspect/flowr/releases/tag/v2.0.0), see the [release notes](https://github.com/Code-Inspect/flowr/releases/tag/v2.0.0) for more information on the changes.
+- Upgrade to [flowr v2.0.0](https://github.com/flowr-analysis/flowr/releases/tag/v2.0.0), see the [release notes](https://github.com/flowr-analysis/flowr/releases/tag/v2.0.0) for more information on the changes.
 
 # Version 0.2.1 (2024-05-09)
-- Documenting the new features in the README ([#83](https://github.com/Code-Inspect/vscode-flowr/pull/83)) and improving the command names.
+- Documenting the new features in the README ([#83](https://github.com/flowr-analysis/vscode-flowr/pull/83)) and improving the command names.
 
 # Version 0.2.0 (2024-05-07)
-- Allow slicing for multiple cursors, automatic updates of the slice based on the selection, placement of markers and improved preview of reconstructed slice, all thanks to @ManuelHentschel in [#81](https://github.com/Code-Inspect/vscode-flowr/pull/81)!
+- Allow slicing for multiple cursors, automatic updates of the slice based on the selection, placement of markers and improved preview of reconstructed slice, all thanks to @ManuelHentschel in [#81](https://github.com/flowr-analysis/vscode-flowr/pull/81)!
 
 # Version 0.1.1 (2024-04-13)
 - Fixed dataflow display not taking up its max width correctly

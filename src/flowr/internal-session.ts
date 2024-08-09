@@ -58,7 +58,7 @@ export class FlowrInternalSession implements FlowrSession {
 				void vscode.window.showErrorMessage('The R version could not be determined. R needs to be installed and part of your PATH environment variable.', seeDoc)
 					.then(s => {
 						if(s === seeDoc){
-							void vscode.env.openExternal(vscode.Uri.parse('https://github.com/Code-Inspect/vscode-flowr/blob/main/README.md#using'))
+							void vscode.env.openExternal(vscode.Uri.parse('https://github.com/flowr-analysis/vscode-flowr/blob/main/README.md#using'))
 						}
 					})
 

@@ -8,7 +8,7 @@ jobs:
     if: startsWith(github.event.head_commit.message, '[release:minor]') ||
       startsWith(github.event.head_commit.message, '[release:major]') ||
       startsWith(github.event.head_commit.message, '[release:patch]')
-    uses: Code-Inspect/vscode-flowr/.github/workflows/test.yml@main
+    uses: flowr-analysis/vscode-flowr/.github/workflows/test.yml@main
 
   release:
     runs-on: ubuntu-latest
@@ -28,7 +28,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 21.6.x
-          registry-url: 'https://registry.npmjs.org/'
+          registry-url: "https://registry.npmjs.org/"
       - name: Install vsce
         run: npm install -g @vscode/vsce
       - name: Install dependencies
@@ -47,7 +47,7 @@ jobs:
           echo "::set-output name=release_tag::$new_version"
         env:
           # apparently, putting the message into an env variable first sanitizes it
-          # (see https://github.com/Code-Inspect/flowr/security/code-scanning/29)
+          # (see https://github.com/flowr-analysis/flowr/security/code-scanning/29)
           MESSAGE: ${{ github.event.head_commit.message }}
 
       - name: Package
