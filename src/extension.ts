@@ -21,7 +21,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	outputChannel = vscode.window.createOutputChannel('flowR')
 
-	registerDiagramCommands(context)
+	registerDiagramCommands(context, outputChannel)
 	registerSliceCommands(context)
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.internal', async() => {

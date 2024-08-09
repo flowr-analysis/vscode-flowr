@@ -9,6 +9,7 @@ export enum Settings {
 	StyleSliceOpacity = 'style.sliceOpacity',
 	StyleSliceDisplay = 'style.sliceDisplay',
 	StyleOnlyHighlightActiveSelection = 'style.onlyHighlightActiveSelection',
+	StyleMermaidMaxTextLength = 'style.mermaidMaxTextLength',
 
 	Rexecutable = 'r.executable',
 }

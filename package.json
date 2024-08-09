@@ -155,6 +155,11 @@
           "default": false,
           "markdownDescription": "Whether to only highlight the selection in the active editor."
         },
+        "vscode-flowr.style.mermaidMaxTextLength": {
+          "type": "number",
+          "default": 500000,
+          "markdownDescription": "The maximum amount of characters that a Mermaid graph can contain to be parsed and displayed."
+        },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,
