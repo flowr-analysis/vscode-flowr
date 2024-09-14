@@ -211,16 +211,16 @@
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.0.17"
+    "@eagleoutice/flowr": "^2.0.24"
   },
   "devDependencies": {
+    "@eagleoutice/eslint-config-flowr": "^1.0.8",
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
     "@types/vscode": "^1.60.0",
     "@vscode/test-cli": "^0.0.6",
     "@vscode/test-electron": "^2.3.9",
-    "typescript": "^5.3.3",
-    "@eagleoutice/eslint-config-flowr": "^1.0.8"
+    "typescript": "^5.3.3"
   },
   "eslintConfig": {
     "extends": [
