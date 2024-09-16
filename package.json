@@ -211,7 +211,7 @@
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.0.24"
+    "@eagleoutice/flowr": "^2.0.25"
   },
   "devDependencies": {
     "@eagleoutice/eslint-config-flowr": "^1.0.8",
