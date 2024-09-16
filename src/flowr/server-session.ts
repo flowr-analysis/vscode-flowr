@@ -15,6 +15,9 @@ import type { FlowrSession, SliceReturn } from './utils'
 import { consolidateNewlines, makeSliceElements, makeSlicingCriteria } from './utils'
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id'
 import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/visitor'
+import type { DataflowGraphJson } from '@eagleoutice/flowr/dataflow/graph/graph'
+import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph'
+
 export class FlowrServerSession implements FlowrSession {
 
 	public state:        'inactive' | 'connecting' | 'connected' | 'not connected'
@@ -120,7 +123,10 @@ export class FlowrServerSession implements FlowrSession {
 
 	async retrieveDataflowMermaid(document: vscode.TextDocument): Promise<string> {
 		const response = await this.requestFileAnalysis(document)
-		return dataflowGraphToMermaid(response.results.dataflow)
+		return dataflowGraphToMermaid({
+			...response.results.dataflow,
+			graph: DataflowGraph.fromJson(response.results.dataflow.graph as unknown as DataflowGraphJson)
+		})
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
