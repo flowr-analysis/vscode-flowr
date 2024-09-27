@@ -28,6 +28,7 @@
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
+  "browser": "./dist/web/extension.js",
   "contributes": {
     "commands": [
       {
@@ -202,25 +203,41 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run compile && npm run package-web",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
-    "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse"
+    "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse",
+    "browser": "vscode-test-web --extensionDevelopmentPath=. .",
+    "compile-web": "webpack",
+    "package-web": "webpack --mode production --devtool hidden-source-map",
+    "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.0.25"
+    "@eagleoutice/flowr": "^2.0.25",
+    "assert": "^2.1.0",
+    "browserify-zlib": "^0.2.0",
+    "constants-browserify": "^1.0.0",
+    "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5"
   },
   "devDependencies": {
     "@eagleoutice/eslint-config-flowr": "^1.0.8",
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
     "@types/vscode": "^1.60.0",
+    "@types/webpack-env": "^1.16.0",
     "@vscode/test-cli": "^0.0.6",
     "@vscode/test-electron": "^2.3.9",
-    "typescript": "^5.3.3"
+    "@vscode/test-web": "^0.0.60",
+    "ts-loader": "^9.2.2",
+    "typescript": "^5.3.3",
+    "webpack": "^5.38.1",
+    "webpack-cli": "^4.7.0"
   },
   "eslintConfig": {
     "extends": [

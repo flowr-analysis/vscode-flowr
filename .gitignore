@@ -1,5 +1,7 @@
 node_modules
 .idea
 out
+dist
 .vscode-test
+.vscode-test-web
 *.vsix
