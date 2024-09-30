@@ -1,8 +1,8 @@
 import type * as vscode from 'vscode'
 
-import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id'
-import type { SourceRange } from '@eagleoutice/flowr/util/range'
-import type { SingleSlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse'
+import type { NodeId } from '@eagleoutice/flowr-dev/r-bridge/lang-4.x/ast/model/processing/node-id'
+import type { SourceRange } from '@eagleoutice/flowr-dev/util/range'
+import type { SingleSlicingCriterion } from '@eagleoutice/flowr-dev/slicing/criterion/parse'
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 

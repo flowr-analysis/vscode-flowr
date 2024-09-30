@@ -40,7 +40,8 @@ const webExtensionConfig = {
 			os:        require.resolve('os-browserify/browser'), 
 			zlib:      require.resolve('browserify-zlib'),
 			constants: require.resolve('constants-browserify'),
-			buffer:    require.resolve('buffer')
+			buffer:    require.resolve('buffer'),
+			timers:    require.resolve('timers-browserify')
 		}
 	},
 	module: {
