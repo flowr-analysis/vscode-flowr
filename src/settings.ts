@@ -5,6 +5,7 @@ export enum Settings {
 	ServerHost = 'server.host',
 	ServerPort = 'server.port',
 	ServerAutoConnect = 'server.autoConnect',
+	ServerConnectionType = 'server.connectionType',
 
 	StyleSliceOpacity = 'style.sliceOpacity',
 	StyleSliceDisplay = 'style.sliceDisplay',
@@ -15,3 +16,4 @@ export enum Settings {
 }
 
 export type SliceDisplay = 'text' | 'diff' | 'tokens'
+export type ConnectionType = 'auto' | 'websocket' | 'tcp'

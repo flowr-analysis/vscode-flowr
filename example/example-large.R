@@ -10,7 +10,7 @@ pkgnames <- available.packages(repos="https://cloud.r-project.org")[,1]
 download_numbers <- data.frame()
 
 stepsize <- 750
-for (i in seq(1, length(pkgnames), by = stepsize)) {
+for (i in seq(1, length(pkgna1mes), by = stepsize)) {
   start <- i
   end <- min(i+stepsize-1, length(pkgnames))
   cat("Retrieving download numbers for packages", start, "to", end, "from total", length(pkgnames), "\n")
