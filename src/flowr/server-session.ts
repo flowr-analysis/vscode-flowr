@@ -3,6 +3,7 @@ import * as vscode from 'vscode'
 import type { FlowrMessage } from '@eagleoutice/flowr-dev/cli/repl/server/messages/messages'
 import type { SourceRange } from '@eagleoutice/flowr-dev/util/range'
 import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from '../extension'
+import type { ConnectionType } from '../settings'
 import { Settings } from '../settings'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr-dev/core/print/dataflow-printer'
 import { extractCFG } from '@eagleoutice/flowr-dev/util/cfg/cfg'
@@ -16,6 +17,7 @@ import type { DataflowGraphJson } from '@eagleoutice/flowr-dev/dataflow/graph/gr
 import { DataflowGraph } from '@eagleoutice/flowr-dev/dataflow/graph/graph'
 import type { NormalizedAst } from '@eagleoutice/flowr-dev/r-bridge/lang-4.x/ast/model/processing/decorate'
 import { BiMap } from '@eagleoutice/flowr-dev/util/bimap'
+import { WebSocket } from 'ws'
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr-dev/cli/repl/server/messages/message-hello'
 import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr-dev/cli/repl/server/messages/message-analysis'
 import type { SliceResponseMessage } from '@eagleoutice/flowr-dev/cli/repl/server/messages/message-slice'
@@ -27,7 +29,7 @@ export class FlowrServerSession implements FlowrSession {
 	public rVersion:     string | undefined
 
 	private readonly outputChannel: vscode.OutputChannel
-	private socket:                 net.Socket | undefined
+	private connection:             Connection | undefined
 	private idCounter = 0
 
 	constructor(outputChannel: vscode.OutputChannel) {
@@ -48,39 +50,50 @@ export class FlowrServerSession implements FlowrSession {
 			this.flowrVersion = info.versions.flowr
 			updateStatusBar()
 		})
+		
+		this.connect(getConfig().get<ConnectionType>(Settings.ServerConnectionType, 'auto'))
+	}
 
+	public destroy(): void {
+		this.connection?.destroy()
+	}
+
+	private connect(type: ConnectionType): void {
 		const host = getConfig().get<string>(Settings.ServerHost, 'localhost')
 		const port = getConfig().get<number>(Settings.ServerPort, 1042)
-		this.outputChannel.appendLine(`Connecting to flowR server at ${host}:${port}`)
-		this.socket = net.createConnection(port, host, () => {
+		this.outputChannel.appendLine(`Connecting to flowR server using ${type} at ${host}:${port}`)
+		// if the type is auto, we still start with a websocket connection first
+		this.connection = type == 'tcp' ? new TcpConnection() : new WsConnection()
+		this.connection.connect(host, port, () => {
 			this.state = 'connected'
 			updateStatusBar()
 			this.outputChannel.appendLine('Connected to flowR server')
 		})
-		this.socket.on('error', e => {
-			this.outputChannel.appendLine(`flowR server error: ${e.message}`)
+		this.connection.on('error', e => {
+			this.outputChannel.appendLine(`flowR server error: ${(e as Error).message}`)
 
-			const useLocal = 'Use local shell instead'
-			const openSettings = 'Open connection settings'
-			void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${e.message}`, openSettings, useLocal)
-				.then(v => {
-					if(v === useLocal) {
-						void establishInternalSession()
-					} else if(v === openSettings) {
-						void vscode.commands.executeCommand( 'workbench.action.openSettings', 'vscode-flowr.server' )
-					}
-				})
+			if(type == 'auto' && this.connection instanceof WsConnection) {
+				// retry with tcp if we're in auto mode and the ws connection failed
+				this.connect('tcp')
+			} else {
+				const useLocal = 'Use local shell instead'
+				const openSettings = 'Open connection settings'
+				void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${(e as Error).message}`, openSettings, useLocal)
+					.then(v => {
+						if(v === useLocal) {
+							void establishInternalSession()
+						} else if(v === openSettings) {
+							void vscode.commands.executeCommand( 'workbench.action.openSettings', 'vscode-flowr.server' )
+						}
+					})
+			}
 		})
-		this.socket.on('close', () => {
+		this.connection.on('close', () => {
 			this.outputChannel.appendLine('flowR server connection closed')
 			this.state = 'not connected'
 			updateStatusBar()
 		})
-		this.socket.on('data', str => this.handleResponse(String(str)))
-	}
-
-	public destroy(): void {
-		this.socket?.destroy()
+		this.connection.on('data', str => this.handleResponse(String(str)))
 	}
 
 	private currentMessageBuffer = ''
@@ -101,11 +114,11 @@ export class FlowrServerSession implements FlowrSession {
 	private onceOnLineReceived: undefined | ((line: string) => void)
 
 	sendCommand(command: object): boolean {
-		if(this.socket) {
+		if(this.connection) {
 			if(isVerbose()) {
 				this.outputChannel.appendLine('Sending: ' + JSON.stringify(command))
 			}
-			this.socket.write(JSON.stringify(command) + '\n')
+			this.connection.write(JSON.stringify(command) + '\n')
 			return true
 		}
 		return false
@@ -190,4 +203,55 @@ export class FlowrServerSession implements FlowrSession {
 			content:   consolidateNewlines(document.getText())
 		})
 	}
+}
+
+interface Connection {
+	connect(host: string, port: number, connectionListener: () => void): void;
+	on(event: 'data' | 'close' | 'error', listener: (...args: unknown[]) => void): void;
+	write(data: string): void;
+	destroy(): void
+}
+
+class TcpConnection implements Connection {
+
+	private socket: net.Socket | undefined
+	
+	connect(host: string, port: number, connectionListener: () => void): void {
+		this.socket = net.createConnection(port, host, connectionListener)	
+	}
+
+	on(event: 'data' | 'close' | 'error', listener: (...args: unknown[]) => void): void {
+		this.socket?.on(event, listener)
+	}
+
+	write(data: string): void {
+		this.socket?.write(data)
+	}
+
+	destroy(): void {
+		this.socket?.destroy()
+	}
+}
+
+class WsConnection implements Connection {
+
+	private socket: WebSocket | undefined
+
+	connect(host: string, port: number, connectionListener: () => void): void {
+		this.socket = new WebSocket(`ws://${host}:${port}`)
+		this.socket.on('open', connectionListener)
+	}
+
+	on(event: 'data' | 'close' | 'error', listener: (...args: unknown[]) => void): void {
+		this.socket?.on(event == 'data' ? 'message' : event, listener)
+	}
+
+	write(data: string): void {
+		this.socket?.send(data)
+	}
+
+	destroy(): void {
+		this.socket?.close()
+	}
+
 }

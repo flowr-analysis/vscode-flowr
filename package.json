@@ -119,6 +119,21 @@
           "default": false,
           "markdownDescription": "Whether to auto-connect to a [flowR server](https://github.com/flowr-analysis/flowr/wiki/Interface#-communicating-with-the-server) when the extension is loaded."
         },
+        "vscode-flowr.server.connectionType": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "websocket",
+            "tcp"
+          ],
+          "enumDescriptions": [
+            "The extension attempts to connect via websocket and automatically falls back to a TCP connection.",
+            "The extension connects to a flowR server via websocket (for a server started using --ws).",
+            "The extension connects to a flowR server via TCP."
+          ],
+          "markdownDescription": "The connection type that should be used when connecting to a [flowR server](https://github.com/flowr-analysis/flowr/wiki/Interface#-communicating-with-the-server)."
+        },
         "vscode-flowr.r.executable": {
           "type": "string",
           "default": "",
@@ -225,9 +240,11 @@
     "path-browserify": "^1.0.1",
     "stream-browserify": "^3.0.0",
     "timers-browserify": "^2.0.12",
-    "util": "^0.12.5"
+    "util": "^0.12.5",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/ws": "^8.5.10",
     "@eagleoutice/eslint-config-flowr": "^1.0.8",
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
