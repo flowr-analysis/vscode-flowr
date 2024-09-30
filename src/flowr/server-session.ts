@@ -1,5 +1,6 @@
 import * as net from 'net'
 import * as vscode from 'vscode'
+import * as ws from 'ws'
 import type { FlowrMessage } from '@eagleoutice/flowr-dev/cli/repl/server/messages/messages'
 import type { SourceRange } from '@eagleoutice/flowr-dev/util/range'
 import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from '../extension'
@@ -17,7 +18,6 @@ import type { DataflowGraphJson } from '@eagleoutice/flowr-dev/dataflow/graph/gr
 import { DataflowGraph } from '@eagleoutice/flowr-dev/dataflow/graph/graph'
 import type { NormalizedAst } from '@eagleoutice/flowr-dev/r-bridge/lang-4.x/ast/model/processing/decorate'
 import { BiMap } from '@eagleoutice/flowr-dev/util/bimap'
-import { WebSocket } from 'ws'
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr-dev/cli/repl/server/messages/message-hello'
 import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr-dev/cli/repl/server/messages/message-analysis'
 import type { SliceResponseMessage } from '@eagleoutice/flowr-dev/cli/repl/server/messages/message-slice'
@@ -63,7 +63,7 @@ export class FlowrServerSession implements FlowrSession {
 		const port = getConfig().get<number>(Settings.ServerPort, 1042)
 		this.outputChannel.appendLine(`Connecting to flowR server using ${type} at ${host}:${port}`)
 		// if the type is auto, we still start with a websocket connection first
-		this.connection = type == 'tcp' ? new TcpConnection() : new WsConnection()
+		this.connection = type == 'tcp' ? new TcpConnection() : typeof WebSocket != 'undefined'? new BrowserWsConnection() : new WsConnection()
 		this.connection.connect(host, port, () => {
 			this.state = 'connected'
 			updateStatusBar()
@@ -235,15 +235,38 @@ class TcpConnection implements Connection {
 
 class WsConnection implements Connection {
 
-	private socket: WebSocket | undefined
+	private socket: ws.WebSocket | undefined
 
 	connect(host: string, port: number, connectionListener: () => void): void {
-		this.socket = new WebSocket(`ws://${host}:${port}`)
+		this.socket = new ws.WebSocket(`ws://${host}:${port}`)
 		this.socket.on('open', connectionListener)
 	}
 
 	on(event: 'data' | 'close' | 'error', listener: (...args: unknown[]) => void): void {
 		this.socket?.on(event == 'data' ? 'message' : event, listener)
+	}
+
+	write(data: string): void {
+		this.socket?.send(data)
+	}
+
+	destroy(): void {
+		this.socket?.close()
+	}
+
+}
+
+class BrowserWsConnection implements Connection {
+	
+	private socket: WebSocket | undefined
+
+	connect(host: string, port: number, connectionListener: () => void): void {
+		this.socket = new WebSocket(`ws://${host}:${port}`)
+		this.socket.addEventListener('open', connectionListener)
+	}
+
+	on(event: 'data' | 'close' | 'error', listener: (...args: unknown[]) => void): void {
+		this.socket?.addEventListener(event == 'data' ? 'message' : event, e => listener((e as MessageEvent)?.data ?? e))
 	}
 
 	write(data: string): void {
