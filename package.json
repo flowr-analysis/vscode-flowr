@@ -80,7 +80,8 @@
         "command": "vscode-flowr.session.internal",
         "title": "Start Local flowR Shell",
         "icon": "$(terminal)",
-        "category": "flowR"
+        "category": "flowR",
+        "enablement": "shellExecutionSupported"
       },
       {
         "command": "vscode-flowr.session.connect",
@@ -137,7 +138,7 @@
         "vscode-flowr.r.executable": {
           "type": "string",
           "default": "",
-          "markdownDescription": "An absolute path to the R binary to use. If this is empty, R is expected to be part of the system's PATH."
+          "markdownDescription": "An absolute path to the R binary to use for the local shell. If this is empty, R is expected to be part of the system's PATH."
         },
         "vscode-flowr.style.sliceOpacity": {
           "type": "number",

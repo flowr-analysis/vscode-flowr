@@ -3,7 +3,7 @@ import * as vscode from 'vscode'
 import * as ws from 'ws'
 import type { FlowrMessage } from '@eagleoutice/flowr-dev/cli/repl/server/messages/messages'
 import type { SourceRange } from '@eagleoutice/flowr-dev/util/range'
-import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from '../extension'
+import { establishInternalSession, getConfig, isVerbose, isWeb, updateStatusBar } from '../extension'
 import type { ConnectionType } from '../settings'
 import { Settings } from '../settings'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr-dev/core/print/dataflow-printer'
@@ -39,19 +39,19 @@ export class FlowrServerSession implements FlowrSession {
 		updateStatusBar()
 	}
 
-	initialize() {
+	async initialize() {
 		this.state = 'connecting'
 		updateStatusBar()
 
+		this.connect(getConfig().get<ConnectionType>(Settings.ServerConnectionType, 'auto'))
+
 		// the first response will be flowR's hello message
-		void this.awaitResponse().then(r => {
+		return this.awaitResponse().then(r => {
 			const info = JSON.parse(r) as FlowrHelloResponseMessage
 			this.rVersion = info.versions.r
 			this.flowrVersion = info.versions.flowr
 			updateStatusBar()
 		})
-		
-		this.connect(getConfig().get<ConnectionType>(Settings.ServerConnectionType, 'auto'))
 	}
 
 	public destroy(): void {
@@ -63,7 +63,7 @@ export class FlowrServerSession implements FlowrSession {
 		const port = getConfig().get<number>(Settings.ServerPort, 1042)
 		this.outputChannel.appendLine(`Connecting to flowR server using ${type} at ${host}:${port}`)
 		// if the type is auto, we still start with a websocket connection first
-		this.connection = type == 'tcp' ? new TcpConnection() : typeof WebSocket != 'undefined'? new BrowserWsConnection() : new WsConnection()
+		this.connection = type == 'tcp' ? new TcpConnection() : isWeb() ? new BrowserWsConnection() : new WsConnection()
 		this.connection.connect(host, port, () => {
 			this.state = 'connected'
 			updateStatusBar()
@@ -76,9 +76,12 @@ export class FlowrServerSession implements FlowrSession {
 				// retry with tcp if we're in auto mode and the ws connection failed
 				this.connect('tcp')
 			} else {
+				this.state = 'inactive'
+				updateStatusBar()
+
 				const useLocal = 'Use local shell instead'
 				const openSettings = 'Open connection settings'
-				void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${(e as Error).message}`, openSettings, useLocal)
+				void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${(e as Error).message}`, openSettings, isWeb() ? '' : useLocal)
 					.then(v => {
 						if(v === useLocal) {
 							void establishInternalSession()
@@ -212,6 +215,7 @@ interface Connection {
 	destroy(): void
 }
 
+// TODO make this not be used at all on browsers!
 class TcpConnection implements Connection {
 
 	private socket: net.Socket | undefined

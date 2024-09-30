@@ -75,13 +75,15 @@ export async function getFlowrSession() {
 	if(flowrSession) {
 		return flowrSession
 	}
-	return await establishInternalSession()
+	// on the web, we always want to connect to a server since we don't support local sessions
+	return await (isWeb() ? establishServerSession() : establishInternalSession())
 }
 
 export async function establishServerSession() {
 	destroySession()
 	flowrSession = new FlowrServerSession(outputChannel)
 	await flowrSession.initialize()
+	return flowrSession
 }
 
 export function destroySession() {
@@ -131,4 +133,8 @@ export function updateStatusBar() {
 	} else {
 		statusBarItem.hide()
 	}
+}
+
+export function isWeb() {
+	return typeof WebSocket !== 'undefined'
 }
