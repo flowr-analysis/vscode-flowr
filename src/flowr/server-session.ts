@@ -1,26 +1,26 @@
 import * as net from 'net'
 import * as vscode from 'vscode'
-import type { FlowrMessage } from '@eagleoutice/flowr/cli/repl/server/messages/messages'
-import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/repl/server/messages/analysis'
-import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/slice'
-import type { SourceRange } from '@eagleoutice/flowr/util/range'
-import { establishInternalSession, getConfig, isVerbose, updateStatusBar } from '../extension'
-import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/hello'
+import * as ws from 'ws'
+import type { FlowrMessage } from '@eagleoutice/flowr-dev/cli/repl/server/messages/messages'
+import type { SourceRange } from '@eagleoutice/flowr-dev/util/range'
+import { establishInternalSession, getConfig, isVerbose, isWeb, updateStatusBar } from '../extension'
 import type { ConnectionType } from '../settings'
 import { Settings } from '../settings'
-import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
-import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg'
-import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast'
-import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg'
+import { dataflowGraphToMermaid } from '@eagleoutice/flowr-dev/core/print/dataflow-printer'
+import { extractCFG } from '@eagleoutice/flowr-dev/util/cfg/cfg'
+import { normalizedAstToMermaid } from '@eagleoutice/flowr-dev/util/mermaid/ast'
+import { cfgToMermaid } from '@eagleoutice/flowr-dev/util/mermaid/cfg'
 import type { FlowrSession, SliceReturn } from './utils'
 import { consolidateNewlines, makeSliceElements, makeSlicingCriteria } from './utils'
-import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id'
-import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/visitor'
-import type { DataflowGraphJson } from '@eagleoutice/flowr/dataflow/graph/graph'
-import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph'
-import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate'
-import { BiMap } from '@eagleoutice/flowr/util/bimap'
-import { WebSocket } from 'ws'
+import type { NodeId } from '@eagleoutice/flowr-dev/r-bridge/lang-4.x/ast/model/processing/node-id'
+import { visitAst } from '@eagleoutice/flowr-dev/r-bridge/lang-4.x/ast/model/processing/visitor'
+import type { DataflowGraphJson } from '@eagleoutice/flowr-dev/dataflow/graph/graph'
+import { DataflowGraph } from '@eagleoutice/flowr-dev/dataflow/graph/graph'
+import type { NormalizedAst } from '@eagleoutice/flowr-dev/r-bridge/lang-4.x/ast/model/processing/decorate'
+import { BiMap } from '@eagleoutice/flowr-dev/util/bimap'
+import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr-dev/cli/repl/server/messages/message-hello'
+import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr-dev/cli/repl/server/messages/message-analysis'
+import type { SliceResponseMessage } from '@eagleoutice/flowr-dev/cli/repl/server/messages/message-slice'
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -39,19 +39,19 @@ export class FlowrServerSession implements FlowrSession {
 		updateStatusBar()
 	}
 
-	initialize() {
+	async initialize() {
 		this.state = 'connecting'
 		updateStatusBar()
 
+		this.connect(getConfig().get<ConnectionType>(Settings.ServerConnectionType, 'auto'))
+
 		// the first response will be flowR's hello message
-		void this.awaitResponse().then(r => {
+		return this.awaitResponse().then(r => {
 			const info = JSON.parse(r) as FlowrHelloResponseMessage
 			this.rVersion = info.versions.r
 			this.flowrVersion = info.versions.flowr
 			updateStatusBar()
 		})
-		
-		this.connect(getConfig().get<ConnectionType>(Settings.ServerConnectionType, 'auto'))
 	}
 
 	public destroy(): void {
@@ -63,7 +63,7 @@ export class FlowrServerSession implements FlowrSession {
 		const port = getConfig().get<number>(Settings.ServerPort, 1042)
 		this.outputChannel.appendLine(`Connecting to flowR server using ${type} at ${host}:${port}`)
 		// if the type is auto, we still start with a websocket connection first
-		this.connection = type == 'tcp' ? new TcpConnection() : new WsConnection()
+		this.connection = isWeb() ? new BrowserWsConnection() : type == 'tcp' ? new TcpConnection() : new WsConnection()
 		this.connection.connect(host, port, () => {
 			this.state = 'connected'
 			updateStatusBar()
@@ -76,9 +76,12 @@ export class FlowrServerSession implements FlowrSession {
 				// retry with tcp if we're in auto mode and the ws connection failed
 				this.connect('tcp')
 			} else {
+				this.state = 'inactive'
+				updateStatusBar()
+
 				const useLocal = 'Use local shell instead'
 				const openSettings = 'Open connection settings'
-				void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${(e as Error).message}`, openSettings, useLocal)
+				void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${(e as Error).message}`, openSettings, isWeb() ? '' : useLocal)
 					.then(v => {
 						if(v === useLocal) {
 							void establishInternalSession()
@@ -235,15 +238,38 @@ class TcpConnection implements Connection {
 
 class WsConnection implements Connection {
 
-	private socket: WebSocket | undefined
+	private socket: ws.WebSocket | undefined
 
 	connect(host: string, port: number, connectionListener: () => void): void {
-		this.socket = new WebSocket(`ws://${host}:${port}`)
+		this.socket = new ws.WebSocket(`ws://${host}:${port}`)
 		this.socket.on('open', connectionListener)
 	}
 
 	on(event: 'data' | 'close' | 'error', listener: (...args: unknown[]) => void): void {
 		this.socket?.on(event == 'data' ? 'message' : event, listener)
+	}
+
+	write(data: string): void {
+		this.socket?.send(data)
+	}
+
+	destroy(): void {
+		this.socket?.close()
+	}
+
+}
+
+class BrowserWsConnection implements Connection {
+	
+	private socket: WebSocket | undefined
+
+	connect(host: string, port: number, connectionListener: () => void): void {
+		this.socket = new WebSocket(`ws://${host}:${port}`)
+		this.socket.addEventListener('open', connectionListener)
+	}
+
+	on(event: 'data' | 'close' | 'error', listener: (...args: unknown[]) => void): void {
+		this.socket?.addEventListener(event == 'data' ? 'message' : event, e => listener((e as MessageEvent)?.data ?? e))
 	}
 
 	write(data: string): void {

@@ -7,7 +7,7 @@ import { registerDiagramCommands } from './diagram'
 import type { FlowrSession } from './flowr/utils'
 import { selectionSlicer } from './selection-slicer'
 import { positionSlicers } from './position-slicer'
-import { flowrVersion } from '@eagleoutice/flowr/util/version'
+import { flowrVersion } from '@eagleoutice/flowr-dev/util/version'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
@@ -75,13 +75,15 @@ export async function getFlowrSession() {
 	if(flowrSession) {
 		return flowrSession
 	}
-	return await establishInternalSession()
+	// on the web, we always want to connect to a server since we don't support local sessions
+	return await (isWeb() ? establishServerSession() : establishInternalSession())
 }
 
 export async function establishServerSession() {
 	destroySession()
 	flowrSession = new FlowrServerSession(outputChannel)
 	await flowrSession.initialize()
+	return flowrSession
 }
 
 export function destroySession() {
@@ -131,4 +133,11 @@ export function updateStatusBar() {
 	} else {
 		statusBarItem.hide()
 	}
+}
+
+export function isWeb() {
+	// apparently there is no official way to test this from the vscode api other
+	// than in the command availability context stuff, which is not what we want
+	// this is dirty but it should work since the WebSocket is unavailable in node
+	return typeof WebSocket !== 'undefined'
 }
