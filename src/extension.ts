@@ -136,5 +136,8 @@ export function updateStatusBar() {
 }
 
 export function isWeb() {
+	// apparently there is no official way to test this from the vscode api other
+	// than in the command availability context stuff, which is not what we want
+	// this is dirty but it should work since the WebSocket is unavailable in node
 	return typeof WebSocket !== 'undefined'
 }
