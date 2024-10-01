@@ -62,8 +62,8 @@ export class FlowrServerSession implements FlowrSession {
 		const host = getConfig().get<string>(Settings.ServerHost, 'localhost')
 		const port = getConfig().get<number>(Settings.ServerPort, 1042)
 		this.outputChannel.appendLine(`Connecting to flowR server using ${type} at ${host}:${port}`)
-		// if the type is auto, we still start with a websocket connection first
-		this.connection = isWeb() ? new BrowserWsConnection() : type == 'tcp' ? new TcpConnection() : new WsConnection()
+		// if the type is auto, we still start with a (secure!) websocket connection first
+		this.connection = isWeb() ? new BrowserWsConnection() : type == 'tcp' ? new TcpConnection() : new WsConnection(type !== 'websocket')
 		this.connection.connect(host, port, () => {
 			this.state = 'connected'
 			updateStatusBar()
@@ -73,8 +73,8 @@ export class FlowrServerSession implements FlowrSession {
 			this.outputChannel.appendLine(`flowR server error: ${(e as Error).message}`)
 
 			if(type == 'auto' && this.connection instanceof WsConnection) {
-				// retry with tcp if we're in auto mode and the ws connection failed
-				this.connect('tcp')
+				// retry with tcp if we're in auto mode and the ws secure and normal ws connections failed
+				this.connect(this.connection.secure ? 'websocket' : 'tcp')
 			} else {
 				this.state = 'inactive'
 				updateStatusBar()
@@ -238,10 +238,15 @@ class TcpConnection implements Connection {
 
 class WsConnection implements Connection {
 
-	private socket: ws.WebSocket | undefined
+	public readonly secure: boolean
+	private socket:         ws.WebSocket | undefined
+
+	constructor(secure: boolean) {
+		this.secure = secure
+	}
 
 	connect(host: string, port: number, connectionListener: () => void): void {
-		this.socket = new ws.WebSocket(`ws://${host}:${port}`)
+		this.socket = new ws.WebSocket(`${this.secure ? 'wss' : 'ws'}://${host}:${port}`)
 		this.socket.on('open', connectionListener)
 	}
 

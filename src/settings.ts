@@ -16,4 +16,4 @@ export enum Settings {
 }
 
 export type SliceDisplay = 'text' | 'diff' | 'tokens'
-export type ConnectionType = 'auto' | 'websocket' | 'tcp'
+export type ConnectionType = 'auto' | 'websocket' | 'websocket-secure' | 'tcp'
