@@ -63,7 +63,7 @@ export class FlowrServerSession implements FlowrSession {
 		const port = getConfig().get<number>(Settings.ServerPort, 1042)
 		this.outputChannel.appendLine(`Connecting to flowR server using ${type} at ${host}:${port}`)
 		// if the type is auto, we still start with a websocket connection first
-		this.connection = type == 'tcp' ? new TcpConnection() : isWeb() ? new BrowserWsConnection() : new WsConnection()
+		this.connection = isWeb() ? new BrowserWsConnection() : type == 'tcp' ? new TcpConnection() : new WsConnection()
 		this.connection.connect(host, port, () => {
 			this.state = 'connected'
 			updateStatusBar()
@@ -215,7 +215,6 @@ interface Connection {
 	destroy(): void
 }
 
-// TODO make this not be used at all on browsers!
 class TcpConnection implements Connection {
 
 	private socket: net.Socket | undefined
