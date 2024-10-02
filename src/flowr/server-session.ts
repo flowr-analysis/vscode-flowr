@@ -60,8 +60,16 @@ export class FlowrServerSession implements FlowrSession {
 	}
 
 	private connect(configType: ConnectionType, typeToUse: ConnectionType): void {
-		const host = getConfig().get<string>(Settings.ServerHost, 'localhost')
+		let host = getConfig().get<string>(Settings.ServerHost, 'localhost')
 		const port = getConfig().get<number>(Settings.ServerPort, 1042)
+		// we also set configType when overriding the type to use because that's the only one we want to try even in auto mode!
+		if(host.startsWith('ws://')){
+			host = host.substring(5)
+			configType = typeToUse = 'websocket'
+		} else if(host.startsWith('wss://')){
+			host = host.substring(6)
+			configType = typeToUse = 'websocket-secure'
+		}
 		this.outputChannel.appendLine(`Connecting to flowR server using ${typeToUse} at ${host}:${port}`)
 		// if the type is auto, we still start with a (secure!) websocket connection first
 		this.connection = isWeb() ? new BrowserWsConnection(typeToUse !== 'websocket') : typeToUse == 'tcp' ? new TcpConnection() : new WsConnection(typeToUse !== 'websocket')
