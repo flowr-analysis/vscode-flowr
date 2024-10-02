@@ -43,7 +43,8 @@ export class FlowrServerSession implements FlowrSession {
 		this.state = 'connecting'
 		updateStatusBar()
 
-		this.connect(getConfig().get<ConnectionType>(Settings.ServerConnectionType, 'auto'))
+		const configType = getConfig().get<ConnectionType>(Settings.ServerConnectionType, 'auto')
+		this.connect(configType, configType)
 
 		// the first response will be flowR's hello message
 		return this.awaitResponse().then(r => {
@@ -58,12 +59,12 @@ export class FlowrServerSession implements FlowrSession {
 		this.connection?.destroy()
 	}
 
-	private connect(type: ConnectionType): void {
+	private connect(configType: ConnectionType, typeToUse: ConnectionType): void {
 		const host = getConfig().get<string>(Settings.ServerHost, 'localhost')
 		const port = getConfig().get<number>(Settings.ServerPort, 1042)
-		this.outputChannel.appendLine(`Connecting to flowR server using ${type} at ${host}:${port}`)
+		this.outputChannel.appendLine(`Connecting to flowR server using ${typeToUse} at ${host}:${port}`)
 		// if the type is auto, we still start with a (secure!) websocket connection first
-		this.connection = isWeb() ? new BrowserWsConnection(type !== 'websocket') : type == 'tcp' ? new TcpConnection() : new WsConnection(type !== 'websocket')
+		this.connection = isWeb() ? new BrowserWsConnection(typeToUse !== 'websocket') : typeToUse == 'tcp' ? new TcpConnection() : new WsConnection(typeToUse !== 'websocket')
 		this.connection.connect(host, port, () => {
 			this.state = 'connected'
 			updateStatusBar()
@@ -72,9 +73,9 @@ export class FlowrServerSession implements FlowrSession {
 		this.connection.on('error', e => {
 			this.outputChannel.appendLine(`flowR server error: ${(e as Error).message}`)
 
-			if(type == 'auto' && this.connection instanceof WsConnection) {
+			if(configType == 'auto' && this.connection instanceof WsConnection) {
 				// retry with tcp if we're in auto mode and the ws secure and normal ws connections failed
-				this.connect(this.connection.secure ? 'websocket' : 'tcp')
+				this.connect(configType, this.connection.secure ? 'websocket' : 'tcp')
 			} else {
 				this.state = 'inactive'
 				updateStatusBar()
