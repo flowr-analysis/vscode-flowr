@@ -265,8 +265,8 @@ class WsConnection implements Connection {
 }
 
 class BrowserWsConnection implements Connection {
-	private readonly secure: boolean;
-	private socket: WebSocket | undefined
+	private readonly secure: boolean
+	private socket:          WebSocket | undefined
 
 	constructor(secure: boolean) {
 		this.secure = secure
