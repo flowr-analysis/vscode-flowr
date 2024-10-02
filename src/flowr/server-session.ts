@@ -70,7 +70,8 @@ export class FlowrServerSession implements FlowrSession {
 			host = host.substring(6)
 			configType = typeToUse = 'websocket-secure'
 		}
-		this.outputChannel.appendLine(`Connecting to flowR server using ${typeToUse} at ${host}:${port}`)
+		const [base, suff] = splitHost(host)
+		this.outputChannel.appendLine(`Connecting to flowR server using ${typeToUse} at ${base}:${port}/${suff}/`)
 		// if the type is auto, we still start with a (secure!) websocket connection first
 		this.connection = isWeb() ? new BrowserWsConnection(typeToUse !== 'websocket') : typeToUse == 'tcp' ? new TcpConnection() : new WsConnection(typeToUse !== 'websocket')
 		this.connection.connect(host, port, () => {
@@ -245,6 +246,15 @@ class TcpConnection implements Connection {
 	}
 }
 
+
+/**
+ * splits foo.com/bar into ['foo.com', 'bar']
+ */
+function splitHost(baseHost: string): [string, string] {
+	const split = baseHost.split('/')
+	return [split[0], split.slice(1).join('/')]
+}
+
 class WsConnection implements Connection {
 
 	public readonly secure: boolean
@@ -255,7 +265,8 @@ class WsConnection implements Connection {
 	}
 
 	connect(host: string, port: number, connectionListener: () => void): void {
-		this.socket = new ws.WebSocket(`${this.secure ? 'wss' : 'ws'}://${host}:${port}`)
+		const [base, suff] = splitHost(host)
+		this.socket = new ws.WebSocket(`${this.secure ? 'wss' : 'ws'}://${base}:${port}/${suff}`)
 		this.socket.on('open', connectionListener)
 	}
 
@@ -282,7 +293,8 @@ class BrowserWsConnection implements Connection {
 	}
 
 	connect(host: string, port: number, connectionListener: () => void): void {
-		this.socket = new WebSocket(`${this.secure ? 'wss' : 'ws'}://${host}:${port}`)
+		const [base, suff] = splitHost(host)
+		this.socket = new WebSocket(`${this.secure ? 'wss' : 'ws'}://${base}:${port}/${suff}/`)
 		this.socket.addEventListener('open', connectionListener)
 	}
 
