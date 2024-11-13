@@ -7,7 +7,7 @@ import { registerDiagramCommands } from './diagram'
 import type { FlowrSession } from './flowr/utils'
 import { selectionSlicer } from './selection-slicer'
 import { positionSlicers } from './position-slicer'
-import { flowrVersion } from '@eagleoutice/flowr-dev/util/version'
+import { flowrVersion } from '@eagleoutice/flowr/util/version'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4

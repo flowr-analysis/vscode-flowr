@@ -234,7 +234,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr-dev": "^0.0.2024-09-27-19-24",
+    "@eagleoutice/flowr": "^2.1.5",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
