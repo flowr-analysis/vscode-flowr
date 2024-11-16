@@ -27,6 +27,7 @@ export class FlowrServerSession implements FlowrSession {
 	public state:        'inactive' | 'connecting' | 'connected' | 'not connected'
 	public flowrVersion: string | undefined
 	public rVersion:     string | undefined
+	public working:	  	 boolean = false
 
 	private readonly outputChannel: vscode.OutputChannel
 	private connection:             Connection | undefined
@@ -122,6 +123,8 @@ export class FlowrServerSession implements FlowrSession {
 		}
 		this.onceOnLineReceived?.(message)
 		this.onceOnLineReceived = undefined
+		this.working = false
+		updateStatusBar()
 	}
 
 	private onceOnLineReceived: undefined | ((line: string) => void)
@@ -138,6 +141,8 @@ export class FlowrServerSession implements FlowrSession {
 	}
 
 	async sendCommandWithResponse<Target>(command: FlowrMessage): Promise<Target> {
+		this.working = true
+		updateStatusBar()
 		const response = this.awaitResponse()
 		this.sendCommand(command)
 		return JSON.parse(await response) as Target
@@ -173,6 +178,8 @@ export class FlowrServerSession implements FlowrSession {
 
 	async retrieveSlice(positions: vscode.Position[], document: vscode.TextDocument): Promise<SliceReturn> {
 		const criteria = makeSlicingCriteria(positions, document, isVerbose())
+
+
 
 		const response = await this.requestFileAnalysis(document)
 		// now we want to collect all ids from response in a map again (id -> location)

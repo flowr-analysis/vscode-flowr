@@ -8,6 +8,7 @@ import type { FlowrSession } from './flowr/utils'
 import { selectionSlicer } from './selection-slicer'
 import { positionSlicers } from './position-slicer'
 import { flowrVersion } from '@eagleoutice/flowr-dev/util/version'
+import { Session } from 'inspector/promises'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
@@ -100,10 +101,16 @@ export function updateStatusBar() {
 		if(flowrSession.state === 'connected') {
 			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrSession.flowrVersion}`)
 		}
+		if (flowrSession.working){
+			text.push(`$(loading~spin) Analyzing`)
+		}
 	} else if(flowrSession instanceof FlowrInternalSession) {
 		text.push(`$(console) flowR ${flowrSession.state}`)
 		if(flowrSession.state === 'active') {
 			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}`)
+		}
+		if (flowrSession.working){
+			text.push(`$(loading~spin) Analyzing`)
 		}
 	}
 

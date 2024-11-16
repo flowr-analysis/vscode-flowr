@@ -17,6 +17,7 @@ export class FlowrInternalSession implements FlowrSession {
 
 	public state:    'inactive' | 'loading' | 'active' | 'failure'
 	public rVersion: string | undefined
+	public	working: boolean = false
 
 	private readonly outputChannel: vscode.OutputChannel
 	private shell:                  RShell | undefined
@@ -25,6 +26,11 @@ export class FlowrInternalSession implements FlowrSession {
 		this.outputChannel = outputChannel
 
 		this.state = 'inactive'
+		updateStatusBar()
+	}
+
+	setWorking(working: boolean): void {
+		this.working = working
 		updateStatusBar()
 	}
 
@@ -91,7 +97,10 @@ export class FlowrInternalSession implements FlowrSession {
 			}
 		}
 		try {
-			return await this.extractSlice(this.shell, document, positions)
+			this.setWorking(true)
+			let result =  await this.extractSlice(this.shell, document, positions)
+			this.setWorking(false)
+			return result
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l))
@@ -109,33 +118,43 @@ export class FlowrInternalSession implements FlowrSession {
 		if(!this.shell) {
 			return ''
 		}
+		this.setWorking(true)
 		const result = await new PipelineExecutor(DEFAULT_DATAFLOW_PIPELINE,{
 			shell:   this.shell,
 			request: requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
-		return dataflowGraphToMermaid(result.dataflow)
+		let dataflow = dataflowGraphToMermaid(result.dataflow)
+		this.setWorking(false)
+		return dataflow
+		
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
 		if(!this.shell) {
 			return ''
 		}
+		this.setWorking(true)
 		const result = await new PipelineExecutor(DEFAULT_NORMALIZE_PIPELINE, {
 			shell:   this.shell,
 			request: requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
-		return normalizedAstToMermaid(result.normalize.ast)
+		let ast = normalizedAstToMermaid(result.normalize.ast)
+		this.setWorking(false)
+		return ast
 	}
 
 	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
 		if(!this.shell) {
 			return ''
 		}
+		this.setWorking(true)
 		const result = await new PipelineExecutor(DEFAULT_NORMALIZE_PIPELINE, {
 			shell:   this.shell,
 			request: requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps()
-		return cfgToMermaid(extractCFG(result.normalize), result.normalize)
+		let cfg = cfgToMermaid(extractCFG(result.normalize), result.normalize)
+		this.setWorking(false)
+		return cfg
 	}
 
 	private async extractSlice(shell: RShell, document: vscode.TextDocument, positions: vscode.Position[]): Promise<SliceReturn> {
