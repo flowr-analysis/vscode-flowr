@@ -27,7 +27,7 @@ export class FlowrServerSession implements FlowrSession {
 	public state:        'inactive' | 'connecting' | 'connected' | 'not connected'
 	public flowrVersion: string | undefined
 	public rVersion:     string | undefined
-	public working:	  	 boolean = false
+	public working:	  	  boolean = false
 
 	private readonly outputChannel: vscode.OutputChannel
 	private connection:             Connection | undefined
@@ -54,6 +54,11 @@ export class FlowrServerSession implements FlowrSession {
 			this.flowrVersion = info.versions.flowr
 			updateStatusBar()
 		})
+	}
+
+	setWorking(working: boolean): void {
+		this.working = working
+		updateStatusBar()
 	}
 
 	public destroy(): void {
@@ -123,7 +128,7 @@ export class FlowrServerSession implements FlowrSession {
 		}
 		this.onceOnLineReceived?.(message)
 		this.onceOnLineReceived = undefined
-		this.working = false
+		this.setWorking(false)
 		updateStatusBar()
 	}
 
@@ -141,7 +146,7 @@ export class FlowrServerSession implements FlowrSession {
 	}
 
 	async sendCommandWithResponse<Target>(command: FlowrMessage): Promise<Target> {
-		this.working = true
+		this.setWorking(true)
 		updateStatusBar()
 		const response = this.awaitResponse()
 		this.sendCommand(command)

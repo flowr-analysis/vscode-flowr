@@ -101,16 +101,16 @@ export function updateStatusBar() {
 		if(flowrSession.state === 'connected') {
 			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrSession.flowrVersion}`)
 		}
-		if (flowrSession.working){
-			text.push(`$(loading~spin) Analyzing`)
+		if(flowrSession.working){
+			text.push('$(loading~spin) Analyzing')
 		}
 	} else if(flowrSession instanceof FlowrInternalSession) {
 		text.push(`$(console) flowR ${flowrSession.state}`)
 		if(flowrSession.state === 'active') {
 			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}`)
 		}
-		if (flowrSession.working){
-			text.push(`$(loading~spin) Analyzing`)
+		if(flowrSession.working){
+			text.push('$(loading~spin) Analyzing')
 		}
 	}
 
