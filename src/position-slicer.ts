@@ -234,6 +234,8 @@ export class PositionSlicer {
 		}
 	}
 
+	private showErrors = true;
+
 	protected async updateSlices(): Promise<string | undefined> {
 		// Update the decos that show the slice results
 		const session = await getFlowrSession()
@@ -242,9 +244,12 @@ export class PositionSlicer {
 			this.clearSliceDecos()
 			return
 		}
-		const { code, sliceElements } = await session.retrieveSlice(positions, this.doc)
+		const { code, sliceElements } = await session.retrieveSlice(positions, this.doc, this.showErrors)
+
 		if(sliceElements.length === 0){
 			this.clearSliceDecos()
+			this.showErrors = false;
+			setTimeout(() => this.showErrors = true, 5000)
 			return
 		}
 		for(const editor of vscode.window.visibleTextEditors){
