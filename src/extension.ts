@@ -100,10 +100,16 @@ export function updateStatusBar() {
 		if(flowrSession.state === 'connected') {
 			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrSession.flowrVersion}`)
 		}
+		if(flowrSession.working){
+			text.push('$(loading~spin) Analyzing')
+		}
 	} else if(flowrSession instanceof FlowrInternalSession) {
 		text.push(`$(console) flowR ${flowrSession.state}`)
 		if(flowrSession.state === 'active') {
 			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}`)
+		}
+		if(flowrSession.working){
+			text.push('$(loading~spin) Analyzing')
 		}
 	}
 
@@ -131,7 +137,7 @@ export function updateStatusBar() {
 		statusBarItem.text = text.join(' ')
 		statusBarItem.tooltip = tooltip.length ? tooltip.reduce((m, s) => m.appendMarkdown('\n\n').appendMarkdown(s), new vscode.MarkdownString()) : undefined
 	} else {
-		statusBarItem.hide()
+		// statusBarItem.hide()
 	}
 }
 
