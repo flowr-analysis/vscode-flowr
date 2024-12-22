@@ -11,7 +11,7 @@ import { DEFAULT_DATAFLOW_PIPELINE, DEFAULT_NORMALIZE_PIPELINE, DEFAULT_SLICING_
 import { requestFromInput } from '@eagleoutice/flowr/r-bridge/retriever'
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast'
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg'
-import vscode from 'vscode';
+import vscode from 'vscode'
 
 export class FlowrInternalSession implements FlowrSession {
 
@@ -144,7 +144,7 @@ export class FlowrInternalSession implements FlowrSession {
 				request: requestFromInput(consolidateNewlines(document.getText()))
 			}).allRemainingSteps()
 			return normalizedAstToMermaid(result.normalize.ast)
-		});
+		})
 	}
 
 	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
@@ -158,7 +158,7 @@ export class FlowrInternalSession implements FlowrSession {
 				request: requestFromInput(consolidateNewlines(document.getText()))
 			}).allRemainingSteps()
 			return cfgToMermaid(extractCFG(result.normalize), result.normalize)
-		});
+		})
 	}
 
 	private async extractSlice(shell: RShell, document: vscode.TextDocument, positions: vscode.Position[]): Promise<SliceReturn> {

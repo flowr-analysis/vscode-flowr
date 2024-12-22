@@ -10,8 +10,6 @@ import type { DecoTypes } from './slice'
 import { displaySlice, makeSliceDecorationTypes } from './slice'
 import { getSelectionSlicer } from './selection-slicer'
 import { Settings } from './settings'
-import { get } from 'http'
-import { clear } from 'console'
 
 const positionSlicerAuthority = 'doc-slicer'
 const positionSlicerSuffix = 'Slice'
@@ -237,7 +235,7 @@ export class PositionSlicer {
 		}
 	}
 
-	private showErrors = true;
+	private showErrors = true
 
 	protected async updateSlices(): Promise<string | undefined> {
 		// Update the decos that show the slice results
@@ -254,7 +252,7 @@ export class PositionSlicer {
 			if(this.showErrors){
 				setTimeout(() => this.setShowErrors(), getConfig().get<number>(Settings.ErrorMessageTimer))
 			}
-			this.showErrors = false;
+			this.showErrors = false
 			return
 		}
 
@@ -272,7 +270,7 @@ export class PositionSlicer {
 		this.sliceDecos = undefined
 	}
 	private setShowErrors(): void{
-		this.showErrors = true;
+		this.showErrors = true
 	}
 }
 
