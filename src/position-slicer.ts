@@ -3,12 +3,15 @@
 // and display their slices
 
 import * as vscode from 'vscode'
-import { getFlowrSession, updateStatusBar } from './extension'
+import { getConfig, getFlowrSession, updateStatusBar } from './extension'
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider'
 import { getPositionAt } from './flowr/utils'
 import type { DecoTypes } from './slice'
 import { displaySlice, makeSliceDecorationTypes } from './slice'
 import { getSelectionSlicer } from './selection-slicer'
+import { Settings } from './settings'
+import { get } from 'http'
+import { clear } from 'console'
 
 const positionSlicerAuthority = 'doc-slicer'
 const positionSlicerSuffix = 'Slice'
@@ -248,10 +251,13 @@ export class PositionSlicer {
 
 		if(sliceElements.length === 0){
 			this.clearSliceDecos()
+			if(this.showErrors){
+				setTimeout(() => this.setShowErrors(), getConfig().get<number>(Settings.ErrorMessageTimer))
+			}
 			this.showErrors = false;
-			setTimeout(() => this.showErrors = true, 5000)
 			return
 		}
+
 		for(const editor of vscode.window.visibleTextEditors){
 			if(editor.document === this.doc) {
 				this.sliceDecos ||= makeSliceDecorationTypes()
@@ -264,6 +270,9 @@ export class PositionSlicer {
 	protected clearSliceDecos(): void {
 		this.sliceDecos?.dispose()
 		this.sliceDecos = undefined
+	}
+	private setShowErrors(): void{
+		this.showErrors = true;
 	}
 }
 
@@ -280,4 +289,6 @@ function shiftOffset(offset: number, cc: vscode.TextDocumentContentChangeEvent):
 	const offsetDelta = cc.text.length - cc.rangeLength
 	const offset1 = offset + offsetDelta
 	return offset1
+
 }
+
