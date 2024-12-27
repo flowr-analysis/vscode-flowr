@@ -60,12 +60,12 @@ export class FlowrInternalSession implements FlowrSession {
 		this.outputChannel.appendLine(`Using options ${JSON.stringify(options)}`)
 
 		this.shell = new RShell(options)
-		this.shell.tryToInjectHomeLibPath()
 
 		// wait at most 1 second for the version, since the R shell doesn't let us know if the path
 		// we provided doesn't actually lead anywhere, or doesn't contain an R executable, etc.
 		let handle: NodeJS.Timeout
-		const timeout = new Promise<null>(resolve => handle = setTimeout(() => resolve(null), 1000))
+		const timeout = new Promise<null>(resolve => handle = setTimeout(() => resolve(null), 1500))
+		this.shell.tryToInjectHomeLibPath()
 		await Promise.race([this.shell.usedRVersion(), timeout]).then(version => {
 			clearTimeout(handle)
 			if(!version){
