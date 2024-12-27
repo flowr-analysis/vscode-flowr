@@ -183,6 +183,12 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Whether to use verbose logging while flowR is active."
+        },
+        "vscode-flowr.errorMessage.Timer": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 0,
+          "markdownDescription": "The time in milliseconds after which an error message will be removed from the status bar."
         }
       }
     },
@@ -234,7 +240,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.1.5",
+    "@eagleoutice/flowr": "^2.1.9",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
