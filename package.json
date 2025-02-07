@@ -142,6 +142,15 @@
           "default": "",
           "markdownDescription": "An absolute path to the R binary to use for the local shell. If this is empty, R is expected to be part of the system's PATH. This setting is ignored when running the extension in the browser."
         },
+        "vscode-flowr.r.engine": {
+          "type": "string",
+          "default": "tree-sitter",
+          "enum": [
+            "tree-sitter",
+            "r-shell"
+          ],
+          "markdownDescription": "The flowR engine to use when parsi5ng R code. For more information, see the [engines documentation](https://github.com/flowr-analysis/flowr/wiki/Engines)."
+        },
         "vscode-flowr.style.sliceOpacity": {
           "type": "number",
           "default": 0.25,
@@ -234,7 +243,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.1.5",
+    "@eagleoutice/flowr": "^2.2.2",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",

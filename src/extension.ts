@@ -75,6 +75,8 @@ export async function getFlowrSession() {
 	if(flowrSession) {
 		return flowrSession
 	}
+	// eslint-disable-next-line no-warning-comments
+	// TODO this isn't true anymore, so we can use tree-sitter in the browser by default!
 	// on the web, we always want to connect to a server since we don't support local sessions
 	return await (isWeb() ? establishServerSession() : establishInternalSession())
 }
@@ -103,7 +105,7 @@ export function updateStatusBar() {
 	} else if(flowrSession instanceof FlowrInternalSession) {
 		text.push(`$(console) flowR ${flowrSession.state}`)
 		if(flowrSession.state === 'active') {
-			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}`)
+			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}  \nEngine ${flowrSession.parser?.name}`)
 		}
 	}
 

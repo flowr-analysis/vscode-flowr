@@ -12,6 +12,7 @@ export enum Settings {
 	StyleOnlyHighlightActiveSelection = 'style.onlyHighlightActiveSelection',
 	StyleMermaidMaxTextLength = 'style.mermaidMaxTextLength',
 
+	Rengine = 'r.engine',
 	Rexecutable = 'r.executable',
 }
 
