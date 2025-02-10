@@ -8,6 +8,7 @@ import type { FlowrSession } from './flowr/utils'
 import { selectionSlicer } from './selection-slicer'
 import { positionSlicers } from './position-slicer'
 import { flowrVersion } from '@eagleoutice/flowr/util/version'
+import type { KnownParserName } from '@eagleoutice/flowr/r-bridge/parser'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
@@ -65,9 +66,9 @@ export function isVerbose(): boolean {
 	return getConfig().get<boolean>(Settings.VerboseLog, false)
 }
 
-export async function establishInternalSession() {
+export async function establishInternalSession(forcedEngine?: KnownParserName) {
 	destroySession()
-	flowrSession = new FlowrInternalSession(outputChannel)
+	flowrSession = new FlowrInternalSession(outputChannel, forcedEngine)
 	await flowrSession.initialize()
 	return flowrSession
 }
@@ -75,10 +76,9 @@ export async function getFlowrSession() {
 	if(flowrSession) {
 		return flowrSession
 	}
-	// eslint-disable-next-line no-warning-comments
-	// TODO this isn't true anymore, so we can use tree-sitter in the browser by default!
-	// on the web, we always want to connect to a server since we don't support local sessions
-	return await (isWeb() ? establishServerSession() : establishInternalSession())
+	// initialize a default session if none is active
+	// on the web, we always want to use the tree-sitter backend since we can't run R
+	return await establishInternalSession(isWeb() ? 'tree-sitter' : undefined)
 }
 
 export async function establishServerSession() {

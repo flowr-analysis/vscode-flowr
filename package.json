@@ -135,12 +135,12 @@
             "The extension connects to a flowR server via websocket over SSL/TLS (for a server started using --ws).",
             "The extension connects to a flowR server via TCP."
           ],
-          "markdownDescription": "The connection type that should be used when connecting to a [flowR server](https://github.com/flowr-analysis/flowr/wiki/Interface#-communicating-with-the-server). When running the extension in the browser, this setting is ignored, and websocket mode is always used."
+          "markdownDescription": "The connection type that should be used when connecting to a [flowR server](https://github.com/flowr-analysis/flowr/wiki/Interface#-communicating-with-the-server). When running the extension in the browser, settings other than `websocket` and `websocket-secure` are ignored, as websocket mode is always used."
         },
         "vscode-flowr.r.executable": {
           "type": "string",
           "default": "",
-          "markdownDescription": "An absolute path to the R binary to use for the local shell. If this is empty, R is expected to be part of the system's PATH. This setting is ignored when running the extension in the browser."
+          "markdownDescription": "An absolute path to the R binary to use for the local shell. If this is empty, R is expected to be part of the system's PATH. This setting is ignored when running the extension in the browser, as tree-sitter mode is always used."
         },
         "vscode-flowr.r.engine": {
           "type": "string",
@@ -149,7 +149,7 @@
             "tree-sitter",
             "r-shell"
           ],
-          "markdownDescription": "The flowR engine to use when parsi5ng R code. For more information, see the [engines documentation](https://github.com/flowr-analysis/flowr/wiki/Engines)."
+          "markdownDescription": "The flowR engine to use when parsi5ng R code. For more information, see the [engines documentation](https://github.com/flowr-analysis/flowr/wiki/Engines). This setting is ignored when running the extension in the browser, as tree-sitter mode is always used."
         },
         "vscode-flowr.style.sliceOpacity": {
           "type": "number",

@@ -29,9 +29,11 @@ export class FlowrInternalSession implements FlowrSession {
 	public parser:   KnownParser | undefined
 
 	private readonly outputChannel: vscode.OutputChannel
+	private readonly forcedEngine:  KnownParserName | undefined
 
-	constructor(outputChannel: vscode.OutputChannel) {
+	constructor(outputChannel: vscode.OutputChannel, forcedEngine: KnownParserName | undefined) {
 		this.outputChannel = outputChannel
+		this.forcedEngine = forcedEngine
 
 		this.state = 'inactive'
 		updateStatusBar()
@@ -43,7 +45,7 @@ export class FlowrInternalSession implements FlowrSession {
 
 		this.outputChannel.appendLine('Starting flowR shell')
 
-		switch(getConfig().get<KnownParserName>(Settings.Rengine)) {
+		switch(this.forcedEngine ?? getConfig().get<KnownParserName>(Settings.Rengine)) {
 			case 'r-shell': {
 				let options: Partial<RShellOptions> = {
 					revive:      RShellReviveOptions.Always,
@@ -96,6 +98,8 @@ export class FlowrInternalSession implements FlowrSession {
 
 					// eslint-disable-next-line no-warning-comments
 					// TODO configs for these in the extension config?
+					// eslint-disable-next-line no-warning-comments
+					// TODO browser can't find wasm files - I think there's something in the docs about what to do when using webpack with custom file paths
 					amendConfig({ engines: [{
 						type:               'tree-sitter',
 						wasmPath:           DEFAULT_TREE_SITTER_R_WASM_PATH,
