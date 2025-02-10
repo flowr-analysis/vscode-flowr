@@ -54,6 +54,16 @@ const webExtensionConfig = {
 						loader: 'ts-loader'
 					}
 				]
+			},
+			{
+				// TODO this doesn't work yet because it only copies the file to the output if it's mentioned in the code apparently :(
+				//  see https://stackoverflow.com/a/75155888
+				test:      /\.wasm$/,
+				mimetype:  'application/wasm',
+				type:      'asset/resource',
+				generator: {
+					filename: 'examples/[name][ext]',
+				}
 			}
 		]
 	},
