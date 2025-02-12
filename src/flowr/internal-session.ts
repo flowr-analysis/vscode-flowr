@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, isVerbose, isWeb, updateStatusBar } from '../extension'
+import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, getWasmRootPath, isVerbose, updateStatusBar } from '../extension'
 import { Settings } from '../settings'
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer'
 import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg'
@@ -91,17 +91,11 @@ export class FlowrInternalSession implements FlowrSession {
 				if(!FlowrInternalSession.treeSitterInitialized) {
 					this.outputChannel.appendLine('Initializing tree-sitter')
 
-					// eslint-disable-next-line no-warning-comments
-					// TODO configs for these in the extension config?
-					// eslint-disable-next-line no-warning-comments
-					// TODO browser can't find wasm files - I think there's something in the docs about what to do when using webpack with custom file paths
-					const root = isWeb() ? '' : __dirname
+					const root = getWasmRootPath()
 					amendConfig({ engines: [{
 						type:               'tree-sitter',
-						// eslint-disable-next-line no-warning-comments
-						// TODO these are not copied to the output automatically yet
-						wasmPath:           `${root}/tree-sitter/tree-sitter-r.wasm`,
-						treeSitterWasmPath: `${root}/tree-sitter/tree-sitter.wasm`
+						wasmPath:           `${root}/tree-sitter-r.wasm`,
+						treeSitterWasmPath: `${root}/tree-sitter.wasm`
 					}] })
 					
 					await TreeSitterExecutor.initTreeSitter()

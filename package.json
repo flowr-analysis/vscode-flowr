@@ -231,16 +231,18 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile && npm run package-web",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "copy-wasm": "mkdir -p out/flowr/tree-sitter && cp src/flowr/tree-sitter/*.wasm out/flowr/tree-sitter",
+    "compile": "npm run copy-wasm && tsc -p ./",
+    "watch": "npm run copy-wasm && tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse",
     "browser": "vscode-test-web --extensionDevelopmentPath=. .",
-    "compile-web": "webpack",
-    "package-web": "webpack --mode production --devtool hidden-source-map",
-    "watch-web": "webpack --watch"
+    "copy-wasm-web": "mkdir -p dist/web && cp src/flowr/tree-sitter/*.wasm dist/web",
+    "compile-web": "npm run copy-wasm-web && webpack",
+    "package-web": "npm run copy-wasm-web && webpack --mode production --devtool hidden-source-map",
+    "watch-web": "npm run copy-wasm-web && webpack --watch"
   },
   "dependencies": {
     "@eagleoutice/flowr": "^2.2.2",
