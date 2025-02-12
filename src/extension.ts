@@ -151,7 +151,7 @@ export function getWasmRootPath(): string {
 		return `${__dirname}/flowr/tree-sitter`
 	} else {
 		const uri = vscode.Uri.joinPath(extensionContext.extensionUri, '/dist/web')
-		// in the fake browser version of vscode, it needs to be a special schema, so we do this check
+		// in the fake browser version of vscode, it needs to be a special scheme, so we do this check
 		return uri.scheme !== 'file' ? uri.toString() : `vscode-file://vscode-app/${uri.fsPath}`
 	}
 }
