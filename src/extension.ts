@@ -141,7 +141,7 @@ export function updateStatusBar() {
 		statusBarItem.text = text.join(' ')
 		statusBarItem.tooltip = tooltip.length ? tooltip.reduce((m, s) => m.appendMarkdown('\n\n').appendMarkdown(s), new vscode.MarkdownString()) : undefined
 	} else {
-		// statusBarItem.hide()
+		statusBarItem.hide()
 	}
 }
 
