@@ -8,10 +8,12 @@ import type { FlowrSession } from './flowr/utils'
 import { selectionSlicer } from './selection-slicer'
 import { positionSlicers } from './position-slicer'
 import { flowrVersion } from '@eagleoutice/flowr/util/version'
+import type { KnownParserName } from '@eagleoutice/flowr/r-bridge/parser'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
 
+let extensionContext: vscode.ExtensionContext
 let outputChannel: vscode.OutputChannel
 let statusBarItem: vscode.StatusBarItem
 let flowrSession: FlowrSession | undefined
@@ -19,6 +21,7 @@ let flowrSession: FlowrSession | undefined
 export async function activate(context: vscode.ExtensionContext) {
 	console.log('Loading vscode-flowr')
 
+	extensionContext = context
 	outputChannel = vscode.window.createOutputChannel('flowR')
 
 	registerDiagramCommands(context, outputChannel)
@@ -65,9 +68,9 @@ export function isVerbose(): boolean {
 	return getConfig().get<boolean>(Settings.VerboseLog, false)
 }
 
-export async function establishInternalSession() {
+export async function establishInternalSession(forcedEngine?: KnownParserName) {
 	destroySession()
-	flowrSession = new FlowrInternalSession(outputChannel)
+	flowrSession = new FlowrInternalSession(outputChannel, forcedEngine)
 	await flowrSession.initialize()
 	return flowrSession
 }
@@ -75,8 +78,9 @@ export async function getFlowrSession() {
 	if(flowrSession) {
 		return flowrSession
 	}
-	// on the web, we always want to connect to a server since we don't support local sessions
-	return await (isWeb() ? establishServerSession() : establishInternalSession())
+	// initialize a default session if none is active
+	// on the web, we always want to use the tree-sitter backend since we can't run R
+	return await establishInternalSession(isWeb() ? 'tree-sitter' : undefined)
 }
 
 export async function establishServerSession() {
@@ -103,7 +107,7 @@ export function updateStatusBar() {
 	} else if(flowrSession instanceof FlowrInternalSession) {
 		text.push(`$(console) flowR ${flowrSession.state}`)
 		if(flowrSession.state === 'active') {
-			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}`)
+			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}  \nEngine ${flowrSession.parser?.name}`)
 		}
 	}
 
@@ -140,4 +144,14 @@ export function isWeb() {
 	// than in the command availability context stuff, which is not what we want
 	// this is dirty but it should work since the WebSocket is unavailable in node
 	return typeof WebSocket !== 'undefined'
+}
+
+export function getWasmRootPath(): string {
+	if(!isWeb()) {
+		return `${__dirname}/flowr/tree-sitter`
+	} else {
+		const uri = vscode.Uri.joinPath(extensionContext.extensionUri, '/dist/web')
+		// in the fake browser version of vscode, it needs to be a special scheme, so we do this check
+		return uri.scheme !== 'file' ? uri.toString() : `vscode-file://vscode-app/${uri.fsPath}`
+	}
 }
