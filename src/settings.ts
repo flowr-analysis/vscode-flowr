@@ -13,7 +13,7 @@ export enum Settings {
 	StyleMermaidMaxTextLength = 'style.mermaidMaxTextLength',
 
 	ErrorMessageTimer = 'errorMessage.Timer',
-
+	Rengine = 'r.engine',
 	Rexecutable = 'r.executable',
 }
 

@@ -97,10 +97,11 @@ export class FlowrServerSession implements FlowrSession {
 
 				const useLocal = 'Use local shell instead'
 				const openSettings = 'Open connection settings'
-				void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${(e as Error).message}`, openSettings, isWeb() ? '' : useLocal)
+				void vscode.window.showErrorMessage(`The flowR server connection reported an error: ${(e as Error).message}`, openSettings, useLocal)
 					.then(v => {
 						if(v === useLocal) {
-							void establishInternalSession()
+							// force tree-sitter on the web since we can't run R!
+							void establishInternalSession(isWeb() ? 'tree-sitter' : undefined)
 						} else if(v === openSettings) {
 							void vscode.commands.executeCommand( 'workbench.action.openSettings', 'vscode-flowr.server' )
 						}

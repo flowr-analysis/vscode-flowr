@@ -14,7 +14,7 @@
     "email": "florian.sihler@uni-ulm.de"
   },
   "license": "GPL-3.0",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -135,12 +135,21 @@
             "The extension connects to a flowR server via websocket over SSL/TLS (for a server started using --ws).",
             "The extension connects to a flowR server via TCP."
           ],
-          "markdownDescription": "The connection type that should be used when connecting to a [flowR server](https://github.com/flowr-analysis/flowr/wiki/Interface#-communicating-with-the-server). When running the extension in the browser, this setting is ignored, and websocket mode is always used."
+          "markdownDescription": "The connection type that should be used when connecting to a [flowR server](https://github.com/flowr-analysis/flowr/wiki/Interface#-communicating-with-the-server). When running the extension in the browser, settings other than `websocket` and `websocket-secure` are ignored, as websocket mode is always used."
         },
         "vscode-flowr.r.executable": {
           "type": "string",
           "default": "",
-          "markdownDescription": "An absolute path to the R binary to use for the local shell. If this is empty, R is expected to be part of the system's PATH. This setting is ignored when running the extension in the browser."
+          "markdownDescription": "An absolute path to the R binary to use for the local shell. If this is empty, R is expected to be part of the system's PATH. This setting is ignored when running the extension in the browser, as tree-sitter mode is always used."
+        },
+        "vscode-flowr.r.engine": {
+          "type": "string",
+          "default": "tree-sitter",
+          "enum": [
+            "tree-sitter",
+            "r-shell"
+          ],
+          "markdownDescription": "The flowR engine to use when parsi5ng R code. For more information, see the [engines documentation](https://github.com/flowr-analysis/flowr/wiki/Engines). This setting is ignored when running the extension in the browser, as tree-sitter mode is always used."
         },
         "vscode-flowr.style.sliceOpacity": {
           "type": "number",
@@ -228,19 +237,21 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile && npm run package-web",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "copy-wasm": "mkdir -p out/flowr/tree-sitter && cp src/flowr/tree-sitter/*.wasm out/flowr/tree-sitter",
+    "compile": "npm run copy-wasm && tsc -p ./",
+    "watch": "npm run copy-wasm && tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse",
     "browser": "vscode-test-web --extensionDevelopmentPath=. .",
-    "compile-web": "webpack",
-    "package-web": "webpack --mode production --devtool hidden-source-map",
-    "watch-web": "webpack --watch"
+    "copy-wasm-web": "mkdir -p dist/web && cp src/flowr/tree-sitter/*.wasm dist/web",
+    "compile-web": "npm run copy-wasm-web && webpack",
+    "package-web": "npm run copy-wasm-web && webpack --mode production --devtool hidden-source-map",
+    "watch-web": "npm run copy-wasm-web && webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.1.9",
+    "@eagleoutice/flowr": "^2.2.3",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
