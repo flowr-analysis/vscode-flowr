@@ -97,10 +97,10 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
       } else {
          return [
             // TODO: handle unknown
-            new Dependency({ label: 'Libraries',     media: 'library.svg', root: true, children: this.makeChildren(e => e.libraryName, this.activeDependencies.libraries) }),
-            new Dependency({ label: 'Read Data',     media: 'read.svg',    root: true, children: this.makeChildren(e => e.source, this.activeDependencies.readData) }),
-            new Dependency({ label: 'Sourced Files', media: 'source.svg',  root: true, children: this.makeChildren(e => e.file, this.activeDependencies.sourcedFiles) }),
-            new Dependency({ label: 'Written Data',  media: 'write.svg',   root: true, children: this.makeChildren(e => e.destination, this.activeDependencies.writtenData) })
+            new Dependency({ label: 'Libraries',     icon: new vscode.ThemeIcon('library'), root: true, children: this.makeChildren(e => e.libraryName, this.activeDependencies.libraries) }),
+            new Dependency({ label: 'Read Data',     icon: new vscode.ThemeIcon('file-text'),    root: true, children: this.makeChildren(e => e.source, this.activeDependencies.readData) }),
+            new Dependency({ label: 'Sourced Files', icon: new vscode.ThemeIcon('file-code'),  root: true, children: this.makeChildren(e => e.file, this.activeDependencies.sourcedFiles) }),
+            new Dependency({ label: 'Written Data',  icon: new vscode.ThemeIcon('new-file'),   root: true, children: this.makeChildren(e => e.destination, this.activeDependencies.writtenData) })
          ]
       }
    }
@@ -141,7 +141,7 @@ interface DependenciesParams {
    readonly children?: Dependency[];
    readonly info?: DependencyInfo;
    readonly collapsibleState?: vscode.TreeItemCollapsibleState;
-   readonly media?: string;
+   readonly icon?: vscode.ThemeIcon;
    readonly locationMap?: LocationMapQueryResult;
 }
 
@@ -151,7 +151,7 @@ export class Dependency extends vscode.TreeItem {
    private readonly loc?: SourceRange;
    // TODO: to interface
    constructor(
-      { label, root = false, children = [], info, media = 'dependency.svg', locationMap, collapsibleState}: DependenciesParams
+      { label, root = false, children = [], info, icon: media, locationMap, collapsibleState}: DependenciesParams
    ) {
       if(children.length === 0) {
          collapsibleState = vscode.TreeItemCollapsibleState.None;
@@ -190,10 +190,7 @@ export class Dependency extends vscode.TreeItem {
  
    if(root) {
       // TODO: use theme icon
-      this.iconPath = {
-      light: path.join(__dirname, '..', '..', '..', 'resources', 'light', 'dependency',  media ?? 'dependency.svg'),
-      dark: path.join(__dirname, '..', '..', '..', 'resources', 'dark', 'dependency', media ?? 'dependency.svg')
-      };
+      this.iconPath = media
    } else if (info) {
       this.contextValue = 'dependency'
    }

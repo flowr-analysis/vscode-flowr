@@ -25,7 +25,9 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 			const slice = await slicer.sliceFor([`$${node}`])
 			slicer.showReconstruction();
 			if(editor && loc) {
-				editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter)
+				setTimeout(() => {
+					editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter)
+				}, 50)
 			}
 			return slice;
 		}

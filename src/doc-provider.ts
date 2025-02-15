@@ -71,10 +71,12 @@ export async function showUri(uri: vscode.Uri, language: string = 'r', viewColum
 		preserveFocus: true
 	})
 	// scroll to bottom
-	const lineCount = editor.document.lineCount
-	const lastLine = editor.document.lineAt(lineCount - 1)
-	editor.selection = new vscode.Selection(lastLine.range.end, lastLine.range.end)
-	editor.revealRange(lastLine.range, vscode.TextEditorRevealType.InCenter)
+	setTimeout(() => {
+		const lineCount = editor.document.lineCount
+		const lastLine = editor.document.lineAt(lineCount - 1)
+		editor.selection = new vscode.Selection(lastLine.range.end, lastLine.range.end)
+		editor.revealRange(lastLine.range, vscode.TextEditorRevealType.InCenter)
+	}, 5)
 	return editor
 }
 
