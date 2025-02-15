@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
-import { getConfig } from './extension'
+import { getConfig, isVerbose } from './extension'
 import type { SliceDisplay } from './settings'
 import { Settings } from './settings'
 import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-slicer'
@@ -9,8 +9,9 @@ import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/proc
 import { getReconstructionContentProvider, makeUri, showUri } from './doc-provider'
 import { Dependency } from './flowr/views/dependency-view';
 import { getCriteriaSlicer } from './criteria-slicer';
+import { makeSlicingCriteria } from './flowr/utils';
 
-export function registerSliceCommands(context: vscode.ExtensionContext) {
+export function registerSliceCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
 		return await getSelectionSlicer().sliceSelectionOnce()
 	}))
@@ -22,14 +23,32 @@ export function registerSliceCommands(context: vscode.ExtensionContext) {
 			const editor = vscode.window.activeTextEditor
 			const slicer = getCriteriaSlicer()
 			/* always with reconstruction */
-			const slice = await slicer.sliceFor([`$${node}`])
-			slicer.showReconstruction();
+			output.appendLine(`Slicing for ${node}`)
+			// we use loc slicer for uses with `::` etc.
+			const slice = await slicer.sliceFor(loc && editor ? makeSlicingCriteria([new vscode.Position(loc[0] - 1, loc[1] - 1)], editor?.document, isVerbose()) : [`$${node}`])
+			setTimeout(() => {
+				slicer.showReconstruction();
+			}, 20)
 			if(editor && loc) {
 				setTimeout(() => {
 					editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter)
 				}, 50)
 			}
 			return slice;
+		}
+	}))
+	// maybe find a place for this
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.goto.dependency', async(dependency: Dependency) => {
+		const node = dependency.getNodeId();
+		const loc = dependency.getLocation();
+		if(node) {
+			// got to position
+			const editor = vscode.window.activeTextEditor
+			if(editor && loc) {
+				setTimeout(() => {
+					editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter)
+				}, 50)
+			}
 		}
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {

@@ -25,7 +25,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	outputChannel.appendLine(`flowR extension activated (ships with flowR v${flowrVersion().toString()})`)
 
 	registerDiagramCommands(context, outputChannel)
-	registerSliceCommands(context)
+	registerSliceCommands(context, outputChannel)
 	
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.internal', async() => {

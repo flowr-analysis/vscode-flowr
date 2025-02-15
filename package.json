@@ -32,6 +32,13 @@
   "contributes": {
     "commands": [
       {
+        "command": "vscode-flowr.internal.goto.dependency",
+        "title": "Go to Dependency",
+        "category": "flowR",
+        "icon": "$(link)",
+        "enablement": "sideBarFocus"
+      },
+      {
         "command": "vscode-flowr.internal.slice.dependency",
         "title": "Show Slice for Dependency",
         "category": "flowR",
@@ -226,6 +233,11 @@
       "view/item/context": [
         {
           "command": "vscode-flowr.internal.slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "flowR"
+        },
+        {
+          "command": "vscode-flowr.internal.goto.dependency",
           "when": "view == flowr-dependencies && viewItem == dependency",
           "group": "flowR"
         }

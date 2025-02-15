@@ -42,12 +42,7 @@ class CriteriaSlicer {
 		return makeUri(criteriaSlicerAuthority, criteriaSlicerPath)
 	}
 	
-	private showReconstruct = false;
 	async showReconstruction(): Promise<vscode.TextEditor | undefined> {
-		if(this.showReconstruct){
-			return undefined;
-		}
-		this.showReconstruct = true
 		const uri = this.makeUri()
 		return showUri(uri)
 	}
