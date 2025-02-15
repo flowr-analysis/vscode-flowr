@@ -57,7 +57,6 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
       return { dep: result.dependencies, loc: result['location-map'] };
    } 
    
-   private lastRefresh = 0;
    private working = false;
    private async refresh() {
       if(this.working) {
@@ -69,13 +68,6 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
       } else {
          this.lastText = text ?? ''
       }
-      const now = Date.now();
-      if(now - this.lastRefresh < 100) {
-         this.output.appendLine('Skipping refresh due to recent refresh');
-         return;
-      }
-      this.lastRefresh = now;
-      
       this.output.appendLine('Refreshing dependencies');
       await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
          this.working = true;
