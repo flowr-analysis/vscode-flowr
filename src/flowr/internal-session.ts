@@ -14,6 +14,9 @@ import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg'
 import type { KnownParser, KnownParserName } from '@eagleoutice/flowr/r-bridge/parser'
 import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/tree-sitter-executor'
 import { amendConfig } from '@eagleoutice/flowr/config'
+import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query'
+import { executeQueries } from '@eagleoutice/flowr/queries/query'
+import { requestQueryMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-query'
 
 export class FlowrInternalSession implements FlowrSession {
 	
@@ -206,5 +209,15 @@ export class FlowrInternalSession implements FlowrSession {
 			code: result.reconstruct.code,
 			sliceElements
 		}
+	}
+	
+	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<QueryResults<T>> {
+		if(!this.parser) {
+			throw new Error('No parser available')
+		}
+		const result = await createDataflowPipeline(this.parser, {
+			request: requestFromInput(consolidateNewlines(document.getText()))
+		}).allRemainingSteps()
+		return executeQueries({ ast: result.normalize, dataflow: result.dataflow }, query)
 	}
 }

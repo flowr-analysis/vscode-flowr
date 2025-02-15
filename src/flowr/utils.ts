@@ -3,6 +3,8 @@ import type * as vscode from 'vscode'
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id'
 import type { SourceRange } from '@eagleoutice/flowr/util/range'
 import type { SingleSlicingCriterion, SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse'
+import { QueryRequestMessage, QueryResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-query'
+import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query'
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
@@ -22,6 +24,7 @@ export interface FlowrSession {
 	retrieveDataflowMermaid: (document: vscode.TextDocument) => Promise<string>
 	retrieveAstMermaid:      (document: vscode.TextDocument) => Promise<string>
 	retrieveCfgMermaid:      (document: vscode.TextDocument) => Promise<string>
+	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<QueryResults<T>>
 }
 
 export function getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {

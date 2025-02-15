@@ -9,6 +9,7 @@ import { selectionSlicer } from './selection-slicer'
 import { positionSlicers } from './position-slicer'
 import { flowrVersion } from '@eagleoutice/flowr/util/version'
 import type { KnownParserName } from '@eagleoutice/flowr/r-bridge/parser'
+import { FlowrDependencyView, registerDependencyView } from './flowr/views/dependency-view'
 
 export const MINIMUM_R_MAJOR = 3
 export const BEST_R_MAJOR = 4
@@ -26,6 +27,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	registerDiagramCommands(context, outputChannel)
 	registerSliceCommands(context)
+	
+	registerDependencyView(outputChannel)	
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.internal', async() => {
 		await establishInternalSession()

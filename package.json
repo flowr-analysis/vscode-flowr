@@ -217,6 +217,23 @@
         }
       ]
     },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "flowr",
+          "title": "flowR",
+          "icon": "resources/flowR.svg"
+        }
+      ]
+    },
+    "views": {
+      "flowr": [
+        {
+          "id": "flowr-dependencies",
+          "name": "Dependencies"
+        }
+      ]
+    },
     "keybindings": [
       {
         "command": "vscode-flowr.slice.position",
@@ -263,15 +280,16 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/ws": "^8.5.10",
     "@eagleoutice/eslint-config-flowr": "^1.0.8",
     "@types/mocha": "^10.0.6",
     "@types/node": "22.x",
     "@types/vscode": "^1.60.0",
     "@types/webpack-env": "^1.16.0",
+    "@types/ws": "^8.5.10",
     "@vscode/test-cli": "^0.0.6",
     "@vscode/test-electron": "^2.3.9",
     "@vscode/test-web": "^0.0.60",
+    "copy-webpack-plugin": "^12.0.2",
     "ts-loader": "^9.2.2",
     "typescript": "^5.6.2",
     "webpack": "^5.38.1",

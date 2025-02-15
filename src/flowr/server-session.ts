@@ -21,6 +21,7 @@ import { BiMap } from '@eagleoutice/flowr/util/bimap'
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-hello'
 import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/repl/server/messages/message-analysis'
 import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-slice'
+import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query'
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -219,14 +220,23 @@ export class FlowrServerSession implements FlowrSession {
 		}
 	}
 
-	private async requestFileAnalysis(document: vscode.TextDocument): Promise<FileAnalysisResponseMessageJson> {
+	private async requestFileAnalysis(document: vscode.TextDocument, filetoken = '@tmp'): Promise<FileAnalysisResponseMessageJson> {
 		return await this.sendCommandWithResponse<FileAnalysisResponseMessageJson>({
-			type:      'request-file-analysis',
+			type:     'request-file-analysis',
+			id:       String(this.idCounter++),
+			filename: document.fileName,
+			format:   'json',
+			content:  consolidateNewlines(document.getText())
+		})
+	}
+	
+	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<QueryResults<T>> {
+		await this.requestFileAnalysis(document, '@query')
+		return await this.sendCommandWithResponse({
+			type:      'request-query',
 			id:        String(this.idCounter++),
-			filename:  document.fileName,
-			format:    'json',
-			filetoken: '@tmp',
-			content:   consolidateNewlines(document.getText())
+			filetoken: '@query',
+			query
 		})
 	}
 }
