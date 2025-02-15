@@ -69,3 +69,21 @@ export function makeSliceElements(sliceResponse: ReadonlySet<NodeId>, idToLocati
 	});
 	return sliceElements;
 }
+
+export class RotaryBuffer<T> {
+	private readonly buffer: T[];
+	private index:           number = 0;
+
+	constructor(size: number){
+		this.buffer = new Array<T>(size);
+	}
+
+	push(item: T): void {
+		this.buffer[this.index] = item;
+		this.index = (this.index + 1) % this.buffer.length;
+	}
+
+	get(item: (t: T | undefined) => boolean): T | undefined {
+		return this.buffer.find(item);
+	}
+}
