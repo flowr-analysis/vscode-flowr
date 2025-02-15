@@ -4,6 +4,7 @@ import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/proc
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import type { SingleSlicingCriterion, SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
+import { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
@@ -24,6 +25,7 @@ export interface FlowrSession {
 	retrieveAstMermaid:      (document: vscode.TextDocument) => Promise<string>
 	retrieveCfgMermaid:      (document: vscode.TextDocument) => Promise<string>
 	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<QueryResults<T>>
+	runRepl:                (output: Omit<FlowrReplOptions, 'parser'>) => void
 }
 
 export function getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {

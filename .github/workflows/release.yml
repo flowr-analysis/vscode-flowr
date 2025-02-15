@@ -27,7 +27,7 @@ jobs:
       - name: Install node
         uses: actions/setup-node@v4
         with:
-          node-version: 21.6.x
+          node-version: 23.8.x
           registry-url: "https://registry.npmjs.org/"
       - name: Install vsce
         run: npm install -g @vscode/vsce
