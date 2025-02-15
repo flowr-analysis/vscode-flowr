@@ -17,7 +17,7 @@ export interface FlowrSession {
 	initialize:    () => void | Promise<void>
 	destroy:       () => void
 	retrieveSlice: (
-		positions: vscode.Position[],
+		criteria: SlicingCriteria,
 		document: vscode.TextDocument,
 		showErrorMessage?: boolean
 	) => Promise<SliceReturn>

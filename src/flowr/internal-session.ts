@@ -17,6 +17,7 @@ import { amendConfig } from '@eagleoutice/flowr/config'
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query'
 import { executeQueries } from '@eagleoutice/flowr/queries/query'
 import { requestQueryMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-query'
+import { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 
 export class FlowrInternalSession implements FlowrSession {
 	
@@ -138,7 +139,7 @@ export class FlowrInternalSession implements FlowrSession {
 		this.parser?.close()
 	}
 
-	async retrieveSlice(positions: vscode.Position[], document: vscode.TextDocument, showErrorMessage: boolean = true): Promise<SliceReturn> {
+	async retrieveSlice(criteria: SlicingCriteria, document: vscode.TextDocument, showErrorMessage: boolean = true): Promise<SliceReturn> {
 		if(!this.parser) {
 			return {
 				code:          '',
@@ -146,7 +147,7 @@ export class FlowrInternalSession implements FlowrSession {
 			}
 		}
 		try {
-			return await this.workingOnSlice(this.parser, async() => await this.extractSlice(document, positions))
+			return await this.workingOnSlice(this.parser, async() => await this.extractSlice(document, criteria))
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l))
@@ -194,10 +195,8 @@ export class FlowrInternalSession implements FlowrSession {
 		})
 	}
 
-	private async extractSlice(document: vscode.TextDocument, positions: vscode.Position[]): Promise<SliceReturn> {
+	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria): Promise<SliceReturn> {
 		const content = consolidateNewlines(document.getText())
-
-		const criteria = makeSlicingCriteria(positions, document, isVerbose())
 
 		const slicer = createSlicePipeline(this.parser as KnownParser, {
 			criterion: criteria,

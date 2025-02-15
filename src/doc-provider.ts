@@ -66,9 +66,16 @@ export async function showUri(uri: vscode.Uri, language: string = 'r', viewColum
 	}
 	const doc = await vscode.workspace.openTextDocument(uri)
 	await vscode.languages.setTextDocumentLanguage(doc, language)
-	return await vscode.window.showTextDocument(doc, {
-		viewColumn: viewColumn
+	const editor = await vscode.window.showTextDocument(doc, {
+		viewColumn:    viewColumn,
+		preserveFocus: true
 	})
+	// scroll to bottom
+	const lineCount = editor.document.lineCount
+	const lastLine = editor.document.lineAt(lineCount - 1)
+	editor.selection = new vscode.Selection(lastLine.range.end, lastLine.range.end)
+	editor.revealRange(lastLine.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport)
+	return editor
 }
 
 let reconstructionContentProvider: ReconstructionContentProvider | undefined

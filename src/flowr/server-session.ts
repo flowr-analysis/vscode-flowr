@@ -22,6 +22,7 @@ import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/serv
 import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/repl/server/messages/message-analysis'
 import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-slice'
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query'
+import { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -183,11 +184,7 @@ export class FlowrServerSession implements FlowrSession {
 		return cfgToMermaid(extractCFG(normalize), normalize)
 	}
 
-	async retrieveSlice(positions: vscode.Position[], document: vscode.TextDocument): Promise<SliceReturn> {
-		const criteria = makeSlicingCriteria(positions, document, isVerbose())
-
-
-
+	async retrieveSlice(criteria: SlicingCriteria, document: vscode.TextDocument): Promise<SliceReturn> {
 		const response = await this.requestFileAnalysis(document)
 		// now we want to collect all ids from response in a map again (id -> location)
 		const idToLocation = new Map<NodeId, SourceRange>()

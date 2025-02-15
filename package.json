@@ -32,6 +32,13 @@
   "contributes": {
     "commands": [
       {
+        "command": "vscode-flowr.internal.slice.dependency",
+        "title": "Show Slice for Dependency",
+        "category": "flowR",
+        "icon": "$(graph)",
+        "enablement": "sideBarFocus"
+      },
+      {
         "command": "vscode-flowr.ast",
         "title": "Show Abstract Syntax Tree of the File",
         "icon": "$(graph)",
@@ -214,6 +221,13 @@
         {
           "command": "vscode-flowr.slice.clear",
           "when": "resourceLangId == r"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "vscode-flowr.internal.slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "flowR"
         }
       ]
     },

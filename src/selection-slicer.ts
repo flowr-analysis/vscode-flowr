@@ -4,9 +4,9 @@
 // (either per command or updating as the cursor moves)
 
 import * as vscode from 'vscode'
-import { getConfig, getFlowrSession, updateStatusBar } from './extension'
+import { getConfig, getFlowrSession, isVerbose, updateStatusBar } from './extension'
 import { flowrScheme, makeUri, getReconstructionContentProvider, showUri } from './doc-provider'
-import type { SliceReturn } from './flowr/utils'
+import { makeSlicingCriteria, type SliceReturn } from './flowr/utils'
 import type { DecoTypes } from './slice'
 import { displaySlice, makeSliceDecorationTypes } from './slice'
 import { positionSlicers } from './position-slicer'
@@ -21,7 +21,7 @@ const selectionSlicerPath = 'Selection Slice'
 // currently only one instance is used and never disposed
 export let selectionSlicer: SelectionSlicer | undefined
 export function getSelectionSlicer(): SelectionSlicer {
-	selectionSlicer ||= new SelectionSlicer()
+	selectionSlicer ??= new SelectionSlicer()
 	return selectionSlicer
 }
 
@@ -168,7 +168,7 @@ async function getSelectionSlice(): Promise<SelectionSliceReturn | undefined> {
 		return undefined
 	}
 	const flowrSession = await getFlowrSession()
-	const ret = await flowrSession.retrieveSlice(positions, editor.document, false)
+	const ret = await flowrSession.retrieveSlice(makeSlicingCriteria(positions, editor.document, isVerbose()), editor.document, false)
 	if(!ret.sliceElements.length){
 		return {
 			code:          '# No slice',

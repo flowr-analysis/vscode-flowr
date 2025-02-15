@@ -3,9 +3,9 @@
 // and display their slices
 
 import * as vscode from 'vscode'
-import { getConfig, getFlowrSession, updateStatusBar } from './extension'
+import { getConfig, getFlowrSession, isVerbose, updateStatusBar } from './extension'
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider'
-import { getPositionAt } from './flowr/utils'
+import { getPositionAt, makeSlicingCriteria } from './flowr/utils'
 import type { DecoTypes } from './slice'
 import { displaySlice, makeSliceDecorationTypes } from './slice'
 import { getSelectionSlicer } from './selection-slicer'
@@ -245,7 +245,7 @@ export class PositionSlicer {
 			this.clearSliceDecos()
 			return
 		}
-		const { code, sliceElements } = await session.retrieveSlice(positions, this.doc, this.showErrors)
+		const { code, sliceElements } = await session.retrieveSlice(makeSlicingCriteria(positions, this.doc, isVerbose()), this.doc, this.showErrors)
 
 		if(sliceElements.length === 0){
 			this.clearSliceDecos()

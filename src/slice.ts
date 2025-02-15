@@ -6,11 +6,29 @@ import { Settings } from './settings'
 import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-slicer'
 import { disposeActivePositionSlicer, getActivePositionSlicer, addCurrentPositions, positionSlicers } from './position-slicer'
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id'
-import { getReconstructionContentProvider, makeUri } from './doc-provider'
+import { getReconstructionContentProvider, makeUri, showUri } from './doc-provider'
+import { Dependency } from './flowr/views/dependency-view';
+import { getCriteriaSlicer } from './criteria-slicer';
 
 export function registerSliceCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
 		return await getSelectionSlicer().sliceSelectionOnce()
+	}))
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.slice.dependency', async(dependency: Dependency) => {
+		const node = dependency.getNodeId();
+		const loc = dependency.getLocation();
+		if(node) {
+			// got to position
+			const editor = vscode.window.activeTextEditor
+			const slicer = getCriteriaSlicer()
+			/* always with reconstruction */
+			const slice = await slicer.sliceFor([`$${node}`])
+			slicer.showReconstruction();
+			if(editor && loc) {
+				editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter)
+			}
+			return slice;
+		}
 	}))
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
 		clearSliceOutput()

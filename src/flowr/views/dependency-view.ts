@@ -3,6 +3,8 @@ import * as vscode from 'vscode';
 import { getFlowrSession } from "../../extension";
 import { DependenciesQueryResult, DependencyInfo } from "@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format";
 import { LocationMapQueryResult } from "@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format";
+import { NodeId } from "@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id";
+import { SourceRange } from "@eagleoutice/flowr/util/range";
 
 const FlowrDependencyViewId = 'flowr-dependencies';
 /** returns disposer */
@@ -143,8 +145,10 @@ interface DependenciesParams {
    readonly locationMap?: LocationMapQueryResult;
 }
 
-class Dependency extends vscode.TreeItem {
+export class Dependency extends vscode.TreeItem {
    public readonly children?: Dependency[];
+   private readonly info?: DependencyInfo;
+   private readonly loc?: SourceRange;
    // TODO: to interface
    constructor(
       { label, root = false, children = [], info, media = 'dependency.svg', locationMap, collapsibleState}: DependenciesParams
@@ -156,14 +160,15 @@ class Dependency extends vscode.TreeItem {
       }
      super(label, collapsibleState);
      this.children = children;
+     this.info = info;
      
      if(info) {
-         const loc = locationMap?.map[info.nodeId];
-         this.description = `${info.functionName} in ${loc ? `(L. ${loc[0]})` : 'unknown location'}`;
-         this.tooltip = `${info.functionName} in ${loc ? `Line ${loc[0]}` : 'unknown location'}`;
-         if(loc && vscode.window.activeTextEditor) {
-            const start = new vscode.Position(loc[0] - 1, loc[1] - 1);
-            const end = new vscode.Position(loc[2] - 1, loc[3]);
+         this.loc = locationMap?.map[info.nodeId];
+         this.description = `${info.functionName} in ${this.loc ? `(L. ${this.loc[0]})` : 'unknown location'}`;
+         this.tooltip = `${info.functionName} in ${this.loc ? `Line ${this.loc[0]}` : 'unknown location'}`;
+         if(this.loc && vscode.window.activeTextEditor) {
+            const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
+            const end = new vscode.Position(this.loc[2] - 1, this.loc[3]);
             this.command = {
                /* simply move cursor to location */
                command: 'editor.action.goToLocations',
@@ -184,10 +189,21 @@ class Dependency extends vscode.TreeItem {
    }
  
    if(root) {
+      // TODO: use theme icon
       this.iconPath = {
       light: path.join(__dirname, '..', '..', '..', 'resources', 'light', 'dependency',  media ?? 'dependency.svg'),
       dark: path.join(__dirname, '..', '..', '..', 'resources', 'dark', 'dependency', media ?? 'dependency.svg')
       };
+   } else if (info) {
+      this.contextValue = 'dependency'
    }
  }
+    
+ getNodeId(): NodeId | undefined {
+    return this.info?.nodeId;
+ }
+ 
+   getLocation(): SourceRange | undefined {
+      return this.loc;
+  }
 }
