@@ -40,7 +40,7 @@
       },
       {
         "command": "vscode-flowr.internal.slice.dependency",
-        "title": "Show Slice for Dependency",
+        "title": "Show Slice of Dependency",
         "category": "flowR",
         "icon": "$(graph)",
         "enablement": "sideBarFocus"
