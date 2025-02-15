@@ -65,15 +65,22 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			this.lastText = text ?? '';
 		}
 		this.output.appendLine('Refreshing dependencies');
-		await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
-			this.working = true;
-			return this.getDependenciesForActiveFile().then(res => {
-				this.activeDependencies = res.dep;
-				this.locationMap = res.loc;
-				this._onDidChangeTreeData.fire(undefined);
+		this.working = true;
+		try {
+			await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
+				return this.getDependenciesForActiveFile().then(res => {
+					this.activeDependencies = res.dep;
+					this.locationMap = res.loc;
+					this._onDidChangeTreeData.fire(undefined);
+				}).catch(e => {
+					this.output.appendLine(`[Dependencies View] Error: ${e}`);
+				});
 			});
-		});
-		this.working = false;
+		} catch{
+			this.output.appendLine('[Dependencies View] Error: Could not refresh dependencies');
+		} finally {
+			this.working = false;
+		}
 	}
 
 	getTreeItem(element: Dependency): vscode.TreeItem | Thenable<vscode.TreeItem> {
