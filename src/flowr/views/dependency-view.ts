@@ -4,6 +4,7 @@ import type { DependenciesQueryResult, DependencyInfo } from '@eagleoutice/flowr
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
+import { RotaryBuffer } from '../utils';
 
 const FlowrDependencyViewId = 'flowr-dependencies';
 /** returns disposer */
@@ -41,7 +42,6 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		setInterval(() => void this.refresh(), 10000);
 	}
    
-	private lastText = '';
 	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult}> {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(!activeEditor) {
@@ -54,11 +54,21 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	} 
    
 	private working = false;
+	private readonly textBuffer = new RotaryBuffer<[string, { dep: DependenciesQueryResult, loc: LocationMapQueryResult}]>(5);
+	private lastText = '';
+	
+	private textFingerprint(text: string): string {
+		return text.trim().replace(/\s|^\s*#.*$/gm, '');
+	}
+	
 	private async refresh() {
 		if(this.working) {
 			return;
 		}
-		const text = vscode.window.activeTextEditor?.document.getText().trim();
+		if(vscode.window.activeTextEditor?.document.languageId !== 'r') {
+			return;
+		}
+		const text = this.textFingerprint(vscode.window.activeTextEditor?.document.getText());
 		if(text === this.lastText) {
 			return;
 		} else {
@@ -67,17 +77,28 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		this.output.appendLine('Refreshing dependencies');
 		this.working = true;
 		try {
+			const has = this.textBuffer.get(e => e?.[0] === text);
+			if(has) {
+				this.output.appendLine(`[Dependencies View] Using cached dependencies (Dependencies: ${has[1].dep['.meta'].timing}ms, Locations: ${has[1].loc['.meta'].timing}ms)`);
+				this.activeDependencies = has[1].dep;
+				this.locationMap = has[1].loc;
+				this._onDidChangeTreeData.fire(undefined);
+				return;
+			}
 			await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
 				return this.getDependenciesForActiveFile().then(res => {
 					this.activeDependencies = res.dep;
 					this.locationMap = res.loc;
+					this.textBuffer.push([text, res]);
 					this._onDidChangeTreeData.fire(undefined);
 				}).catch(e => {
 					this.output.appendLine(`[Dependencies View] Error: ${e}`);
 				});
 			});
-		} catch{
+		} catch(e) {
 			this.output.appendLine('[Dependencies View] Error: Could not refresh dependencies');
+			this.output.appendLine((e as Error).message);
+			this.output.appendLine((e as Error).stack ?? '');
 		} finally {
 			this.working = false;
 		}
