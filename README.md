@@ -7,7 +7,7 @@ With it, you gain access to the following features (this extension is under acti
 
 1. [**Slicing**](#slicing): Reduce the Program to just the parts relevant to a specific variable or figure.
    This is useful, when you want to reuse code for a figure or statistical analysis in another context or if you just want to understand the code better.
-2. [**Dependency View**](#dependency-view): View the library a given script loads, the files it reads and writes, as well as the sourced scripts.
+2. [**Inspect Dependencies**](#dependency-view): View the library a given script loads, the files it reads and writes, as well as the sourced scripts.
    This helps you understanding what is required to run a script, where it reads data from, and where it writes data to.
 3. [**Dataflow Graph**](#dataflow): Visualize the dataflow in a script.
    This helps you understand how data is transformed in a script and where it is used.
