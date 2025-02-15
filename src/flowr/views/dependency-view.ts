@@ -98,9 +98,9 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
          return [
             // TODO: handle unknown
             new Dependency({ label: 'Libraries',     icon: new vscode.ThemeIcon('library'), root: true, children: this.makeChildren(e => e.libraryName, this.activeDependencies.libraries) }),
-            new Dependency({ label: 'Read Data',     icon: new vscode.ThemeIcon('file-text'),    root: true, children: this.makeChildren(e => e.source, this.activeDependencies.readData) }),
+            new Dependency({ label: 'Data (Read)',     icon: new vscode.ThemeIcon('file-text'),    root: true, children: this.makeChildren(e => e.source, this.activeDependencies.readData) }),
             new Dependency({ label: 'Sourced Files', icon: new vscode.ThemeIcon('file-code'),  root: true, children: this.makeChildren(e => e.file, this.activeDependencies.sourcedFiles) }),
-            new Dependency({ label: 'Written Data',  icon: new vscode.ThemeIcon('new-file'),   root: true, children: this.makeChildren(e => e.destination, this.activeDependencies.writtenData) })
+            new Dependency({ label: 'Output Files',  icon: new vscode.ThemeIcon('new-file'),   root: true, children: this.makeChildren(e => e.destination, this.activeDependencies.writtenData) })
          ]
       }
    }
