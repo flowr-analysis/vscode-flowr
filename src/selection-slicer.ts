@@ -3,142 +3,142 @@
 // slice at the current cursor position
 // (either per command or updating as the cursor moves)
 
-import * as vscode from 'vscode'
-import { getConfig, getFlowrSession, isVerbose, updateStatusBar } from './extension'
-import { flowrScheme, makeUri, getReconstructionContentProvider, showUri } from './doc-provider'
-import { makeSlicingCriteria, type SliceReturn } from './flowr/utils'
-import type { DecoTypes } from './slice'
-import { displaySlice, makeSliceDecorationTypes } from './slice'
-import { positionSlicers } from './position-slicer'
-import { Settings } from './settings'
+import * as vscode from 'vscode';
+import { getConfig, getFlowrSession, isVerbose, updateStatusBar } from './extension';
+import { flowrScheme, makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
+import { makeSlicingCriteria, type SliceReturn } from './flowr/utils';
+import type { DecoTypes } from './slice';
+import { displaySlice, makeSliceDecorationTypes } from './slice';
+import { positionSlicers } from './position-slicer';
+import { Settings } from './settings';
 
 
-const selectionSlicerAuthority = 'selection-slicer'
-const selectionSlicerPath = 'Selection Slice'
+const selectionSlicerAuthority = 'selection-slicer';
+const selectionSlicerPath = 'Selection Slice';
 
 
 // Get the active SelectionSlicer instance
 // currently only one instance is used and never disposed
-export let selectionSlicer: SelectionSlicer | undefined
+export let selectionSlicer: SelectionSlicer | undefined;
 export function getSelectionSlicer(): SelectionSlicer {
-	selectionSlicer ??= new SelectionSlicer()
-	return selectionSlicer
+	selectionSlicer ??= new SelectionSlicer();
+	return selectionSlicer;
 }
 
 // Show the selection slice in an editor
 // If nothing is sliced, slice at the current cursor position
 export async function showSelectionSliceInEditor(): Promise<vscode.TextEditor> {
-	const slicer = getSelectionSlicer()
+	const slicer = getSelectionSlicer();
 	if(!slicer.hasDoc){
-		await slicer.sliceSelectionOnce()
+		await slicer.sliceSelectionOnce();
 	}
-	const uri = slicer.makeUri()
-	return await showUri(uri)
+	const uri = slicer.makeUri();
+	return await showUri(uri);
 }
 
 
 class SelectionSlicer {
-	changeListeners: vscode.Disposable[] = []
+	changeListeners: vscode.Disposable[] = [];
 
-	hasDoc: boolean = false
+	hasDoc: boolean = false;
 
-	decos: DecoTypes | undefined
+	decos: DecoTypes | undefined;
 
-	decoratedEditors: vscode.TextEditor[] = []
+	decoratedEditors: vscode.TextEditor[] = [];
 
 
 	// Turn on/off following of the cursor
 	async startFollowSelection(): Promise<void> {
-		await this.update()
+		await this.update();
 		this.changeListeners.push(
 			vscode.window.onDidChangeTextEditorSelection(e => {
 				if(this.decoratedEditors.includes(e.textEditor)) {
-					void this.update()
+					void this.update();
 				}
 			}),
 			vscode.window.onDidChangeActiveTextEditor(() => void this.update())
-		)
-		updateStatusBar()
+		);
+		updateStatusBar();
 	}
 	async toggleFollowSelection(): Promise<void> {
 		if(this.changeListeners.length){
-			this.stopFollowSelection()
+			this.stopFollowSelection();
 		} else {
-			await this.startFollowSelection()
+			await this.startFollowSelection();
 		}
 	}
 	stopFollowSelection(): void {
 		while(this.changeListeners.length){
-			this.changeListeners.pop()?.dispose()
+			this.changeListeners.pop()?.dispose();
 		}
-		updateStatusBar()
+		updateStatusBar();
 	}
 
 	// Slice once at the current cursor position
 	async sliceSelectionOnce(): Promise<string> {
-		return await this.update()
+		return await this.update();
 	}
 
 	// Stop following the cursor and clear the selection slice output
 	clearSelectionSlice(): void {
-		this.stopFollowSelection()
-		const provider = getReconstructionContentProvider()
-		const uri = this.makeUri()
-		provider.updateContents(uri, '')
-		this.clearSliceDecos()
-		this.hasDoc = false
+		this.stopFollowSelection();
+		const provider = getReconstructionContentProvider();
+		const uri = this.makeUri();
+		provider.updateContents(uri, '');
+		this.clearSliceDecos();
+		this.hasDoc = false;
 	}
 
 	makeUri(): vscode.Uri {
-		return makeUri(selectionSlicerAuthority, selectionSlicerPath)
+		return makeUri(selectionSlicerAuthority, selectionSlicerPath);
 	}
 
 	// Clear all slice decos or only the ones affecting a specific editor/document
 	clearSliceDecos(editor?: vscode.TextEditor, doc?: vscode.TextDocument): void {
 		if(!this.decos){
-			return
+			return;
 		}
 		if(editor){
-			editor.setDecorations(this.decos.lineSlice, [])
-			editor.setDecorations(this.decos.tokenSlice, [])
+			editor.setDecorations(this.decos.lineSlice, []);
+			editor.setDecorations(this.decos.tokenSlice, []);
 			if(!doc){
-				return
+				return;
 			}
 		}
 		if(doc){
 			for(const editor of vscode.window.visibleTextEditors){
 				if(editor.document === doc){
-					this.clearSliceDecos(editor)
+					this.clearSliceDecos(editor);
 				}
 			}
-			return
+			return;
 		}
-		this.decos?.dispose()
-		this.decos = undefined
+		this.decos?.dispose();
+		this.decos = undefined;
 	}
 
 	protected async update(): Promise<string> {
-		const ret = await getSelectionSlice()
+		const ret = await getSelectionSlice();
 		if(ret === undefined){
-			return ''
+			return '';
 		}
-		const provider = getReconstructionContentProvider()
-		const uri = this.makeUri()
-		provider.updateContents(uri, ret.code)
-		this.hasDoc = true
-		const clearOtherDecos = getConfig().get<boolean>(Settings.StyleOnlyHighlightActiveSelection, false)
+		const provider = getReconstructionContentProvider();
+		const uri = this.makeUri();
+		provider.updateContents(uri, ret.code);
+		this.hasDoc = true;
+		const clearOtherDecos = getConfig().get<boolean>(Settings.StyleOnlyHighlightActiveSelection, false);
 		for(const editor of this.decoratedEditors){
 			if(editor === ret.editor){
-				continue
+				continue;
 			}
 			if(clearOtherDecos || positionSlicers.has(editor.document)){
-				this.clearSliceDecos(editor)
+				this.clearSliceDecos(editor);
 			}
 		}
-		this.decos ||= makeSliceDecorationTypes()
-		displaySlice(ret.editor, ret.sliceElements, this.decos)
-		this.decoratedEditors.push(ret.editor)
-		return ret.code
+		this.decos ||= makeSliceDecorationTypes();
+		displaySlice(ret.editor, ret.sliceElements, this.decos);
+		this.decoratedEditors.push(ret.editor);
+		return ret.code;
 	}
 }
 
@@ -149,35 +149,35 @@ interface SelectionSliceReturn extends SliceReturn {
 	editor: vscode.TextEditor
 }
 async function getSelectionSlice(): Promise<SelectionSliceReturn | undefined> {
-	const editor = vscode.window.activeTextEditor
+	const editor = vscode.window.activeTextEditor;
 	if(!editor){
-		return undefined
+		return undefined;
 	}
 	if(editor.document.uri.scheme === flowrScheme){
-		return undefined
+		return undefined;
 	}
 	if(editor.document.languageId.toLowerCase() !== 'r'){
-		return undefined
+		return undefined;
 	}
 	if(positionSlicers.has(editor.document)){
-		return undefined
+		return undefined;
 	}
-	const positions = editor.selections.map(sel => sel.active)
+	const positions = editor.selections.map(sel => sel.active);
 	if(!positions.length){
 		// (should not happen)
-		return undefined
+		return undefined;
 	}
-	const flowrSession = await getFlowrSession()
-	const ret = await flowrSession.retrieveSlice(makeSlicingCriteria(positions, editor.document, isVerbose()), editor.document, false)
+	const flowrSession = await getFlowrSession();
+	const ret = await flowrSession.retrieveSlice(makeSlicingCriteria(positions, editor.document, isVerbose()), editor.document, false);
 	if(!ret.sliceElements.length){
 		return {
 			code:          '# No slice',
 			sliceElements: [],
 			editor:        editor
-		}
+		};
 	}
 	return {
 		...ret,
 		editor
-	}
+	};
 }
