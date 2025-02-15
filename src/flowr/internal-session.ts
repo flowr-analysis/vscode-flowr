@@ -56,7 +56,7 @@ export class FlowrInternalSession implements FlowrSession {
 		this.state = 'loading'
 		updateStatusBar()
 
-		this.outputChannel.appendLine('Starting flowR shell')
+		this.outputChannel.appendLine('Starting internal flowR engine')
 
 		switch(this.forcedEngine ?? getConfig().get<KnownParserName>(Settings.Rengine)) {
 			case 'r-shell': {
@@ -107,20 +107,25 @@ export class FlowrInternalSession implements FlowrSession {
 			}
 			case 'tree-sitter': {
 				if(!FlowrInternalSession.treeSitterInitialized) {
-					this.outputChannel.appendLine('Initializing tree-sitter')
-
-					const root = getWasmRootPath()
-					amendConfig({ engines: [{
-						type:               'tree-sitter',
-						wasmPath:           `${root}/tree-sitter-r.wasm`,
-						treeSitterWasmPath: `${root}/tree-sitter.wasm`
-					}] })
-					
-					await TreeSitterExecutor.initTreeSitter()
-					FlowrInternalSession.treeSitterInitialized = true
+					try {
+						const root = getWasmRootPath()
+						this.outputChannel.appendLine('Initializing tree-sitter... (wasm at: ' + root + ')')
+						amendConfig({ engines: [{
+							type:               'tree-sitter',
+							wasmPath:           `${root}/tree-sitter-r.wasm`,
+							treeSitterWasmPath: `${root}/tree-sitter.wasm`
+						}] })
+						
+						await TreeSitterExecutor.initTreeSitter()
+						FlowrInternalSession.treeSitterInitialized = true
+					} catch(e) {
+						this.outputChannel.appendLine('Error in init: ' + (e as Error)?.message);
+					}
 				}
+				this.outputChannel.appendLine(`Tree-sitter loaded!`)
 
 				this.parser = new TreeSitterExecutor()
+				this.outputChannel.appendLine(`Tree-sitter initialized!`)
 				
 				this.state = 'active'
 				this.rVersion = await this.parser.rVersion()

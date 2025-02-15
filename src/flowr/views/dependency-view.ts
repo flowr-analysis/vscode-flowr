@@ -1,19 +1,20 @@
 import path from "path";
-import { FlowrSession } from "../utils";
 import * as vscode from 'vscode';
 import { getFlowrSession } from "../../extension";
-import { DependenciesQuery, DependenciesQueryResult, DependencyInfo } from "@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format";
-import { publicDecrypt } from "crypto";
+import { DependenciesQueryResult, DependencyInfo } from "@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format";
 import { LocationMapQueryResult } from "@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format";
 
 const FlowrDependencyViewId = 'flowr-dependencies';
-export function registerDependencyView(output: vscode.OutputChannel) {
-   const viewContainer = vscode.window.createTreeView(
+/** returns disposer */
+export function registerDependencyView(output: vscode.OutputChannel): () => void {
+   const data = new FlowrDependencyTreeView(output);
+   vscode.window.createTreeView(
       FlowrDependencyViewId,
       {
-         treeDataProvider: new FlowrDependencyTreeView(output),
+         treeDataProvider: data
       }
    )
+   return () => data.dispose();
 }
    
 // TODO: button to gernreate dependency report
@@ -27,16 +28,16 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
    private locationMap: LocationMapQueryResult = emptyLocationMap;
    private readonly _onDidChangeTreeData: vscode.EventEmitter<Update> = new vscode.EventEmitter<Update>();
    readonly onDidChangeTreeData: vscode.Event<Update> = this._onDidChangeTreeData.event;
+   private disposables: vscode.Disposable[] = []
    
    constructor(output: vscode.OutputChannel) {
       this.output = output;
       
-      vscode.window.onDidChangeActiveTextEditor(async () => this.refresh());
-      vscode.workspace.onDidChangeTextDocument(async () => this.refresh());
+      this.disposables.push(vscode.window.onDidChangeActiveTextEditor(async () => await this.refresh()));
       
       /* lazy startup patches */
       setTimeout(async () => await this.refresh(), 500);
-      setTimeout(async () => await this.refresh(), 1000);
+      setTimeout(async () => await this.refresh(), 2000);
       setInterval(async () => await this.refresh(), 10000);
    
    }
@@ -47,28 +48,41 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
       if(!activeEditor) {
          return { dep: emptyDependencies, loc: emptyLocationMap };
       }
-      if(activeEditor.document.getText().trim() === this.lastText) {
-         return { dep: this.activeDependencies, loc: this.locationMap };
-      } else {
-         this.lastText = activeEditor.document.getText().trim();
-      }
       const session = await getFlowrSession();
       const result = await session.retrieveQuery(activeEditor.document, [{ type: 'dependencies' }, { type: 'location-map' }]);
+      this.output.appendLine(`[Dependencies View] Refreshed! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
       return { dep: result.dependencies, loc: result['location-map'] };
    } 
    
    private lastRefresh = 0;
+   private working = false;
    private async refresh() {
-      if(Date.now() - this.lastRefresh < 1000) {
+      if(this.working) {
          return;
       }
-      await vscode.window.withProgress({ location: { viewId: "customView" } }, () => {
+      const text = vscode.window.activeTextEditor?.document.getText().trim();
+      if(text === this.lastText) {
+         return;
+      } else {
+         this.lastText = text ?? ''
+      }
+      const now = Date.now();
+      if(now - this.lastRefresh < 100) {
+         this.output.appendLine('Skipping refresh due to recent refresh');
+         return;
+      }
+      this.lastRefresh = now;
+      
+      this.output.appendLine('Refreshing dependencies');
+      await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
+         this.working = true;
          return this.getDependenciesForActiveFile().then(res => {
             this.activeDependencies = res.dep;
             this.locationMap = res.loc;
             this._onDidChangeTreeData.fire(undefined);
          })
       })
+      this.working = false;
    }
 
    getTreeItem(element: Dependency): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -110,6 +124,12 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
             })) 
          });
       })
+   }
+   
+   public dispose() {
+      for(const d of this.disposables) {
+         d.dispose();
+      }
    }
 }
 
