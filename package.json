@@ -1,7 +1,7 @@
 {
   "name": "vscode-flowr",
   "publisher": "code-inspect",
-  "displayName": "R Slicer (flowR)",
+  "displayName": "R Code Analyzer (flowR)",
   "description": "Slicing and analyzing R code courtesy of flowR",
   "homepage": "https://github.com/flowr-analysis/vscode-flowr/blob/main/README.md",
   "icon": "media/flowR.png",
@@ -110,7 +110,7 @@
       }
     ],
     "configuration": {
-      "title": "R Slicer (flowR)",
+      "title": "R Code Analyzer (flowR)",
       "properties": {
         "vscode-flowr.server.host": {
           "type": "string",
