@@ -12,6 +12,7 @@ export enum Settings {
 	StyleOnlyHighlightActiveSelection = 'style.onlyHighlightActiveSelection',
 	StyleMermaidMaxTextLength = 'style.mermaidMaxTextLength',
 
+	ErrorMessageTimer = 'errorMessage.Timer',
 	Rengine = 'r.engine',
 	Rexecutable = 'r.executable',
 }

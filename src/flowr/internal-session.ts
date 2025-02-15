@@ -21,6 +21,7 @@ export class FlowrInternalSession implements FlowrSession {
 
 	public state:    'inactive' | 'loading' | 'active' | 'failure'
 	public rVersion: string | undefined
+	public	working:  boolean = false
 	public parser:   KnownParser | undefined
 
 	private readonly outputChannel: vscode.OutputChannel
@@ -31,6 +32,20 @@ export class FlowrInternalSession implements FlowrSession {
 		this.forcedEngine = forcedEngine
 
 		this.state = 'inactive'
+		updateStatusBar()
+	}
+
+	private async workingOnSlice<T = void>(shell: KnownParser, fun: (shell: KnownParser) => Promise<T>): Promise<T> {
+		try {
+			this.setWorking(true)
+			return fun(shell)
+		} finally {
+			this.setWorking(false)
+		}
+	}
+
+	setWorking(working: boolean): void {
+		this.working = working
 		updateStatusBar()
 	}
 
@@ -123,7 +138,7 @@ export class FlowrInternalSession implements FlowrSession {
 			}
 		}
 		try {
-			return await this.extractSlice(document, positions)
+			return await this.workingOnSlice(this.parser, async() => await this.extractSlice(document, positions))
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l))
@@ -151,20 +166,24 @@ export class FlowrInternalSession implements FlowrSession {
 		if(!this.parser) {
 			return ''
 		}
-		const result = await createNormalizePipeline(this.parser, {
-			request: requestFromInput(consolidateNewlines(document.getText()))
-		}).allRemainingSteps()
-		return normalizedAstToMermaid(result.normalize.ast)
+		return await this.workingOnSlice(this.parser, async s => {
+			const result = await createNormalizePipeline(s, {
+				request: requestFromInput(consolidateNewlines(document.getText()))
+			}).allRemainingSteps()
+			return normalizedAstToMermaid(result.normalize.ast)
+		})
 	}
 
 	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
 		if(!this.parser) {
 			return ''
 		}
-		const result = await createNormalizePipeline(this.parser, {
-			request: requestFromInput(consolidateNewlines(document.getText()))
-		}).allRemainingSteps()
-		return cfgToMermaid(extractCFG(result.normalize), result.normalize)
+		return await this.workingOnSlice(this.parser, async s => {
+			const result = await createNormalizePipeline(s, {
+				request: requestFromInput(consolidateNewlines(document.getText()))
+			}).allRemainingSteps()
+			return cfgToMermaid(extractCFG(result.normalize), result.normalize)
+		})
 	}
 
 	private async extractSlice(document: vscode.TextDocument, positions: vscode.Position[]): Promise<SliceReturn> {

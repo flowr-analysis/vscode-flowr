@@ -104,10 +104,16 @@ export function updateStatusBar() {
 		if(flowrSession.state === 'connected') {
 			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrSession.flowrVersion}`)
 		}
+		if(flowrSession.working){
+			text.push('$(loading~spin) Analyzing')
+		}
 	} else if(flowrSession instanceof FlowrInternalSession) {
 		text.push(`$(console) flowR ${flowrSession.state}`)
 		if(flowrSession.state === 'active') {
 			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}  \nEngine ${flowrSession.parser?.name}`)
+		}
+		if(flowrSession.working){
+			text.push('$(loading~spin) Analyzing')
 		}
 	}
 
@@ -117,9 +123,12 @@ export function updateStatusBar() {
 		slicingTypes.push('cursor')
 	}
 	if(positionSlicers.size) {
-		slicingTypes.push(`${[...positionSlicers].reduce((i, [,s]) => i + s.offsets.length, 0)} positions`)
-		for(const [doc,slicer] of positionSlicers) {
-			slicingFiles.push(`${vscode.workspace.asRelativePath(doc.fileName)} (${slicer.offsets.length} positions)`)
+		const pos = [...positionSlicers].reduce((i, [,s]) => i + s.offsets.length, 0)
+		if(pos > 0) {
+			slicingTypes.push(`${pos} position${pos === 1 ? '' : 's'}`)
+			for(const [doc,slicer] of positionSlicers) {
+				slicingFiles.push(`${vscode.workspace.asRelativePath(doc.fileName)} (${slicer.offsets.length} position${slicer.offsets.length === 1 ? '' : 's'})`)
+			}
 		}
 	}
 

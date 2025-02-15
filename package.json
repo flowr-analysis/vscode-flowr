@@ -192,6 +192,12 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Whether to use verbose logging while flowR is active."
+        },
+        "vscode-flowr.errorMessage.Timer": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 0,
+          "markdownDescription": "The time in milliseconds after which an error message will be removed from the status bar."
         }
       }
     },
