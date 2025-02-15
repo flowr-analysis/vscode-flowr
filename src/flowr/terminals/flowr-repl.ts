@@ -28,10 +28,10 @@ export function showRepl(context: vscode.ExtensionContext, session: FlowrSession
                output: {
                   formatter: ansiFormatter,
                   stdout(text: string) { 
-                     writeEmitter.fire(text + '\n')
+                     writeEmitter.fire(text.replaceAll('\n', '\r\n') + '\r\n')
                   },
                   stderr(text: string) {
-                     writeEmitter.fire(text)
+                     writeEmitter.fire(text.replaceAll('\n', '\r\n') + '\r\n')
                   }
                },
                rl: readline.createInterface({
