@@ -1,7 +1,7 @@
 {
   "name": "vscode-flowr",
   "publisher": "code-inspect",
-  "displayName": "R Slicer (flowR)",
+  "displayName": "R Code Analyzer (flowR)",
   "description": "Slicing and analyzing R code courtesy of flowR",
   "homepage": "https://github.com/flowr-analysis/vscode-flowr/blob/main/README.md",
   "icon": "media/flowR.png",
@@ -31,6 +31,20 @@
   "browser": "./dist/web/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "vscode-flowr.internal.goto.dependency",
+        "title": "Go to Dependency",
+        "category": "flowR",
+        "icon": "$(link)",
+        "enablement": "sideBarFocus"
+      },
+      {
+        "command": "vscode-flowr.internal.slice.dependency",
+        "title": "Show Slice for Dependency",
+        "category": "flowR",
+        "icon": "$(graph)",
+        "enablement": "sideBarFocus"
+      },
       {
         "command": "vscode-flowr.ast",
         "title": "Show Abstract Syntax Tree of the File",
@@ -103,7 +117,7 @@
       }
     ],
     "configuration": {
-      "title": "R Slicer (flowR)",
+      "title": "R Code Analyzer (flowR)",
       "properties": {
         "vscode-flowr.server.host": {
           "type": "string",
@@ -215,6 +229,35 @@
           "command": "vscode-flowr.slice.clear",
           "when": "resourceLangId == r"
         }
+      ],
+      "view/item/context": [
+        {
+          "command": "vscode-flowr.internal.slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "flowR"
+        },
+        {
+          "command": "vscode-flowr.internal.goto.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "flowR"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "flowr",
+          "title": "flowR",
+          "icon": "resources/flowR.svg"
+        }
+      ]
+    },
+    "views": {
+      "flowr": [
+        {
+          "id": "flowr-dependencies",
+          "name": "Dependencies"
+        }
       ]
     },
     "keybindings": [
@@ -241,7 +284,7 @@
     "compile": "npm run copy-wasm && tsc -p ./",
     "watch": "npm run copy-wasm && tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
+    "lint": "npx eslint src/",
     "test": "vscode-test",
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse",
     "browser": "vscode-test-web --extensionDevelopmentPath=. .",
@@ -257,21 +300,26 @@
     "constants-browserify": "^1.0.0",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
+    "semver": "^7.7.1",
     "stream-browserify": "^3.0.0",
     "timers-browserify": "^2.0.12",
     "util": "^0.12.5",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/ws": "^8.5.10",
-    "@eagleoutice/eslint-config-flowr": "^1.0.8",
+    "@eagleoutice/eslint-config-flowr": "^1.0.17",
+    "@eslint/eslintrc": "^3.2.0",
+    "@eslint/js": "^9.20.0",
     "@types/mocha": "^10.0.6",
     "@types/node": "22.x",
+    "@types/semver": "^7.5.8",
     "@types/vscode": "^1.60.0",
     "@types/webpack-env": "^1.16.0",
+    "@types/ws": "^8.5.10",
     "@vscode/test-cli": "^0.0.6",
     "@vscode/test-electron": "^2.3.9",
     "@vscode/test-web": "^0.0.60",
+    "copy-webpack-plugin": "^12.0.2",
     "ts-loader": "^9.2.2",
     "typescript": "^5.6.2",
     "webpack": "^5.38.1",

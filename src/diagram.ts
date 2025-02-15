@@ -1,54 +1,54 @@
-import * as vscode from 'vscode'
-import { getConfig, getFlowrSession } from './extension'
-import { Settings } from './settings'
+import * as vscode from 'vscode';
+import { getConfig, getFlowrSession } from './extension';
+import { Settings } from './settings';
 
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dataflow', async() => {
-		const activeEditor = vscode.window.activeTextEditor
+		const activeEditor = vscode.window.activeTextEditor;
 		if(activeEditor) {
-			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document)
+			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document);
 			if(mermaid) {
-				return { mermaid, webview: createWebview('flowr-dataflow', 'Dataflow Graph', mermaid, output) }
+				return { mermaid, webview: createWebview('flowr-dataflow', 'Dataflow Graph', mermaid, output) };
 			}
 		}
-	}))
+	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.ast', async() => {
-		const activeEditor = vscode.window.activeTextEditor
+		const activeEditor = vscode.window.activeTextEditor;
 		if(activeEditor) {
-			const ast = await (await getFlowrSession()).retrieveAstMermaid(activeEditor.document)
+			const ast = await (await getFlowrSession()).retrieveAstMermaid(activeEditor.document);
 			if(ast) {
-				createWebview('flowr-ast', 'AST', ast, output)
+				createWebview('flowr-ast', 'AST', ast, output);
 			}
 		}
-	}))
+	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.cfg', async() => {
-		const activeEditor = vscode.window.activeTextEditor
+		const activeEditor = vscode.window.activeTextEditor;
 		if(activeEditor) {
-			const cfg = await (await getFlowrSession()).retrieveCfgMermaid(activeEditor.document)
+			const cfg = await (await getFlowrSession()).retrieveCfgMermaid(activeEditor.document);
 			if(cfg) {
-				createWebview('flowr-cfg', 'Control Flow Graph', cfg, output)
+				createWebview('flowr-cfg', 'Control Flow Graph', cfg, output);
 			}
 		}
-	}))
+	}));
 }
 
 function createWebview(id: string, name: string, mermaid: string, output: vscode.OutputChannel) : vscode.WebviewPanel | undefined {
 	// https://github.com/mermaid-js/mermaid/blob/47601ac311f7ad7aedfaf280d319d75434680622/packages/mermaid/src/mermaidAPI.ts#L315-L317
 	if(mermaid.length > mermaidMaxTextLength()){
-		void vscode.window.showErrorMessage('The diagram is too large to be displayed by Mermaid. You can find its code in the flowR output panel instead. Additionally, you can change the maximum diagram length in the extension settings.')
-		output.appendLine(mermaid)
-		return undefined
+		void vscode.window.showErrorMessage('The diagram is too large to be displayed by Mermaid. You can find its code in the flowR output panel instead. Additionally, you can change the maximum diagram length in the extension settings.');
+		output.appendLine(mermaid);
+		return undefined;
 	}
 
 	const panel = vscode.window.createWebviewPanel(id, name, vscode.ViewColumn.Beside, {
 		enableScripts: true
-	})
-	panel.webview.html = createDocument(mermaid)
-	return panel
+	});
+	panel.webview.html = createDocument(mermaid);
+	return panel;
 }
 
 function createDocument(mermaid: string) {
-	const theme = vscode.window.activeColorTheme.kind == vscode.ColorThemeKind.Light ? 'default' : 'dark'
+	const theme = vscode.window.activeColorTheme.kind == vscode.ColorThemeKind.Light ? 'default' : 'dark';
 	return `
 <!DOCTYPE html>
 <html lang="en">
@@ -92,9 +92,9 @@ function createDocument(mermaid: string) {
 		})
 	</script>
 </body>
-</html>`
+</html>`;
 }
 
 function mermaidMaxTextLength() {
-	return getConfig().get<number>(Settings.StyleMermaidMaxTextLength, 500000)
+	return getConfig().get<number>(Settings.StyleMermaidMaxTextLength, 500000);
 }

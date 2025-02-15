@@ -2,54 +2,55 @@
 const path = require('path')
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-var-requires
 const webpack = require('webpack')
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 /** @type WebpackConfig */
 const webExtensionConfig = {
-	mode:   'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
+	mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
 	target: 'webworker', // extensions run in a webworker context
-	entry:  {
+	entry: {
 		extension: './src/extension.ts',
 		// 'test/suite/index': './src/web/test/suite/index.ts' // source of the web extension test runner
 	},
 	output: {
-		filename:                      '[name].js',
-		path:                          path.join(__dirname, './dist/web'),
-		libraryTarget:                 'commonjs',
+		filename: '[name].js',
+		path: path.join(__dirname, './dist/web'),
+		libraryTarget: 'commonjs',
 		devtoolModuleFilenameTemplate: '../../[resource-path]'
 	},
 	resolve: {
 		mainFields: ['browser', 'module', 'main'], // look for `browser` entry point in imported node modules
 		extensions: ['.ts', '.js'], // support ts-files and js-files
-		alias:      {
+		alias: {
 			// we don't use these modules on the web (we don't start a local flowr server)
-			fs:            false,
-			browser:       false,
+			fs: false,
+			browser: false,
 			child_process: false,
-			readline:      false,
-			net:           false 
+			readline: false,
+			net: false
 		},
 		fallback: {
 			// Webpack 5 no longer polyfills Node.js core modules automatically.
 			// see https://webpack.js.org/configuration/resolve/#resolvefallback
 			// for the list of Node.js core module polyfills.
-			assert:    require.resolve('assert'),
-			path:      require.resolve('path-browserify'),
-			stream:    require.resolve('stream-browserify'),
-			util:      require.resolve('util'),
-			os:        require.resolve('os-browserify/browser'), 
-			zlib:      require.resolve('browserify-zlib'),
+			assert: require.resolve('assert'),
+			path: require.resolve('path-browserify'),
+			stream: require.resolve('stream-browserify'),
+			util: require.resolve('util'),
+			os: require.resolve('os-browserify/browser'),
+			zlib: require.resolve('browserify-zlib'),
 			constants: require.resolve('constants-browserify'),
-			buffer:    require.resolve('buffer'),
-			timers:    require.resolve('timers-browserify')
+			buffer: require.resolve('buffer'),
+			timers: require.resolve('timers-browserify')
 		}
 	},
 	module: {
 		rules: [
 			{
-				test:    /\.ts$/,
+				test: /\.ts$/,
 				exclude: /node_modules/,
-				use:     [
+				use: [
 					{
 						loader: 'ts-loader'
 					}
@@ -60,8 +61,13 @@ const webExtensionConfig = {
 	plugins: [
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 		new webpack.ProvidePlugin({
-			Buffer:  ['buffer', 'Buffer'],
+			Buffer: ['buffer', 'Buffer'],
 			process: 'process/browser' // provide a shim for the global `process` variable
+		}),
+		new CopyWebpackPlugin({
+			patterns: [
+				{ from: path.resolve(__dirname, 'resources'), to: 'resources' }
+			]
 		})
 	],
 	externals: {
