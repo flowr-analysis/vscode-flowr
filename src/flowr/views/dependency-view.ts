@@ -89,7 +89,6 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
          return element.children ?? [];
       } else {
          return [
-            // TODO: handle unknown
             new Dependency({ label: 'Libraries',     icon: new vscode.ThemeIcon('library'), root: true, children: this.makeChildren(e => e.libraryName, this.activeDependencies.libraries) }),
             new Dependency({ label: 'Data (Read)',     icon: new vscode.ThemeIcon('file-text'),    root: true, children: this.makeChildren(e => e.source, this.activeDependencies.readData) }),
             new Dependency({ label: 'Sourced Files', icon: new vscode.ThemeIcon('file-code'),  root: true, children: this.makeChildren(e => e.file, this.activeDependencies.sourcedFiles) }),
@@ -142,7 +141,6 @@ export class Dependency extends vscode.TreeItem {
    public readonly children?: Dependency[];
    private readonly info?: DependencyInfo;
    private readonly loc?: SourceRange;
-   // TODO: to interface
    constructor(
       { label, root = false, children = [], info, icon: media, locationMap, collapsibleState}: DependenciesParams
    ) {
@@ -182,7 +180,6 @@ export class Dependency extends vscode.TreeItem {
    }
  
    if(root) {
-      // TODO: use theme icon
       this.iconPath = media
    } else if (info) {
       this.contextValue = 'dependency'
