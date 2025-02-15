@@ -75,6 +75,9 @@ function clearSliceOutput(): void {
 	}
 	const slicer = getSelectionSlicer()
 	slicer.clearSelectionSlice()
+	const criteriaSlicer = getCriteriaSlicer()
+	criteriaSlicer.hasDoc = false
+	criteriaSlicer.clearSliceDecos()
 }
 
 export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[], decos: DecoTypes) {

@@ -74,7 +74,7 @@ export async function showUri(uri: vscode.Uri, language: string = 'r', viewColum
 	const lineCount = editor.document.lineCount
 	const lastLine = editor.document.lineAt(lineCount - 1)
 	editor.selection = new vscode.Selection(lastLine.range.end, lastLine.range.end)
-	editor.revealRange(lastLine.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport)
+	editor.revealRange(lastLine.range, vscode.TextEditorRevealType.InCenter)
 	return editor
 }
 

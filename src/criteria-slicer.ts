@@ -15,7 +15,7 @@ import { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 
 
 const criteriaSlicerAuthority = 'criteria-slicer'
-const criteriaSlicerPath = 'Criteria Slice'
+const criteriaSlicerPath = 'Dependency Slice'
 
 
 // currently only one instance is used and never disposed
