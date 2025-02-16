@@ -11,6 +11,8 @@ With it, you gain access to the following features (this extension is under acti
    This helps you understanding what is required to run a script, where it reads data from, and where it writes data to.
 3. [**Dataflow Graph**](#dataflow): Visualize the dataflow in a script.
    This helps you understand how data is transformed in a script and where it is used.
+4. [**The flowR REPL**](#repl): Explore flowR's capabilities in a REPL.
+   This allows you to interactively explore the features of flowR and understand how it can help you in your daily work.
 
 ## Use
 
@@ -54,6 +56,16 @@ You can generate and view the dataflow graph for any R source file by using the 
 In the future, we plan on including the ability to select nodes in the dataflow graph and have relevant code sections highlighted, and vice versa.
 
 ![A screenshot of a dataflow diagram for a piece of code](media/dataflow.png)
+
+### REPL
+
+flowR offers a [REPL](https://github.com/flowr-analysis/flowr/wiki/Interface#using-the-repl), a "read-eval-print loop", which allows you to interactively explore the features of flowR. You can open a new REPL either with the "Launch a new flowR REPL" command (in the command palette which you can open with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) or by clicking on the shell icon of the flowR sidebar:
+
+![How to open the flowR REPL](media/repl.png)
+
+This opens a new terminal in which you can interact with the (local) flowR installation:
+
+![A screenshot of the flowR REPL](media/repl-sample.png)
 
 ## Installing
 
