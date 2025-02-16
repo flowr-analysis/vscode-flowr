@@ -43,7 +43,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}));
 	
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.repl', async () => {
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.repl', async() => {
 		showRepl(context, await getFlowrSession());
 	}));
 

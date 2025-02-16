@@ -18,7 +18,8 @@ import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/fl
 import { executeQueries } from '@eagleoutice/flowr/queries/query';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { SemVer } from 'semver';
-import { FlowrReplOptions, repl } from '@eagleoutice/flowr/cli/repl/core';
+import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
+import { repl } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
 
 export class FlowrInternalSession implements FlowrSession {
@@ -231,7 +232,7 @@ export class FlowrInternalSession implements FlowrSession {
 		if(!this.parser) {
 			return;
 		}
-		config.output?.stdout(await versionReplString(this.parser));
+		(config.output as { stdout: (s: string) => void}).stdout(await versionReplString(this.parser));
 		await repl({ ...config, parser: this.parser });
 	}
 }
