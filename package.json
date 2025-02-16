@@ -5,6 +5,7 @@
   "description": "Slicing and analyzing R code courtesy of flowR",
   "homepage": "https://github.com/flowr-analysis/vscode-flowr/blob/main/README.md",
   "icon": "media/flowR.png",
+  "type": "commonjs",
   "repository": {
     "type": "git",
     "url": "https://github.com/flowr-analysis/vscode-flowr"
@@ -44,6 +45,12 @@
         "category": "flowR",
         "icon": "$(graph)",
         "enablement": "sideBarFocus"
+      },
+      {
+        "command": "vscode-flowr.repl",
+        "title": "Launch a new flowR REPL",
+        "icon": "$(terminal)",
+        "category": "flowR"
       },
       {
         "command": "vscode-flowr.ast",
@@ -241,6 +248,13 @@
           "when": "view == flowr-dependencies && viewItem == dependency",
           "group": "flowR"
         }
+      ],
+      "view/title": [
+        {
+          "command": "vscode-flowr.repl",
+          "when": "view == flowr-dependencies",
+          "group": "navigation"
+        }
       ]
     },
     "viewsContainers": {
@@ -252,6 +266,12 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "flowr-dependencies",
+        "contents": "Welcome to flowR!\nOpen an R file to see its dependencies."
+      }
+    ],
     "views": {
       "flowr": [
         {
@@ -294,12 +314,13 @@
     "watch-web": "npm run copy-wasm-web && webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.2.3",
+    "@eagleoutice/flowr": "^2.2.4",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
+    "readline": "^1.3.0",
     "semver": "^7.7.1",
     "stream-browserify": "^3.0.0",
     "timers-browserify": "^2.0.12",

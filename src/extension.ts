@@ -10,6 +10,7 @@ import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
 import type { KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
 import { registerDependencyView } from './flowr/views/dependency-view';
+import { showRepl } from './flowr/terminals/flowr-repl';
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
@@ -40,6 +41,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		if(flowrSession instanceof FlowrServerSession) {
 			destroySession();
 		}
+	}));
+	
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.repl', async() => {
+		showRepl(context, await getFlowrSession());
 	}));
 
 	context.subscriptions.push(

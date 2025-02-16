@@ -23,6 +23,7 @@ import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/rep
 import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-slice';
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
+import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -236,6 +237,10 @@ export class FlowrServerSession implements FlowrSession {
 			filetoken: '@query',
 			query
 		});
+	}
+	
+	runRepl(_output: Omit<FlowrReplOptions, 'parser'>) {
+		vscode.window.showErrorMessage('The flowR server session does not support REPLs at the moment');
 	}
 }
 
