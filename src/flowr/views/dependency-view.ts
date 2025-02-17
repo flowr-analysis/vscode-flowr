@@ -42,7 +42,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		this.disposables.push(vscode.workspace.onDidChangeConfiguration(async() => {
 			this.updateConfig();
 			await this.refresh();
-		}))
+		}));
 		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(async() => await this.refresh()));
 
 		/* lazy startup patches */
@@ -50,7 +50,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		setTimeout(() => void this.refresh(), 2000);
 	}
 
-	private activeInterval: NodeJS.Timeout | undefined;
+	private activeInterval:   NodeJS.Timeout | undefined;
 	private activeDisposable: vscode.Disposable | undefined;
 	private updateConfig() {
 		if(this.activeInterval) {
@@ -90,7 +90,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		const session = await getFlowrSession();
 		const [result, error] = await session.retrieveQuery(activeEditor.document, [{ type: 'dependencies' }, { type: 'location-map' }]);
 		if(error) {
-			this.output.appendLine(`[Dependencies View] Error: Could not retrieve dependencies`);
+			this.output.appendLine('[Dependencies View] Error: Could not retrieve dependencies');
 			return 'error';
 		}
 		this.output.appendLine(`[Dependencies View] Refreshed! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
