@@ -8,7 +8,7 @@ import { RotaryBuffer } from '../utils';
 
 const FlowrDependencyViewId = 'flowr-dependencies';
 /** returns disposer */
-export function registerDependencyView(output: vscode.OutputChannel): () => void {
+export function registerDependencyView(output: vscode.OutputChannel): { dispose: () => void, update: () => void } {
 	const data = new FlowrDependencyTreeView(output);
 	const tv = vscode.window.createTreeView(
 		FlowrDependencyViewId,
@@ -40,7 +40,10 @@ export function registerDependencyView(output: vscode.OutputChannel): () => void
 	});
 
 	data.setTreeView(tv);
-	return () => data.dispose();
+	return {
+		dispose: () => data.dispose(),
+		update:  () => void data.refresh()
+	};
 }
 
 const emptyDependencies: DependenciesQueryResult = { libraries: [], readData: [], sourcedFiles: [], writtenData: [], '.meta': { timing: -1 } };
@@ -127,7 +130,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		return text.trim().replace(/\s|^\s*#.*$/gm, '');
 	}
 
-	private async refresh() {
+	public async refresh() {
 		if(this.working) {
 			return;
 		}

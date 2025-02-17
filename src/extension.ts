@@ -27,7 +27,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	registerDiagramCommands(context, outputChannel);
 	registerSliceCommands(context, outputChannel);
-	
+
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.internal', async() => {
 		await establishInternalSession();
@@ -48,6 +48,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.settings.open', async() => {
 		await vscode.commands.executeCommand('workbench.action.openSettings', Settings.Category);
 	}));
+
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vscode-flowr.report', () => {
 			void vscode.env.openExternal(vscode.Uri.parse('https://github.com/flowr-analysis/flowr/issues/new/choose'));
@@ -59,9 +61,13 @@ export async function activate(context: vscode.ExtensionContext) {
 	updateStatusBar();
 
 	context.subscriptions.push(new vscode.Disposable(() => destroySession()));
-	
-	const disposeDep = registerDependencyView(outputChannel);
-	
+
+	const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
+
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', () => {
+		updateDependencyView();
+	}));
+
 	context.subscriptions.push(new vscode.Disposable(() => disposeDep()));
 	process.on('SIGINT', () => destroySession());
 
