@@ -10,12 +10,14 @@ const FlowrDependencyViewId = 'flowr-dependencies';
 /** returns disposer */
 export function registerDependencyView(output: vscode.OutputChannel): () => void {
 	const data = new FlowrDependencyTreeView(output);
-	vscode.window.createTreeView(
+	const tv = vscode.window.createTreeView(
 		FlowrDependencyViewId,
 		{
 			treeDataProvider: data
 		}
 	);
+	
+	data.setTreeView(tv);
 	return () => data.dispose();
 }
    
@@ -29,6 +31,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private readonly _onDidChangeTreeData: vscode.EventEmitter<Update> = new vscode.EventEmitter<Update>();
 	readonly onDidChangeTreeData:          vscode.Event<Update> = this._onDidChangeTreeData.event;
 	private disposables:                   vscode.Disposable[] = [];
+	private parent: vscode.TreeView<Dependency> | undefined;
    
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
@@ -40,6 +43,10 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		setTimeout(() => void this.refresh(), 500);
 		setTimeout(() => void this.refresh(), 2000);
 		setInterval(() => void this.refresh(), 10000);
+	}
+	
+	public setTreeView(tv: vscode.TreeView<Dependency>) {
+		this.parent = tv;
 	}
    
 	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult}> {
@@ -101,6 +108,18 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			this.output.appendLine((e as Error).stack ?? '');
 		} finally {
 			this.working = false;
+			setTimeout(() => void this.reveal(), 0);
+		}
+	}
+
+	private async reveal() {
+		// reveal all all root elements with <= 5 children
+		const children = await this.getChildren();
+		for(const root of children ?? []) {
+			if(root.children?.length && root.children.length <= 5) {
+			   this.output.appendLine(`Revealing ${root.children?.[0].label}`);
+				this.parent?.reveal(root.children?.[0], { select: false, focus: false });
+			}
 		}
 	}
 
@@ -113,15 +132,33 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			return element.children ?? [];
 		} else {
 			return [
-				new Dependency({ label: 'Libraries',     icon: new vscode.ThemeIcon('library'), root: true, children: this.makeChildren(e => e.libraryName, this.activeDependencies.libraries) }),
-				new Dependency({ label: 'Imported Data',     icon: new vscode.ThemeIcon('file-text'),    root: true, children: this.makeChildren(e => e.source, this.activeDependencies.readData) }),
-				new Dependency({ label: 'Sourced Scripts', icon: new vscode.ThemeIcon('file-code'),  root: true, children: this.makeChildren(e => e.file, this.activeDependencies.sourcedFiles) }),
-				new Dependency({ label: 'Outputs',  icon: new vscode.ThemeIcon('new-file'),   root: true, children: this.makeChildren(e => e.destination, this.activeDependencies.writtenData) })
+				this.makeDependency('Libraries', this.activeDependencies.libraries, new vscode.ThemeIcon('library'), e => e.libraryName),
+				this.makeDependency('Imported Data', this.activeDependencies.readData, new vscode.ThemeIcon('file-text'), e => e.source),
+				this.makeDependency('Sourced Scripts', this.activeDependencies.sourcedFiles, new vscode.ThemeIcon('file-code'), e => e.file),
+				this.makeDependency('Outputs', this.activeDependencies.writtenData, new vscode.ThemeIcon('new-file'), e => e.destination)
 			];
 		}
 	}
-   
-	private makeChildren<E extends DependencyInfo>(getName: (e: E) => string, elements: E[]): Dependency[] {
+	
+	getParent(element: Dependency): vscode.ProviderResult<Dependency> {
+		return element.getParent();
+	}
+
+	private makeDependency<E extends DependencyInfo>(label: string, elements: E[], themeIcon: vscode.ThemeIcon, getName: (e: E) => string): Dependency {
+		const parent = new Dependency({ label, icon: themeIcon, root: true, children: this.makeChildren(getName, elements, themeIcon) });
+		parent.children?.forEach(c => c.setParent(parent));
+		return parent
+	}
+		
+	
+	private makeChildren<E extends DependencyInfo>(getName: (e: E) => string, elements: E[], themeIcon: vscode.ThemeIcon): Dependency[] {
+		const unknownGuardedName = (e: E) => {
+			const name = getName(e);
+			if(name === 'unknown' && e.lexemeOfArgument) {
+				return name + ': ' + e.lexemeOfArgument;
+			}
+			return name;
+		};
 		/* first group by name */
 		const grouped = new Map<string, E[]>();
 		for(const e of elements) {
@@ -133,14 +170,20 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		}
 		return Array.from(grouped.entries()).map(([name, elements]) => {
 			if(elements.length === 1) {
-				return new Dependency({ label: getName(elements[0]), info: elements[0], locationMap: this.locationMap });
+				return new Dependency({ label: unknownGuardedName(elements[0]), info: elements[0], locationMap: this.locationMap });
 			}
-			return new Dependency({ label:       name, locationMap: this.locationMap, children:    elements.map(e => new Dependency({
-				label:       getName(e), 
-				info:        e, 
-				locationMap: this.locationMap
-			})) 
+			const res = new Dependency({ 
+				label:       name, 
+				locationMap: this.locationMap,
+				icon:        vscode.ThemeIcon.Folder,
+				children:    elements.map(e => new Dependency({
+					label:       unknownGuardedName(e), 
+					info:        e, 
+					locationMap: this.locationMap
+				})) 
 			});
+			res.children?.forEach(c => c.setParent(res));
+			return res;
 		});
 	}
    
@@ -152,6 +195,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 }
 
 interface DependenciesParams {
+	parent?:                    Dependency | undefined;
    readonly label:             string;
    readonly root?:             boolean;
    readonly children?:         Dependency[];
@@ -165,17 +209,25 @@ export class Dependency extends vscode.TreeItem {
 	public readonly children?: Dependency[];
 	private readonly info?:    DependencyInfo;
 	private readonly loc?:     SourceRange;
+	private parent?:  Dependency;
+	
+	public setParent(parent: Dependency) {
+		this.parent = parent;
+	}
+	
+	public getParent(): Dependency | undefined {
+		return this.parent
+	}
+
 	constructor(
-		{ label, root = false, children = [], info, icon: media, locationMap, collapsibleState }: DependenciesParams
+		{ label, root = false, children = [], info, icon, locationMap, collapsibleState, parent }: DependenciesParams
 	) {
-		if(children.length === 0) {
-			collapsibleState = vscode.TreeItemCollapsibleState.None;
-		} else {
-			collapsibleState = children.length < 10 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
-		}
+		collapsibleState ??= children.length === 0 ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Collapsed;
 		super(label, collapsibleState);
+
 		this.children = children;
 		this.info = info;
+		this.parent = parent;
      
 		if(info) {
 			this.loc = locationMap?.map[info.nodeId];
@@ -203,9 +255,10 @@ export class Dependency extends vscode.TreeItem {
 			this.description =`${children.length} item${children.length === 1 ? '' : 's'}`;
 		}
  
-		if(root) {
-			this.iconPath = media;
-		} else if(info) {
+		if(icon) {
+			this.iconPath = icon;
+		}
+		if(!root && info) {
 			this.contextValue = 'dependency';
 		}
 	}
