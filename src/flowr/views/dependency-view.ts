@@ -18,7 +18,7 @@ export function registerDependencyView(output: vscode.OutputChannel): () => void
 	);
 
 	function refreshDesc() {
-		let message = 'This view '
+		let message = 'This view ';
 		switch(getConfig().get<string>('dependencyView.updateType', 'never')) {
 			case 'interval': {
 				const secs = getConfig().get<number>('dependencyView.updateInterval', 10);
@@ -37,7 +37,7 @@ export function registerDependencyView(output: vscode.OutputChannel): () => void
 	refreshDesc();
 	vscode.workspace.onDidChangeConfiguration(() => {
 		refreshDesc();
-	})
+	});
 
 	data.setTreeView(tv);
 	return () => data.dispose();
