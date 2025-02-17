@@ -82,13 +82,17 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		this.parent = tv;
 	}
 
-	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult}> {
+	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult} | 'error'> {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(!activeEditor) {
 			return { dep: emptyDependencies, loc: emptyLocationMap };
 		}
 		const session = await getFlowrSession();
-		const result = await session.retrieveQuery(activeEditor.document, [{ type: 'dependencies' }, { type: 'location-map' }]);
+		const [result, error] = await session.retrieveQuery(activeEditor.document, [{ type: 'dependencies' }, { type: 'location-map' }]);
+		if(error) {
+			this.output.appendLine(`[Dependencies View] Error: Could not retrieve dependencies`);
+			return 'error';
+		}
 		this.output.appendLine(`[Dependencies View] Refreshed! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
 		return { dep: result.dependencies, loc: result['location-map'] };
 	}
@@ -127,6 +131,16 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			}
 			await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
 				return this.getDependenciesForActiveFile().then(res => {
+					if(res === 'error') {
+						if(getConfig().get<boolean>('dependencyView.keepOnError', true)) {
+							return;
+						} else {
+							this.activeDependencies = emptyDependencies;
+							this.locationMap = emptyLocationMap;
+							this._onDidChangeTreeData.fire(undefined);
+							return;
+						}
+					}
 					this.activeDependencies = res.dep;
 					this.locationMap = res.loc;
 					this.textBuffer.push([text, res]);

@@ -24,7 +24,7 @@ export interface FlowrSession {
 	retrieveDataflowMermaid: (document: vscode.TextDocument) => Promise<string>
 	retrieveAstMermaid:      (document: vscode.TextDocument) => Promise<string>
 	retrieveCfgMermaid:      (document: vscode.TextDocument) => Promise<string>
-	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<QueryResults<T>>
+	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<[QueryResults<T>, hasError: boolean]>
 	runRepl:                 (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }
 

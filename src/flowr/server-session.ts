@@ -228,17 +228,17 @@ export class FlowrServerSession implements FlowrSession {
 			content:  consolidateNewlines(document.getText())
 		});
 	}
-	
-	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<QueryResults<T>> {
+
+	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<[QueryResults<T>, hasError: boolean]> {
 		await this.requestFileAnalysis(document, '@query');
-		return await this.sendCommandWithResponse({
+		return [await this.sendCommandWithResponse({
 			type:      'request-query',
 			id:        String(this.idCounter++),
 			filetoken: '@query',
 			query
-		});
+		}), false];
 	}
-	
+
 	runRepl(_output: Omit<FlowrReplOptions, 'parser'>): Promise<void> {
 		vscode.window.showErrorMessage('The flowR server session does not support REPLs at the moment');
 		return Promise.resolve();

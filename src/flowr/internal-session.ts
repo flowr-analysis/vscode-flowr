@@ -22,7 +22,7 @@ import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
 import { amendConfig } from '@eagleoutice/flowr/config';
 
 export class FlowrInternalSession implements FlowrSession {
-	
+
 	private static treeSitterInitialized: boolean = false;
 
 	public state:    'inactive' | 'loading' | 'active' | 'failure';
@@ -72,7 +72,7 @@ export class FlowrInternalSession implements FlowrSession {
 					options = { ...options, pathToRExecutable: executable };
 				}
 				this.outputChannel.appendLine(`Using options ${JSON.stringify(options)}`);
-				
+
 				this.parser = new RShell(options);
 				this.parser.tryToInjectHomeLibPath();
 
@@ -118,7 +118,7 @@ export class FlowrInternalSession implements FlowrSession {
 							wasmPath:           `${root}/tree-sitter-r.wasm`,
 							treeSitterWasmPath: `${root}/tree-sitter.wasm`
 						}] });
-						
+
 						await TreeSitterExecutor.initTreeSitter();
 						FlowrInternalSession.treeSitterInitialized = true;
 					} catch(e) {
@@ -129,7 +129,7 @@ export class FlowrInternalSession implements FlowrSession {
 
 				this.parser = new TreeSitterExecutor();
 				this.outputChannel.appendLine('Tree-sitter initialized!');
-				
+
 				this.state = 'active';
 				this.rVersion = await this.parser.rVersion();
 				updateStatusBar();
@@ -216,17 +216,20 @@ export class FlowrInternalSession implements FlowrSession {
 			sliceElements
 		};
 	}
-	
-	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<QueryResults<T>> {
+
+	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<[QueryResults<T>, error: boolean]> {
 		if(!this.parser) {
 			throw new Error('No parser available');
 		}
 		const result = await createDataflowPipeline(this.parser, {
 			request: requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps();
-		return executeQueries({ ast: result.normalize, dataflow: result.dataflow }, query);
+		if(result.normalize.hasError) {
+			return [{} as QueryResults<T>, true];
+		}
+		return [executeQueries({ ast: result.normalize, dataflow: result.dataflow }, query), result.normalize.hasError ?? false];
 	}
-	
+
 	public async runRepl(config: Omit<Required<FlowrReplOptions>, 'parser'>) {
 		if(!this.parser) {
 			return;

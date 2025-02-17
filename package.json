@@ -247,6 +247,11 @@
           "maximum": 999,
           "markdownDescription": "Automatically update the dependency view every n seconds."
         },
+        "vscode-flowr.dependencyView.keepOnError": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Should the dependency view freeze when the code contains errors? If so, it will automatically retry on the next update (see `vscode-flowr.dependencyView.updateType`)."
+        },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,
