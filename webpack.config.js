@@ -29,7 +29,10 @@ const webExtensionConfig = {
 			readline: false,
 			net: false,
 			'fs/promises': false,
-			fs: false
+			fs: false,
+			clipboardy: false,
+			'rotating-file-stream': false,
+			timers: false
 		},
 		fallback: {
 			// Webpack 5 no longer polyfills Node.js core modules automatically.

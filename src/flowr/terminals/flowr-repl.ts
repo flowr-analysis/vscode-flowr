@@ -17,7 +17,6 @@ export function showRepl(context: vscode.ExtensionContext, session: FlowrSession
 			callback();
 		}
 	});
-	console.log(readline);
 	
 	const terminal = vscode.window.createTerminal({
 		name: 'flowr REPL',

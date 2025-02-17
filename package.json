@@ -301,7 +301,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile && npm run package-web",
-    "copy-wasm": "mkdir -p out/flowr/tree-sitter && cp src/flowr/tree-sitter/*.wasm out/flowr/tree-sitter",
+    "copy-wasm": "mkdir -p out/flowr/tree-sitter && cp src/flowr/tree-sitter/*.wasm out/flowr/tree-sitter && mkdir -p node_modules/@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/ && cp src/flowr/tree-sitter/*.wasm node_modules/@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/",
     "compile": "npm run copy-wasm && tsc -p ./",
     "watch": "npm run copy-wasm && tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",

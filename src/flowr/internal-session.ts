@@ -19,6 +19,7 @@ import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse
 import type { SemVer } from 'semver';
 import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
+import { amendConfig } from '@eagleoutice/flowr/config';
 
 export class FlowrInternalSession implements FlowrSession {
 	
@@ -112,6 +113,11 @@ export class FlowrInternalSession implements FlowrSession {
 					try {
 						const root = getWasmRootPath();
 						this.outputChannel.appendLine('Initializing tree-sitter... (wasm at: ' + root + ')');
+						amendConfig({ engines: [{
+							type:               'tree-sitter',
+							wasmPath:           `${root}/tree-sitter-r.wasm`,
+							treeSitterWasmPath: `${root}/tree-sitter.wasm`
+						}] });
 						
 						await TreeSitterExecutor.initTreeSitter();
 						FlowrInternalSession.treeSitterInitialized = true;
