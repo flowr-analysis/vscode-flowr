@@ -31,7 +31,7 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 			case 'never': default:
 				message += 'does not update automatically'; break;
 		}
-		message += ' and shows the dependencies of your current R script.';
+		message += ' and shows the dependencies of your current R script (change this in the settings).';
 		tv.message = message;
 	}
 
@@ -102,6 +102,10 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			default:
 				this.output.appendLine(`[Dependencies View] Invalid update type: ${getConfig().get<string>(Settings.DependencyViewUpdateType)}`);
 		}
+		const configuredBufSize = getConfig().get<number>(Settings.DependencyViewCacheLimit, 3);
+		if(this.textBuffer.size() !== configuredBufSize) {
+			this.textBuffer = new RotaryBuffer(configuredBufSize);
+		}
 	}
 
 	public setTreeView(tv: vscode.TreeView<Dependency>) {
@@ -124,7 +128,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	private working = false;
-	private readonly textBuffer = new RotaryBuffer<[string, { dep: DependenciesQueryResult, loc: LocationMapQueryResult}]>(5);
+	private textBuffer: RotaryBuffer<[string, { dep: DependenciesQueryResult, loc: LocationMapQueryResult}]> = new RotaryBuffer(0);
 	private lastText = '';
 
 	private textFingerprint(text: string): string {

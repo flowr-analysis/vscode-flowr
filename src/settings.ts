@@ -16,6 +16,7 @@ export enum Settings {
 	DependencyViewUpdateInterval = 'dependencyView.updateInterval',
 	DependencyViewKeepOnError = 'dependencyView.keepOnError',
 	DependencyViewAutoReveal = 'dependencyView.autoReveal',
+	DependencyViewCacheLimit = 'dependencyView.cacheLimit',
 
 	ErrorMessageTimer = 'errorMessage.Timer',
 	Rengine = 'r.engine',

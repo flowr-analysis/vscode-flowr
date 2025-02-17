@@ -253,6 +253,13 @@
           "maximum": 999,
           "markdownDescription": "Automatically update the dependency view every n seconds."
         },
+        "vscode-flowr.dependencyView.cacheLimit": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 0,
+          "maximum": 100,
+          "markdownDescription": "The maximum number of dependency configurations to keep in the cache. This primarily improves the performance when you switch between files frequently (changing this clears the cache)."
+        },
         "vscode-flowr.dependencyView.keepOnError": {
           "type": "boolean",
           "default": true,
