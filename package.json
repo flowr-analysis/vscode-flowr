@@ -40,6 +40,12 @@
         "enablement": "sideBarFocus"
       },
       {
+        "command": "vscode-flowr.settings.open",
+        "title": "Open flowR Settings",
+        "category": "flowR",
+        "icon": "$(gear)"
+      },
+      {
         "command": "vscode-flowr.internal.slice.dependency",
         "title": "Show Slice of Dependency",
         "category": "flowR",
@@ -210,6 +216,13 @@
           "default": 500000,
           "markdownDescription": "The maximum amount of characters that a Mermaid graph can contain to be parsed and displayed."
         },
+        "vscode-flowr.style.autoRevealDependencies": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 0,
+          "maximum": 999,
+          "markdownDescription": "If there are less than or equal the given dependencies in the dependency view, reveal them automatically."
+        },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,
@@ -255,6 +268,11 @@
           "command": "vscode-flowr.repl",
           "when": "view == flowr-dependencies && !isWeb",
           "group": "navigation"
+        },
+        {
+          "command": "vscode-flowr.settings.open",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@2"
         }
       ]
     },

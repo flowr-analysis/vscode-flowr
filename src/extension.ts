@@ -42,11 +42,12 @@ export async function activate(context: vscode.ExtensionContext) {
 			destroySession();
 		}
 	}));
-	
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.repl', async() => {
 		showRepl(context, await getFlowrSession());
 	}));
-
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.settings.open', async() => {
+		await vscode.commands.executeCommand('workbench.action.openSettings', Settings.Category);
+	}));
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vscode-flowr.report', () => {
 			void vscode.env.openExternal(vscode.Uri.parse('https://github.com/flowr-analysis/flowr/issues/new/choose'));
