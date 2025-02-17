@@ -216,12 +216,36 @@
           "default": 500000,
           "markdownDescription": "The maximum amount of characters that a Mermaid graph can contain to be parsed and displayed."
         },
-        "vscode-flowr.style.autoRevealDependencies": {
+        "vscode-flowr.dependencyView.autoReveal": {
           "type": "integer",
           "default": 10,
           "minimum": 0,
           "maximum": 999,
           "markdownDescription": "If there are less than or equal the given dependencies in the dependency view, reveal them automatically."
+        },
+        "vscode-flowr.dependencyView.updateType": {
+          "type": "string",
+          "default": "interval",
+          "enum": [
+            "on change",
+            "interval",
+            "on save",
+            "never"
+          ],
+          "markdownEnumDescriptions": [
+            "Update the dependency view on every change in the active editor.",
+            "Update the dependency every n seconds, see `vscode-flowr.dependencyView.updateInterval`.",
+            "Update the dependency view only when the active editor is saved.",
+            "Never update the dependency view automatically."
+          ],
+          "markdownDescription": "When to update the dependency view."
+        },
+        "vscode-flowr.dependencyView.updateInterval": {
+          "type": "number",
+          "default": 10,
+          "minimum": 0.5,
+          "maximum": 999,
+          "markdownDescription": "Automatically update the dependency view every n seconds."
         },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
