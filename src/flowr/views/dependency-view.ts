@@ -17,6 +17,28 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 		}
 	);
 
+	function refreshDesc() {
+		let message = 'This view ';
+		switch(getConfig().get<string>('dependencyView.updateType', 'never')) {
+			case 'interval': {
+				const secs = getConfig().get<number>('dependencyView.updateInterval', 10);
+				message += `updates every ${secs} second${secs === 1 ? '' : 's'}`;
+				break;
+			}
+			case 'on save': message += 'updates on save'; break;
+			case 'on change': message += 'updates on every change'; break;
+			case 'never': default:
+				message += 'does not update automatically'; break;
+		}
+		message += ' and shows the dependencies of your current R script.';
+		tv.message = message;
+	}
+
+	refreshDesc();
+	vscode.workspace.onDidChangeConfiguration(() => {
+		refreshDesc();
+	});
+
 	data.setTreeView(tv);
 	return {
 		dispose: () => data.dispose(),
@@ -67,7 +89,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		switch(getConfig().get<string>('dependencyView.updateType', 'never')) {
 			case 'never': break;
 			case 'interval': {
-				this.activeInterval = setInterval(() => void this.refresh(), getConfig().get<number>('dependencyView.updateInterval', 10000) * 1000);
+				this.activeInterval = setInterval(() => void this.refresh(), getConfig().get<number>('dependencyView.updateInterval', 10) * 1000);
 				break;
 			}
 			case 'on save':
