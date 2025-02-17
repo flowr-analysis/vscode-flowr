@@ -53,6 +53,12 @@
         "enablement": "sideBarFocus"
       },
       {
+        "command": "vscode-flowr.dependencyView.update",
+        "title": "Update the Dependency View",
+        "category": "flowR",
+        "icon": "$(sync)"
+      },
+      {
         "command": "vscode-flowr.repl",
         "title": "Launch a new flowR REPL",
         "icon": "$(terminal)",
@@ -299,9 +305,14 @@
           "group": "navigation"
         },
         {
-          "command": "vscode-flowr.settings.open",
+          "command": "vscode-flowr.dependencyView.update",
           "when": "view == flowr-dependencies",
           "group": "navigation@2"
+        },
+        {
+          "command": "vscode-flowr.settings.open",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@3"
         }
       ]
     },
