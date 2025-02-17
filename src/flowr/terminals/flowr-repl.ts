@@ -24,7 +24,7 @@ export function showRepl(context: vscode.ExtensionContext, session: FlowrSession
 			open:       () => {
 				void session.runRepl({
 					allowRSessionAccess: true,
-					history:            [],
+					history:             [],
 					output:              {
 						formatter: ansiFormatter,
 						stdout(text: string) { 

@@ -34,7 +34,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		this.output = output;
       
 		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(async() => await this.refresh()));
-		this.disposables.push(vscode.workspace.onDidSaveTextDocument(async() => await this.refresh()));
+		this.disposables.push(vscode.workspace.onWillSaveTextDocument(async() => await this.refresh()));
    
 		/* lazy startup patches */
 		setTimeout(() => void this.refresh(), 500);
