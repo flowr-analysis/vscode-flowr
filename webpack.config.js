@@ -28,8 +28,8 @@ const webExtensionConfig = {
 			child_process: false,
 			readline: false,
 			net: false,
-			'fs/promises': path.resolve('./fs-proxy.js'),
-			fs: path.resolve('./fs-proxy.js'),
+			'fs/promises': false,
+			fs: false
 		},
 		fallback: {
 			// Webpack 5 no longer polyfills Node.js core modules automatically.
@@ -42,10 +42,7 @@ const webExtensionConfig = {
 			os: require.resolve('os-browserify/browser'),
 			zlib: require.resolve('browserify-zlib'),
 			constants: require.resolve('constants-browserify'),
-			buffer: require.resolve('buffer'),
-			timers: require.resolve('timers-browserify'),
-			'fs/promises': require.resolve('./fs-proxy.js'),
-			fs: require.resolve('./fs-proxy.js'),
+			buffer: require.resolve('buffer')
 		}
 	},
 	module: {

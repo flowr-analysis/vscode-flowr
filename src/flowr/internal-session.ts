@@ -13,15 +13,12 @@ import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { KnownParser, KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
 import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/tree-sitter-executor';
-import { amendConfig, defaultConfigOptions, setConfig } from '@eagleoutice/flowr/config';
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import { executeQueries } from '@eagleoutice/flowr/queries/query';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { SemVer } from 'semver';
 import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
-
-setConfig(defaultConfigOptions);
 
 export class FlowrInternalSession implements FlowrSession {
 	
@@ -74,7 +71,6 @@ export class FlowrInternalSession implements FlowrSession {
 					options = { ...options, pathToRExecutable: executable };
 				}
 				this.outputChannel.appendLine(`Using options ${JSON.stringify(options)}`);
-				amendConfig({ engines: [{ type: 'r-shell', options }] });
 				
 				this.parser = new RShell(options);
 				this.parser.tryToInjectHomeLibPath();
@@ -116,11 +112,6 @@ export class FlowrInternalSession implements FlowrSession {
 					try {
 						const root = getWasmRootPath();
 						this.outputChannel.appendLine('Initializing tree-sitter... (wasm at: ' + root + ')');
-						amendConfig({ engines: [{
-							type:               'tree-sitter',
-							wasmPath:           `${root}/tree-sitter-r.wasm`,
-							treeSitterWasmPath: `${root}/tree-sitter.wasm`
-						}] });
 						
 						await TreeSitterExecutor.initTreeSitter();
 						FlowrInternalSession.treeSitterInitialized = true;
@@ -129,7 +120,6 @@ export class FlowrInternalSession implements FlowrSession {
 					}
 				}
 				this.outputChannel.appendLine('Tree-sitter loaded!');
-				amendConfig({ engines: [{ type: 'tree-sitter' }] });
 
 				this.parser = new TreeSitterExecutor();
 				this.outputChannel.appendLine('Tree-sitter initialized!');

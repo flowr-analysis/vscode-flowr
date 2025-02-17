@@ -239,8 +239,9 @@ export class FlowrServerSession implements FlowrSession {
 		});
 	}
 	
-	runRepl(_output: Omit<FlowrReplOptions, 'parser'>) {
+	runRepl(_output: Omit<FlowrReplOptions, 'parser'>): Promise<void> {
 		vscode.window.showErrorMessage('The flowR server session does not support REPLs at the moment');
+		return Promise.resolve();
 	}
 }
 

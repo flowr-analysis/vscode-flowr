@@ -25,7 +25,7 @@ export interface FlowrSession {
 	retrieveAstMermaid:      (document: vscode.TextDocument) => Promise<string>
 	retrieveCfgMermaid:      (document: vscode.TextDocument) => Promise<string>
 	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<QueryResults<T>>
-	runRepl:                 (output: Omit<FlowrReplOptions, 'parser'>) => void | Promise<void>
+	runRepl:                 (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }
 
 export function getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {

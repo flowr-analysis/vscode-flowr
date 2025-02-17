@@ -11,7 +11,7 @@ With it, you gain access to the following features (this extension is under acti
    This helps you understanding what is required to run a script, where it reads data from, and where it writes data to.
 3. [**Dataflow Graph**](#dataflow): Visualize the dataflow in a script.
    This helps you understand how data is transformed in a script and where it is used.
-4. [**The flowR REPL**](#repl): Explore flowR's capabilities in a REPL.
+4. [**The flowR REPL**](#repl): Explore flowR's capabilities in a REPL (not available in the browser).
    This allows you to interactively explore the features of flowR and understand how it can help you in your daily work.
 
 ## Use
