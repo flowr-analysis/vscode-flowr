@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import type { FlowrSession } from '../utils';
 import { ansiFormatter } from '@eagleoutice/flowr/util/ansi';
 import * as readline from 'readline';
-import { replCompleter } from '@eagleoutice/flowr/cli/repl/core';
 import { Stream } from 'stream';
+import { replCompleter } from '@eagleoutice/flowr/cli/repl/core';
 
 export function showRepl(context: vscode.ExtensionContext, session: FlowrSession) {
 	const writeEmitter = new vscode.EventEmitter<string>();
@@ -17,6 +17,7 @@ export function showRepl(context: vscode.ExtensionContext, session: FlowrSession
 			callback();
 		}
 	});
+	
 	const terminal = vscode.window.createTerminal({
 		name: 'flowr REPL',
 		pty:  {
@@ -24,6 +25,7 @@ export function showRepl(context: vscode.ExtensionContext, session: FlowrSession
 			open:       () => {
 				void session.runRepl({
 					allowRSessionAccess: true,
+					history:             [],
 					output:              {
 						formatter: ansiFormatter,
 						stdout(text: string) { 

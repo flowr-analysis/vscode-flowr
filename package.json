@@ -15,7 +15,7 @@
     "email": "florian.sihler@uni-ulm.de"
   },
   "license": "GPL-3.0",
-  "version": "0.5.2",
+  "version": "0.5.1",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -50,7 +50,8 @@
         "command": "vscode-flowr.repl",
         "title": "Launch a new flowR REPL",
         "icon": "$(terminal)",
-        "category": "flowR"
+        "category": "flowR",
+        "enablement": "!isWeb"
       },
       {
         "command": "vscode-flowr.ast",
@@ -252,7 +253,7 @@
       "view/title": [
         {
           "command": "vscode-flowr.repl",
-          "when": "view == flowr-dependencies",
+          "when": "view == flowr-dependencies && !isWeb",
           "group": "navigation"
         }
       ]
@@ -300,7 +301,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile && npm run package-web",
-    "copy-wasm": "mkdir -p out/flowr/tree-sitter && cp src/flowr/tree-sitter/*.wasm out/flowr/tree-sitter",
+    "copy-wasm": "mkdir -p out/flowr/tree-sitter && cp src/flowr/tree-sitter/*.wasm out/flowr/tree-sitter && mkdir -p node_modules/@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/ && cp src/flowr/tree-sitter/*.wasm node_modules/@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/",
     "compile": "npm run copy-wasm && tsc -p ./",
     "watch": "npm run copy-wasm && tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
@@ -314,13 +315,15 @@
     "watch-web": "npm run copy-wasm-web && webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.2.4",
+    "@eagleoutice/flowr": "^2.2.5",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
     "readline": "^1.3.0",
+    "readline-browser": "^0.0.3",
+    "readline-sync": "^1.4.10",
     "semver": "^7.7.1",
     "stream-browserify": "^3.0.0",
     "timers-browserify": "^2.0.12",

@@ -24,11 +24,15 @@ const webExtensionConfig = {
 		extensions: ['.ts', '.js'], // support ts-files and js-files
 		alias: {
 			// we don't use these modules on the web (we don't start a local flowr server)
-			fs: false,
 			browser: false,
 			child_process: false,
 			readline: false,
-			net: false
+			net: false,
+			'fs/promises': false,
+			fs: false,
+			clipboardy: false,
+			'rotating-file-stream': false,
+			timers: false
 		},
 		fallback: {
 			// Webpack 5 no longer polyfills Node.js core modules automatically.
@@ -41,8 +45,7 @@ const webExtensionConfig = {
 			os: require.resolve('os-browserify/browser'),
 			zlib: require.resolve('browserify-zlib'),
 			constants: require.resolve('constants-browserify'),
-			buffer: require.resolve('buffer'),
-			timers: require.resolve('timers-browserify')
+			buffer: require.resolve('buffer')
 		}
 	},
 	module: {
