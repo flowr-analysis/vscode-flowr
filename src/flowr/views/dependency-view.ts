@@ -123,7 +123,11 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		try {
 			const has = this.textBuffer.get(e => e?.[0] === text);
 			if(has) {
-				this.output.appendLine(`[Dependencies View] Using cached dependencies (Dependencies: ${has[1].dep['.meta'].timing}ms, Locations: ${has[1].loc['.meta'].timing}ms)`);
+				try {
+					this.output.appendLine(`[Dependencies View] Using cached dependencies (Dependencies: ${has[1].dep['.meta'].timing}ms, Locations: ${has[1].loc['.meta'].timing}ms)`);
+				} catch(e) {
+					this.output.appendLine(`[Dependencies View] Error: ${e}`);
+				}
 				this.activeDependencies = has[1].dep;
 				this.locationMap = has[1].loc;
 				this._onDidChangeTreeData.fire(undefined);
