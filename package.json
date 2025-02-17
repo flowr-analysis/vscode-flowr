@@ -210,6 +210,13 @@
           "default": 500000,
           "markdownDescription": "The maximum amount of characters that a Mermaid graph can contain to be parsed and displayed."
         },
+        "vscode-flowr.style.autoRevealDependencies": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 0,
+          "maximum": 999,
+          "markdownDescription": "If there are less than or equal the given dependencies in the dependency view, reveal them automatically."
+        },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,

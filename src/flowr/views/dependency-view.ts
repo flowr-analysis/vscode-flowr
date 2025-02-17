@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getFlowrSession } from '../../extension';
+import { getConfig, getFlowrSession } from '../../extension';
 import type { DependenciesQueryResult, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
@@ -113,11 +113,11 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	private async reveal() {
-		// reveal all all root elements with <= 5 children
 		const children = await this.getChildren();
+		const autoRevealUntil = getConfig().get<number>('style.autoRevealDependencies', 5);
 		for(const root of children ?? []) {
-			if(root.children?.length && root.children.length <= 5) {
-			   this.output.appendLine(`Revealing ${root.children?.[0].label}`);
+			if(root.children?.length && root.children.length <= autoRevealUntil) {
+			   this.output.appendLine(`Revealing ${root.label} as it has ${root.children.length} children (<= vscode-flowr.style.autoRevealDependencies)`);
 				this.parent?.reveal(root.children?.[0], { select: false, focus: false });
 			}
 		}
