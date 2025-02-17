@@ -64,7 +64,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
 
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', async() => {
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', () => {
 		updateDependencyView();
 	}));
 

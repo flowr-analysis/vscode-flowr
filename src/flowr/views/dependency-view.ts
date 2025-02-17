@@ -20,7 +20,7 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	data.setTreeView(tv);
 	return {
 		dispose: () => data.dispose(),
-		update: () => void data.refresh()
+		update:  () => void data.refresh()
 	};
 }
 
