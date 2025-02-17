@@ -274,7 +274,7 @@ export class Dependency extends vscode.TreeItem {
 		if(info) {
 			this.loc = locationMap?.map[info.nodeId];
 			this.description = `by ${info.functionName} in ${this.loc ? `(L. ${this.loc[0]})` : 'unknown location'}`;
-			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `Line ${this.loc[0]}` : ' an unknown location (right-click for more)'}`;
+			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location (right-click for more)'}`;
 			if(this.loc && vscode.window.activeTextEditor) {
 				const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
 				const end = new vscode.Position(this.loc[2] - 1, this.loc[3]);
