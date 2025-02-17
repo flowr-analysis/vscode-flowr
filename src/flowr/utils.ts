@@ -81,11 +81,21 @@ export class RotaryBuffer<T> {
 	}
 
 	push(item: T): void {
+		if(this.buffer.length === 0){
+			return;
+		}
 		this.buffer[this.index] = item;
 		this.index = (this.index + 1) % this.buffer.length;
 	}
 
 	get(item: (t: T | undefined) => boolean): T | undefined {
+		if(this.buffer.length === 0){
+			return undefined;
+		}
 		return this.buffer.find(item);
+	}
+	
+	size(): number {
+		return this.buffer.length;
 	}
 }

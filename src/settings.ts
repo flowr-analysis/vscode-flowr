@@ -11,6 +11,12 @@ export enum Settings {
 	StyleSliceDisplay = 'style.sliceDisplay',
 	StyleOnlyHighlightActiveSelection = 'style.onlyHighlightActiveSelection',
 	StyleMermaidMaxTextLength = 'style.mermaidMaxTextLength',
+	
+	DependencyViewUpdateType = 'dependencyView.updateType',
+	DependencyViewUpdateInterval = 'dependencyView.updateInterval',
+	DependencyViewKeepOnError = 'dependencyView.keepOnError',
+	DependencyViewAutoReveal = 'dependencyView.autoReveal',
+	DependencyViewCacheLimit = 'dependencyView.cacheLimit',
 
 	ErrorMessageTimer = 'errorMessage.Timer',
 	Rengine = 'r.engine',

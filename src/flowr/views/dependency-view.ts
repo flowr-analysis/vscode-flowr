@@ -5,6 +5,7 @@ import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { RotaryBuffer } from '../utils';
+import { Settings } from '../../settings';
 
 const FlowrDependencyViewId = 'flowr-dependencies';
 /** returns disposer */
@@ -19,9 +20,9 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 
 	function refreshDesc() {
 		let message = 'This view ';
-		switch(getConfig().get<string>('dependencyView.updateType', 'never')) {
+		switch(getConfig().get<string>(Settings.DependencyViewUpdateType, 'never')) {
 			case 'interval': {
-				const secs = getConfig().get<number>('dependencyView.updateInterval', 10);
+				const secs = getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10);
 				message += `updates every ${secs} second${secs === 1 ? '' : 's'}`;
 				break;
 			}
@@ -30,7 +31,7 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 			case 'never': default:
 				message += 'does not update automatically'; break;
 		}
-		message += ' and shows the dependencies of your current R script.';
+		message += ' and shows the dependencies of your current R script (change this in the settings).';
 		tv.message = message;
 	}
 
@@ -86,10 +87,10 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			this.activeDisposable.dispose();
 			this.activeDisposable = undefined;
 		}
-		switch(getConfig().get<string>('dependencyView.updateType', 'never')) {
+		switch(getConfig().get<string>(Settings.DependencyViewUpdateType, 'never')) {
 			case 'never': break;
 			case 'interval': {
-				this.activeInterval = setInterval(() => void this.refresh(), getConfig().get<number>('dependencyView.updateInterval', 10) * 1000);
+				this.activeInterval = setInterval(() => void this.refresh(), getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10) * 1000);
 				break;
 			}
 			case 'on save':
@@ -99,7 +100,11 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async() => await this.refresh());
 				break;
 			default:
-				this.output.appendLine(`[Dependencies View] Invalid update type: ${getConfig().get<string>('dependencyView.updateType')}`);
+				this.output.appendLine(`[Dependencies View] Invalid update type: ${getConfig().get<string>(Settings.DependencyViewUpdateType)}`);
+		}
+		const configuredBufSize = getConfig().get<number>(Settings.DependencyViewCacheLimit, 3);
+		if(this.textBuffer.size() !== configuredBufSize) {
+			this.textBuffer = new RotaryBuffer(configuredBufSize);
 		}
 	}
 
@@ -123,7 +128,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	private working = false;
-	private readonly textBuffer = new RotaryBuffer<[string, { dep: DependenciesQueryResult, loc: LocationMapQueryResult}]>(5);
+	private textBuffer: RotaryBuffer<[string, { dep: DependenciesQueryResult, loc: LocationMapQueryResult}]> = new RotaryBuffer(0);
 	private lastText = '';
 
 	private textFingerprint(text: string): string {
@@ -162,7 +167,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
 				return this.getDependenciesForActiveFile().then(res => {
 					if(res === 'error') {
-						if(getConfig().get<boolean>('dependencyView.keepOnError', true)) {
+						if(getConfig().get<boolean>(Settings.DependencyViewKeepOnError, true)) {
 							return;
 						} else {
 							this.activeDependencies = emptyDependencies;
@@ -191,10 +196,10 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 
 	private async reveal() {
 		const children = await this.getChildren();
-		const autoRevealUntil = getConfig().get<number>('dependencyView.autoReveal', 5);
+		const autoRevealUntil = getConfig().get<number>(Settings.DependencyViewAutoReveal, 5);
 		for(const root of children ?? []) {
 			if(root.children?.length && root.children.length <= autoRevealUntil) {
-				this.output.appendLine(`Revealing ${JSON.stringify(root.label)} as it has ${root.children.length} children (<= vscode-flowr.dependencyView.autoReveal)`);
+				this.output.appendLine(`Revealing ${JSON.stringify(root.label)} as it has ${root.children.length} children (<= ${Settings.DependencyViewAutoReveal})`);
 				this.parent?.reveal(root, { select: false, focus: false, expand: true });
 			}
 		}
