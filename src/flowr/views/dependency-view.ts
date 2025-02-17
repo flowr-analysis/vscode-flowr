@@ -110,6 +110,14 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 
 	public setTreeView(tv: vscode.TreeView<Dependency>) {
 		this.parent = tv;
+		this.disposables.push(
+			// on sidebar visibility change
+			tv.onDidChangeVisibility(async() => {
+				if(tv.visible) {
+					await this.refresh();
+				}
+			})
+		);
 	}
 
 	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult} | 'error'> {
@@ -136,6 +144,9 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	public async refresh() {
+		if(!this.parent?.visible) {
+			return;
+		}
 		if(this.working) {
 			return;
 		}
