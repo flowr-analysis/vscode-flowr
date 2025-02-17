@@ -31,7 +31,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private readonly _onDidChangeTreeData: vscode.EventEmitter<Update> = new vscode.EventEmitter<Update>();
 	readonly onDidChangeTreeData:          vscode.Event<Update> = this._onDidChangeTreeData.event;
 	private disposables:                   vscode.Disposable[] = [];
-	private parent: vscode.TreeView<Dependency> | undefined;
+	private parent:                        vscode.TreeView<Dependency> | undefined;
    
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
@@ -117,8 +117,8 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		const autoRevealUntil = getConfig().get<number>('style.autoRevealDependencies', 5);
 		for(const root of children ?? []) {
 			if(root.children?.length && root.children.length <= autoRevealUntil) {
-			   this.output.appendLine(`Revealing ${root.label} as it has ${root.children.length} children (<= vscode-flowr.style.autoRevealDependencies)`);
-				this.parent?.reveal(root.children?.[0], { select: false, focus: false });
+				this.output.appendLine(`Revealing ${JSON.stringify(root.label)} as it has ${root.children.length} children (<= vscode-flowr.style.autoRevealDependencies)`);
+				this.parent?.reveal(root, { select: false, focus: false, expand: true });
 			}
 		}
 	}
@@ -132,10 +132,10 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			return element.children ?? [];
 		} else {
 			return [
-				this.makeDependency('Libraries', this.activeDependencies.libraries, new vscode.ThemeIcon('library'), e => e.libraryName),
-				this.makeDependency('Imported Data', this.activeDependencies.readData, new vscode.ThemeIcon('file-text'), e => e.source),
-				this.makeDependency('Sourced Scripts', this.activeDependencies.sourcedFiles, new vscode.ThemeIcon('file-code'), e => e.file),
-				this.makeDependency('Outputs', this.activeDependencies.writtenData, new vscode.ThemeIcon('new-file'), e => e.destination)
+				this.makeDependency('Libraries', 'loads the library', this.activeDependencies.libraries, new vscode.ThemeIcon('library'), e => e.libraryName),
+				this.makeDependency('Imported Data', 'imports the data', this.activeDependencies.readData, new vscode.ThemeIcon('file-text'), e => e.source),
+				this.makeDependency('Sourced Scripts', 'sources the script', this.activeDependencies.sourcedFiles, new vscode.ThemeIcon('file-code'), e => e.file),
+				this.makeDependency('Outputs', 'produces the output', this.activeDependencies.writtenData, new vscode.ThemeIcon('new-file'), e => e.destination)
 			];
 		}
 	}
@@ -144,14 +144,14 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		return element.getParent();
 	}
 
-	private makeDependency<E extends DependencyInfo>(label: string, elements: E[], themeIcon: vscode.ThemeIcon, getName: (e: E) => string): Dependency {
-		const parent = new Dependency({ label, icon: themeIcon, root: true, children: this.makeChildren(getName, elements, themeIcon) });
+	private makeDependency<E extends DependencyInfo>(label: string, verb: string, elements: E[], themeIcon: vscode.ThemeIcon, getName: (e: E) => string): Dependency {
+		const parent = new Dependency({ label, icon: themeIcon, root: true, verb, children: this.makeChildren(getName, elements, verb) });
 		parent.children?.forEach(c => c.setParent(parent));
-		return parent
+		return parent;
 	}
 		
 	
-	private makeChildren<E extends DependencyInfo>(getName: (e: E) => string, elements: E[], themeIcon: vscode.ThemeIcon): Dependency[] {
+	private makeChildren<E extends DependencyInfo>(getName: (e: E) => string, elements: E[], verb: string): Dependency[] {
 		const unknownGuardedName = (e: E) => {
 			const name = getName(e);
 			if(name === 'unknown' && e.lexemeOfArgument) {
@@ -170,13 +170,15 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		}
 		return Array.from(grouped.entries()).map(([name, elements]) => {
 			if(elements.length === 1) {
-				return new Dependency({ label: unknownGuardedName(elements[0]), info: elements[0], locationMap: this.locationMap });
+				return new Dependency({ label: unknownGuardedName(elements[0]), info: elements[0], locationMap: this.locationMap, verb });
 			}
 			const res = new Dependency({ 
 				label:       name, 
 				locationMap: this.locationMap,
+				verb,
 				icon:        vscode.ThemeIcon.Folder,
 				children:    elements.map(e => new Dependency({
+					verb,
 					label:       unknownGuardedName(e), 
 					info:        e, 
 					locationMap: this.locationMap
@@ -195,7 +197,8 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 }
 
 interface DependenciesParams {
-	parent?:                    Dependency | undefined;
+	readonly parent?:             Dependency;
+	readonly verb:                string;
    readonly label:             string;
    readonly root?:             boolean;
    readonly children?:         Dependency[];
@@ -209,18 +212,18 @@ export class Dependency extends vscode.TreeItem {
 	public readonly children?: Dependency[];
 	private readonly info?:    DependencyInfo;
 	private readonly loc?:     SourceRange;
-	private parent?:  Dependency;
+	private parent?:           Dependency;
 	
 	public setParent(parent: Dependency) {
 		this.parent = parent;
 	}
 	
 	public getParent(): Dependency | undefined {
-		return this.parent
+		return this.parent;
 	}
 
 	constructor(
-		{ label, root = false, children = [], info, icon, locationMap, collapsibleState, parent }: DependenciesParams
+		{ label, root = false, children = [], info, icon, locationMap, collapsibleState, parent, verb }: DependenciesParams
 	) {
 		collapsibleState ??= children.length === 0 ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Collapsed;
 		super(label, collapsibleState);
@@ -231,8 +234,8 @@ export class Dependency extends vscode.TreeItem {
      
 		if(info) {
 			this.loc = locationMap?.map[info.nodeId];
-			this.description = `${info.functionName} in ${this.loc ? `(L. ${this.loc[0]})` : 'unknown location'}`;
-			this.tooltip = `${info.functionName} in ${this.loc ? `Line ${this.loc[0]}` : 'unknown location'}`;
+			this.description = `by ${info.functionName} in ${this.loc ? `(L. ${this.loc[0]})` : 'unknown location'}`;
+			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `Line ${this.loc[0]}` : ' an unknown location (right-click for more)'}`;
 			if(this.loc && vscode.window.activeTextEditor) {
 				const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
 				const end = new vscode.Position(this.loc[2] - 1, this.loc[3]);
