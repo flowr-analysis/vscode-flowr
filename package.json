@@ -40,6 +40,12 @@
         "enablement": "sideBarFocus"
       },
       {
+        "command": "vscode-flowr.settings.open",
+        "title": "Open flowR Settings",
+        "category": "flowR",
+        "icon": "$(gear)"
+      },
+      {
         "command": "vscode-flowr.internal.slice.dependency",
         "title": "Show Slice of Dependency",
         "category": "flowR",
@@ -262,6 +268,11 @@
           "command": "vscode-flowr.repl",
           "when": "view == flowr-dependencies && !isWeb",
           "group": "navigation"
+        },
+        {
+          "command": "vscode-flowr.settings.open",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@2"
         }
       ]
     },
