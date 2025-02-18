@@ -19,11 +19,11 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	);
 
 	function refreshDesc() {
-		let message: string
+		let message: string;
 		if(vscode.window.activeTextEditor?.document.languageId !== 'r') {
 			message = 'In an R script, this view ';
 		} else {
-			message = 'This view '
+			message = 'This view ';
 		}
 		switch(getConfig().get<string>(Settings.DependencyViewUpdateType, 'never')) {
 			case 'interval': {
@@ -41,8 +41,12 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	}
 
 	refreshDesc();
-	const disposeChange = vscode.workspace.onDidChangeConfiguration(() => { refreshDesc(); });
-	const disposeChangeActive = vscode.window.onDidChangeActiveTextEditor(() => { refreshDesc(); });
+	const disposeChange = vscode.workspace.onDidChangeConfiguration(() => {
+		refreshDesc(); 
+	});
+	const disposeChangeActive = vscode.window.onDidChangeActiveTextEditor(() => {
+		refreshDesc(); 
+	});
 
 
 	data.setTreeView(tv);
@@ -52,7 +56,7 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 			disposeChange.dispose();
 			disposeChangeActive.dispose();
 		},
-		update:  () => void data.refresh()
+		update: () => void data.refresh()
 	};
 }
 
