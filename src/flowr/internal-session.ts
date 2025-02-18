@@ -124,6 +124,8 @@ export class FlowrInternalSession implements FlowrSession {
 						FlowrInternalSession.treeSitterInitialized = true;
 					} catch(e) {
 						this.outputChannel.appendLine('Error in init of tree sitter: ' + (e as Error)?.message);
+						this.outputChannel.appendLine((e as Error)?.stack ?? '');
+						vscode.window.showErrorMessage('Failed to initialize tree-sitter. See the flowR output for more information.');
 					}
 				}
 				this.outputChannel.appendLine('Tree-sitter loaded!');
