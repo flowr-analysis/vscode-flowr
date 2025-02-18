@@ -17,7 +17,7 @@ export function showRepl(context: vscode.ExtensionContext, session: FlowrSession
 			callback();
 		}
 	});
-	
+
 	const terminal = vscode.window.createTerminal({
 		name: 'flowr REPL',
 		pty:  {
@@ -28,7 +28,7 @@ export function showRepl(context: vscode.ExtensionContext, session: FlowrSession
 					history:             [],
 					output:              {
 						formatter: ansiFormatter,
-						stdout(text: string) { 
+						stdout(text: string) {
 							writeEmitter.fire(text.replaceAll('\n', '\r\n') + '\r\n');
 						},
 						stderr(text: string) {
@@ -44,6 +44,8 @@ export function showRepl(context: vscode.ExtensionContext, session: FlowrSession
 						removeHistoryDuplicates: true,
 						completer:               replCompleter
 					} satisfies readline.ReadLineOptions)
+				}).catch(e => {
+					console.error(e);
 				});
 			}, // Called when terminal is opened
 			close:       () => {}, // Called when terminal is closed

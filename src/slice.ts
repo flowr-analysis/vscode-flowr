@@ -18,24 +18,29 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.slice.dependency', async(dependency: Dependency) => {
 		const node = dependency.getNodeId();
 		const loc = dependency.getLocation();
-		if(node) {
-			// got to position
-			const editor = vscode.window.activeTextEditor;
-			const slicer = getCriteriaSlicer();
-			/* always with reconstruction */
-			output.appendLine(`Slicing for ${node}`);
-			// we use loc slicer for uses with `::` etc.
-			const slice = await slicer.sliceFor(loc && editor ? makeSlicingCriteria([new vscode.Position(loc[0] - 1, loc[1] - 1)], editor?.document, isVerbose()) : [`$${node}`]);
+		if(!node) {
+			return;
+		}
+		/* hide any other active slicer in the given document to avoid fighting */
+		clearSliceOutput();
+		// got to position
+		const editor = vscode.window.activeTextEditor;
+		const slicer = getCriteriaSlicer();
+		/* always with reconstruction */
+		output.appendLine(`Slicing for ${node}`);
+		// we use loc slicer for uses with `::` etc.
+		const slice = await slicer.sliceFor(loc && editor ? makeSlicingCriteria([new vscode.Position(loc[0] - 1, loc[1] - 1)], editor?.document, isVerbose()) : [`$${node}`]);
+		if(getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
 			setTimeout(() => {
 				void slicer.showReconstruction();
 			}, 20);
-			if(editor && loc) {
-				setTimeout(() => {
-					editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter);
-				}, 50);
-			}
-			return slice;
 		}
+		if(editor && loc) {
+			setTimeout(() => {
+				editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter);
+			}, 50);
+		}
+		return slice;
 	}));
 	// maybe find a place for this
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {
@@ -151,7 +156,7 @@ export interface DecoTypes {
 }
 export function makeSliceDecorationTypes(): DecoTypes {
 	const config = getConfig();
-	const tokenColor = config.get<string>('style.tokenBackgroundColor', 'green');
+	const tokenColor = config.get<string>(Settings.StyleTokenBackground, 'green');
 	const ret: DecoTypes = {
 		lineSlice: vscode.window.createTextEditorDecorationType({
 			opacity: config.get<number>(Settings.StyleSliceOpacity)?.toString()

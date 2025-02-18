@@ -53,6 +53,12 @@
         "enablement": "sideBarFocus"
       },
       {
+        "command": "vscode-flowr.dependencyView.update",
+        "title": "Update the Dependency View",
+        "category": "flowR",
+        "icon": "$(sync)"
+      },
+      {
         "command": "vscode-flowr.repl",
         "title": "Launch a new flowR REPL",
         "icon": "$(terminal)",
@@ -95,7 +101,7 @@
       {
         "command": "vscode-flowr.slice.clear",
         "title": "Clear Current Slice Presentation",
-        "icon": "$(refresh)",
+        "icon": "$(trashcan)",
         "category": "flowR"
       },
       {
@@ -216,6 +222,17 @@
           "default": 500000,
           "markdownDescription": "The maximum amount of characters that a Mermaid graph can contain to be parsed and displayed."
         },
+        "vscode-flowr.tree-sitter.timeout": {
+          "type": "number",
+          "minimum": 100,
+          "default": 60000,
+          "markdownDescription": "How many milliseconds should the extension wait for the tree-sitter engine to start up?"
+        },
+        "vscode-flowr.slice.automaticReconstruct": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Do you want to automatically view the reconstruction of every slice (i.e., see the standalone slice in an extra window)?"
+        },
         "vscode-flowr.dependencyView.autoReveal": {
           "type": "integer",
           "default": 10,
@@ -242,10 +259,17 @@
         },
         "vscode-flowr.dependencyView.updateInterval": {
           "type": "number",
-          "default": 10,
+          "default": 5,
           "minimum": 0.5,
           "maximum": 999,
           "markdownDescription": "Automatically update the dependency view every n seconds."
+        },
+        "vscode-flowr.dependencyView.cacheLimit": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 0,
+          "maximum": 100,
+          "markdownDescription": "The maximum number of dependency configurations to keep in the cache. This primarily improves the performance when you switch between files frequently (changing this clears the cache)."
         },
         "vscode-flowr.dependencyView.keepOnError": {
           "type": "boolean",
@@ -349,9 +373,21 @@
           "group": "navigation"
         },
         {
-          "command": "vscode-flowr.settings.open",
+          "command": "vscode-flowr.dependencyView.update",
           "when": "view == flowr-dependencies",
           "group": "navigation@2"
+        },
+        {
+          "command": "vscode-flowr.settings.open",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@3"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "vscode-flowr.slice.clear",
+          "when": "resourceLangId == r",
+          "group": "navigation"
         }
       ]
     },

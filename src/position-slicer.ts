@@ -162,9 +162,12 @@ export class PositionSlicer {
 		}
 		const provider = getReconstructionContentProvider();
 		this.updateTargetDecos();
-		const code = await this.updateSlices() || '# No slice';
+		const code = await this.updateSlices() ?? '# The slice is empty';
 		const uri = this.makeUri();
 		provider.updateContents(uri, code);
+		if(getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
+			void this.showReconstruction();
+		}
 		updateStatusBar();
 	}
 

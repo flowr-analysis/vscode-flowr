@@ -9,7 +9,7 @@ import { Settings } from '../../settings';
 
 const FlowrDependencyViewId = 'flowr-dependencies';
 /** returns disposer */
-export function registerDependencyView(output: vscode.OutputChannel): () => void {
+export function registerDependencyView(output: vscode.OutputChannel): { dispose: () => void, update: () => void } {
 	const data = new FlowrDependencyTreeView(output);
 	const tv = vscode.window.createTreeView(
 		FlowrDependencyViewId,
@@ -18,8 +18,46 @@ export function registerDependencyView(output: vscode.OutputChannel): () => void
 		}
 	);
 
+	function refreshDesc() {
+		let message: string;
+		if(vscode.window.activeTextEditor?.document.languageId !== 'r') {
+			message = 'In an R script, this view ';
+		} else {
+			message = 'This view ';
+		}
+		switch(getConfig().get<string>(Settings.DependencyViewUpdateType, 'never')) {
+			case 'interval': {
+				const secs = getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10);
+				message += `updates every ${secs} second${secs === 1 ? '' : 's'}`;
+				break;
+			}
+			case 'on save': message += 'updates on save'; break;
+			case 'on change': message += 'updates on every change'; break;
+			case 'never': default:
+				message += 'does not update automatically'; break;
+		}
+		message += ' and shows the dependencies (configure it in the settings).';
+		tv.message = message;
+	}
+
+	refreshDesc();
+	const disposeChange = vscode.workspace.onDidChangeConfiguration(() => {
+		refreshDesc(); 
+	});
+	const disposeChangeActive = vscode.window.onDidChangeActiveTextEditor(() => {
+		refreshDesc(); 
+	});
+
+
 	data.setTreeView(tv);
-	return () => data.dispose();
+	return {
+		dispose: () => {
+			data.dispose();
+			disposeChange.dispose();
+			disposeChangeActive.dispose();
+		},
+		update: () => void data.refresh()
+	};
 }
 
 const emptyDependencies: DependenciesQueryResult = { libraries: [], readData: [], sourcedFiles: [], writtenData: [], '.meta': { timing: -1 } };
@@ -48,7 +86,6 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 
 		/* lazy startup patches */
 		setTimeout(() => void this.refresh(), 500);
-		setTimeout(() => void this.refresh(), 2000);
 	}
 
 	private activeInterval:   NodeJS.Timeout | undefined;
@@ -62,10 +99,10 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			this.activeDisposable.dispose();
 			this.activeDisposable = undefined;
 		}
-		switch(getConfig().get<string>('dependencyView.updateType', 'never')) {
+		switch(getConfig().get<string>(Settings.DependencyViewUpdateType, 'never')) {
 			case 'never': break;
 			case 'interval': {
-				this.activeInterval = setInterval(() => void this.refresh(), getConfig().get<number>('dependencyView.updateInterval', 10000) * 1000);
+				this.activeInterval = setInterval(() => void this.refresh(), getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10) * 1000);
 				break;
 			}
 			case 'on save':
@@ -75,12 +112,24 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async() => await this.refresh());
 				break;
 			default:
-				this.output.appendLine(`[Dependencies View] Invalid update type: ${getConfig().get<string>('dependencyView.updateType')}`);
+				this.output.appendLine(`[Dependencies View] Invalid update type: ${getConfig().get<string>(Settings.DependencyViewUpdateType)}`);
+		}
+		const configuredBufSize = getConfig().get<number>(Settings.DependencyViewCacheLimit, 3);
+		if(this.textBuffer.size() !== configuredBufSize) {
+			this.textBuffer = new RotaryBuffer(configuredBufSize);
 		}
 	}
 
 	public setTreeView(tv: vscode.TreeView<Dependency>) {
 		this.parent = tv;
+		this.disposables.push(
+			// on sidebar visibility change
+			tv.onDidChangeVisibility(async() => {
+				if(tv.visible) {
+					await this.refresh();
+				}
+			})
+		);
 	}
 
 	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult} | 'error'> {
@@ -119,14 +168,17 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	private working = false;
-	private readonly textBuffer = new RotaryBuffer<[string, { dep: DependenciesQueryResult, loc: LocationMapQueryResult}]>(5);
+	private textBuffer: RotaryBuffer<[string, { dep: DependenciesQueryResult, loc: LocationMapQueryResult}]> = new RotaryBuffer(0);
 	private lastText = '';
 
 	private textFingerprint(text: string): string {
 		return text.trim().replace(/\s|^\s*#.*$/gm, '');
 	}
 
-	private async refresh() {
+	public async refresh() {
+		if(!this.parent?.visible) {
+			return;
+		}
 		if(this.working) {
 			return;
 		}
@@ -158,7 +210,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
 				return this.getDependenciesForActiveFile().then(res => {
 					if(res === 'error') {
-						if(getConfig().get<boolean>('dependencyView.keepOnError', true)) {
+						if(getConfig().get<boolean>(Settings.DependencyViewKeepOnError, true)) {
 							return;
 						} else {
 							this.activeDependencies = emptyDependencies;
@@ -186,11 +238,13 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	private async reveal() {
+		if(!this.parent?.visible) {
+			return;
+		}
 		const children = await this.getChildren();
-		const autoRevealUntil = getConfig().get<number>('dependencyView.autoReveal', 5);
+		const autoRevealUntil = getConfig().get<number>(Settings.DependencyViewAutoReveal, 5);
 		for(const root of children ?? []) {
 			if(root.children?.length && root.children.length <= autoRevealUntil) {
-				this.output.appendLine(`Revealing ${JSON.stringify(root.label)} as it has ${root.children.length} children (<= vscode-flowr.dependencyView.autoReveal)`);
 				this.parent?.reveal(root, { select: false, focus: false, expand: true });
 			}
 		}
@@ -288,10 +342,11 @@ interface DependenciesParams {
 }
 
 export class Dependency extends vscode.TreeItem {
-	public readonly children?: Dependency[];
-	private readonly info?:    DependencyInfo;
-	private readonly loc?:     SourceRange;
-	private parent?:           Dependency;
+	public readonly children?:     Dependency[];
+	private readonly info?:        DependencyInfo;
+	private readonly loc?:         SourceRange;
+	private parent?:               Dependency;
+	private readonly locationMap?: LocationMapQueryResult;
 
 	public setParent(parent: Dependency) {
 		this.parent = parent;
@@ -310,11 +365,12 @@ export class Dependency extends vscode.TreeItem {
 		this.children = children;
 		this.info = info;
 		this.parent = parent;
+		this.locationMap = locationMap;
 
 		if(info) {
 			this.loc = locationMap?.map[info.nodeId];
-			this.description = `by ${info.functionName} in ${this.loc ? `(L. ${this.loc[0]})` : 'unknown location'}`;
-			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location (right-click for more)'}`;
+			this.description = `by ${info.functionName} in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
+			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
 			if(this.loc && vscode.window.activeTextEditor) {
 				const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
 				const end = new vscode.Position(this.loc[2] - 1, this.loc[3]);
@@ -337,12 +393,38 @@ export class Dependency extends vscode.TreeItem {
 			this.description =`${children.length} item${children.length === 1 ? '' : 's'}`;
 		}
 
-		if(icon) {
+		if(this.children.length === 0 && locationMap && this.info?.linkedIds) {
+			/* in the future we should be able to do better when flowR tells us the locations */
+
+			const activeEditor = vscode.window.activeTextEditor;
+			this.children = this.info.linkedIds.map(i => {
+				const loc = locationMap.map[i];
+				const tok = loc ? activeEditor?.document.getText(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3])) : undefined;
+
+				if(!tok) {
+					return new Dependency({ label: `Linked to unknown location ${i}`, verb: 'is linked to' });
+				}
+				return new Dependency({
+					label:       'unknown',
+					verb:        'is linked to',
+					locationMap: this.locationMap,
+					info:        { nodeId: i, functionName: tok },
+					parent:      this,
+					icon:        new vscode.ThemeIcon('link')
+				});
+			});
+			this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+		} else if(icon) {
 			this.iconPath = icon;
 		}
 		if(!root && info) {
 			this.contextValue = 'dependency';
 		}
+	}
+
+	private linkedIds(): string {
+		const num = this.info?.linkedIds?.length;
+		return num ? `, linked to ${num} id` + (num === 1 ? '' : 's') : '';
 	}
 
 	getNodeId(): NodeId | undefined {

@@ -9,7 +9,6 @@ import { selectionSlicer } from './selection-slicer';
 import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
 import { registerDependencyView } from './flowr/views/dependency-view';
-import { showRepl } from './flowr/terminals/flowr-repl';
 import { VariableResolve , defaultConfigOptions, getConfig as getFlowrConfig, setConfig } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
@@ -29,7 +28,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	registerDiagramCommands(context, outputChannel);
 	registerSliceCommands(context, outputChannel);
-	
+
 	updateFlowrConfig();
 	vscode.workspace.onDidChangeConfiguration(updateFlowrConfig);
 
@@ -47,11 +46,19 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.repl', async() => {
-		showRepl(context, await getFlowrSession());
+		try {
+			const repl = await import('./flowr/terminals/flowr-repl');
+			repl.showRepl(context, await getFlowrSession());
+		} catch(e){
+			vscode.window.showErrorMessage('Failed to start flowR REPL');
+			console.error(e);
+		}
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.settings.open', async() => {
 		await vscode.commands.executeCommand('workbench.action.openSettings', Settings.Category);
 	}));
+
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vscode-flowr.report', () => {
 			void vscode.env.openExternal(vscode.Uri.parse('https://github.com/flowr-analysis/flowr/issues/new/choose'));
@@ -63,9 +70,13 @@ export async function activate(context: vscode.ExtensionContext) {
 	updateStatusBar();
 
 	context.subscriptions.push(new vscode.Disposable(() => destroySession()));
-	
-	const disposeDep = registerDependencyView(outputChannel);
-	
+
+	const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
+
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', () => {
+		updateDependencyView();
+	}));
+
 	context.subscriptions.push(new vscode.Disposable(() => disposeDep()));
 	process.on('SIGINT', () => destroySession());
 
