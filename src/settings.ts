@@ -15,6 +15,8 @@ export enum Settings {
 
 	SliceAutomaticReconstruct = 'slice.automaticReconstruct',
 
+	TreeSitterTimeout = 'tree-sitter.timeout',
+
 	DependencyViewUpdateType = 'dependencyView.updateType',
 	DependencyViewUpdateInterval = 'dependencyView.updateInterval',
 	DependencyViewKeepOnError = 'dependencyView.keepOnError',

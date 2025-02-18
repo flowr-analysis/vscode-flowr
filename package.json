@@ -222,6 +222,12 @@
           "default": 500000,
           "markdownDescription": "The maximum amount of characters that a Mermaid graph can contain to be parsed and displayed."
         },
+        "vscode-flowr.tree-sitter.timeout": {
+          "type": "number",
+          "minimum": 100,
+          "default": 60000,
+          "markdownDescription": "How many milliseconds should the extension wait for the tree-sitter engine to start up?"
+        },
         "vscode-flowr.slice.automaticReconstruct": {
           "type": "boolean",
           "default": true,
@@ -253,7 +259,7 @@
         },
         "vscode-flowr.dependencyView.updateInterval": {
           "type": "number",
-          "default": 10,
+          "default": 5,
           "minimum": 0.5,
           "maximum": 999,
           "markdownDescription": "Automatically update the dependency view every n seconds."

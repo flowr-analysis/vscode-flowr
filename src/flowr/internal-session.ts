@@ -118,11 +118,14 @@ export class FlowrInternalSession implements FlowrSession {
 							wasmPath:           `${root}/tree-sitter-r.wasm`,
 							treeSitterWasmPath: `${root}/tree-sitter.wasm`
 						}] });
+						const timeout = getConfig().get<number>(Settings.TreeSitterTimeout);
 
-						await TreeSitterExecutor.initTreeSitter();
+						await Promise.race([TreeSitterExecutor.initTreeSitter(), new Promise<void>((_, reject) => setTimeout(() => reject(new Error(`Timeout (${Settings.TreeSitterTimeout} = ${timeout}ms)`)), timeout))]);
 						FlowrInternalSession.treeSitterInitialized = true;
 					} catch(e) {
-						this.outputChannel.appendLine('Error in init: ' + (e as Error)?.message);
+						this.outputChannel.appendLine('Error in init of tree sitter: ' + (e as Error)?.message);
+						this.outputChannel.appendLine((e as Error)?.stack ?? '');
+						vscode.window.showErrorMessage('Failed to initialize tree-sitter. See the flowR output for more information.');
 					}
 				}
 				this.outputChannel.appendLine('Tree-sitter loaded!');
