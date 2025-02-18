@@ -10,7 +10,6 @@ import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
 import type { KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
 import { registerDependencyView } from './flowr/views/dependency-view';
-import { showRepl } from './flowr/terminals/flowr-repl';
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
@@ -43,7 +42,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.repl', async() => {
-		showRepl(context, await getFlowrSession());
+		try {
+			const repl = await import('./flowr/terminals/flowr-repl');
+			repl.showRepl(context, await getFlowrSession());
+		} catch(e){
+			vscode.window.showErrorMessage('Failed to start flowR REPL');
+			console.error(e);
+		}
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.settings.open', async() => {
 		await vscode.commands.executeCommand('workbench.action.openSettings', Settings.Category);
