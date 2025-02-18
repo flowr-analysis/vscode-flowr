@@ -22,21 +22,19 @@ export enum Settings {
 	DependencyViewKeepOnError = 'dependencyView.keepOnError',
 	DependencyViewAutoReveal = 'dependencyView.autoReveal',
 	DependencyViewCacheLimit = 'dependencyView.cacheLimit',
+	DependenciesQueryIgnoreDefaults = 'dependencyView.query.ignoreDefaults',
+	DependenciesQueryOverrides = 'dependencyView.query.overrides',
 
 	Rengine = 'r.engine',
 	Rexecutable = 'r.executable',
 
-	SolverVariableHandling = 'solver.variableHandling',
-	SolverPointerTracking = 'solver.pointerTracking',
-
-	BuiltInsLoadDefaults = 'overwriteBuiltIns.loadDefaults',
-	BuiltInsDefinitions = 'overwriteBuiltIns.definitions',
-
-	DependenciesQueryIgnoreDefaults = 'dependenciesQuery.ignoreDefaults',
-	DependenciesQueryOverrides = 'dependenciesQuery.overrides',
+	SolverVariableHandling = 'config.solver.variableHandling',
+	SolverPointerTracking = 'config.solver.pointerTracking',
+	BuiltInsLoadDefaults = 'config.overwriteBuiltIns.loadDefaults',
+	BuiltInsDefinitions = 'config.overwriteBuiltIns.definitions',
+	IgnoreSourceCalls = 'config.ignoreSourceCalls',
 
 	ErrorMessageTimer = 'errorMessage.Timer',
-	IgnoreSourceCalls = 'ignoreSourceCalls',
 }
 
 export type SliceDisplay = 'text' | 'diff' | 'tokens'
