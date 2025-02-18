@@ -30,6 +30,7 @@ Additionally, we recommend using the [R extension](https://marketplace.visualstu
 Slicing describes the process of reducing a program to just the parts relevant to a specific variable or figure.
 With the extension loaded, select a variable you are interested in and either press <kbd>Ctrl</kbd>+<kbd>S</kbd> to slice for it once or <kbd>Ctrl</kbd>+<kbd>P</kbd> to mark the position and continuously update the slice as you edit the file.
 The editor will gray out all code that is not part of the generated slice.
+By default, the editor will also show you a reconstruction of the slice in a separate view (this can be changed in the settings).
 
 If you want to clear the slice highlight, press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> or use the trash icon in the upper right of your editor:
 
@@ -43,9 +44,9 @@ You can generate a [slice](https://github.com/flowr-analysis/flowr/wiki/Terminol
 
 Optionally, you can also use one of the two "Toggle Continuous Slice" options, which will automatically cause the slice to be updated when code changes occur or when the cursor is moved.
 
-You can also view the reconstruction of a piece of code based on the current slice. The "Show Current Slice in Editor (Reconstruct)" command opens a view next to the current editor that will automatically update the reconstruction as you slice.
+You can also view the reconstruction of a piece of code based on the current slice. The "Show Current Slice in Editor (Reconstruct)" command opens a view next to the current editor that will automatically update the reconstruction as you slice. By default, this should be shown to you automatically whenever you slice (but this can be changed in the settings).
 
-To clear the slice highlighting, use the "Clear Current Slice Presentation" command.
+To clear the slice highlighting, use the "Clear Current Slice Presentation" command or the trash icon in the upper right of the editor.
 
 ![A screenshot of the extension being used to reconstruct a slice](media/reconstruct.png)
 

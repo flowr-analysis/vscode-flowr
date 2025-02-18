@@ -166,7 +166,7 @@ export class PositionSlicer {
 		const uri = this.makeUri();
 		provider.updateContents(uri, code);
 		if(getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
-			this.showReconstruction();
+			void this.showReconstruction();
 		}
 		updateStatusBar();
 	}
