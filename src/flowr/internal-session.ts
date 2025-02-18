@@ -111,8 +111,6 @@ export class FlowrInternalSession implements FlowrSession {
 
 						const timeout = getConfig().get<number>(Settings.TreeSitterTimeout);
 						await Promise.race([TreeSitterExecutor.initTreeSitter(), new Promise<void>((_, reject) => setTimeout(() => reject(new Error(`Timeout (${Settings.TreeSitterTimeout} = ${timeout}ms)`)), timeout))]);
-
-						await TreeSitterExecutor.initTreeSitter();
 						FlowrInternalSession.treeSitterInitialized = true;
 					} catch(e) {
 						this.outputChannel.appendLine('Error in init of tree sitter: ' + (e as Error)?.message);
