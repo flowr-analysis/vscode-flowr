@@ -31,6 +31,12 @@ Slicing describes the process of reducing a program to just the parts relevant t
 With the extension loaded, select a variable you are interested in and either press <kbd>Ctrl</kbd>+<kbd>S</kbd> to slice for it once or <kbd>Ctrl</kbd>+<kbd>P</kbd> to mark the position and continuously update the slice as you edit the file.
 The editor will gray out all code that is not part of the generated slice.
 
+If you want to clear the slice highlight, press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> or use the trash icon in the upper right of your editor:
+
+![Clear Slice](./media/clear-slice.png)
+
+Note, that there are other ways to slice, for example with the [Dependency View](#dependency-view).
+
 #### Detailed Explanation
 
 You can generate a [slice](https://github.com/flowr-analysis/flowr/wiki/Terminology#program-slice) of the currently highlighted variable in any R code by using the "Slice for Cursor Position" command. All code that is not part of the generated slice will then be grayed out.
