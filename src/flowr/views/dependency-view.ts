@@ -149,16 +149,6 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				type: 'location-map'
 			}
 		]);
-		this.output.appendLine(JSON.stringify([
-			{ 
-				type:                   'dependencies',
-				ignoreDefaultFunctions: config.get<boolean>(Settings.DependenciesQueryIgnoreDefaults, false),
-				...config.get<Omit<DependenciesQuery, 'type' | 'ignoreDefaultFunctions'>>(Settings.DependenciesQueryOverrides)
-			}, 
-			{ 
-				type: 'location-map'
-			}
-		]));
 		if(error) {
 			this.output.appendLine('[Dependencies View] Error: Could not retrieve dependencies');
 			return 'error';

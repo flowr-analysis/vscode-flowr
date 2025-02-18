@@ -215,5 +215,4 @@ function updateFlowrConfig() {
 			treeSitterWasmPath: `${wasmRoot}/tree-sitter.wasm`
 		}]
 	}));
-	outputChannel.appendLine(`Using flowR config ${JSON.stringify(getFlowrConfig())}`);
 }
