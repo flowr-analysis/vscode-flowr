@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, getWasmRootPath, isVerbose, updateStatusBar } from '../extension';
+import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, getWasmRootPath, isVerbose, isWeb, updateStatusBar } from '../extension';
 import { Settings } from '../settings';
 import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer';
 import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg';
@@ -19,7 +19,6 @@ import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse
 import type { SemVer } from 'semver';
 import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
-import { amendConfig } from '@eagleoutice/flowr/config';
 
 export class FlowrInternalSession implements FlowrSession {
 
@@ -27,16 +26,13 @@ export class FlowrInternalSession implements FlowrSession {
 
 	public state:    'inactive' | 'loading' | 'active' | 'failure';
 	public rVersion: string | undefined;
-	public	working:  boolean = false;
+	public working:  boolean = false;
 	public parser:   KnownParser | undefined;
 
 	private readonly outputChannel: vscode.OutputChannel;
-	private readonly forcedEngine:  KnownParserName | undefined;
 
-	constructor(outputChannel: vscode.OutputChannel, forcedEngine: KnownParserName | undefined) {
+	constructor(outputChannel: vscode.OutputChannel) {
 		this.outputChannel = outputChannel;
-		this.forcedEngine = forcedEngine;
-
 		this.state = 'inactive';
 		updateStatusBar();
 	}
@@ -61,7 +57,7 @@ export class FlowrInternalSession implements FlowrSession {
 
 		this.outputChannel.appendLine('Starting internal flowR engine');
 
-		switch(this.forcedEngine ?? getConfig().get<KnownParserName>(Settings.Rengine)) {
+		switch(FlowrInternalSession.getEngineToUse()) {
 			case 'r-shell': {
 				let options: Partial<RShellOptions> = {
 					revive:      RShellReviveOptions.Always,
@@ -111,14 +107,7 @@ export class FlowrInternalSession implements FlowrSession {
 			case 'tree-sitter': {
 				if(!FlowrInternalSession.treeSitterInitialized) {
 					try {
-						const root = getWasmRootPath();
-						this.outputChannel.appendLine('Initializing tree-sitter... (wasm at: ' + root + ')');
-						amendConfig({ engines: [{
-							type:               'tree-sitter',
-							wasmPath:           `${root}/tree-sitter-r.wasm`,
-							treeSitterWasmPath: `${root}/tree-sitter.wasm`
-						}] });
-
+						this.outputChannel.appendLine('Initializing tree-sitter... (wasm at: ' + getWasmRootPath() + ')');
 						await TreeSitterExecutor.initTreeSitter();
 						FlowrInternalSession.treeSitterInitialized = true;
 					} catch(e) {
@@ -236,5 +225,9 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 		(config.output as { stdout: (s: string) => void}).stdout(await versionReplString(this.parser));
 		await repl({ ...config, parser: this.parser });
+	}
+
+	public static getEngineToUse(): KnownParserName {
+		return isWeb() ? 'tree-sitter' : getConfig().get<KnownParserName>(Settings.Rengine, 'tree-sitter');
 	}
 }

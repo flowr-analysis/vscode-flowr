@@ -12,9 +12,20 @@ export enum Settings {
 	StyleOnlyHighlightActiveSelection = 'style.onlyHighlightActiveSelection',
 	StyleMermaidMaxTextLength = 'style.mermaidMaxTextLength',
 
-	ErrorMessageTimer = 'errorMessage.Timer',
 	Rengine = 'r.engine',
 	Rexecutable = 'r.executable',
+
+	SolverVariableHandling = 'solver.variableHandling',
+	SolverPointerTracking = 'solver.pointerTracking',
+
+	BuiltInsLoadDefaults = 'overwriteBuiltIns.loadDefaults',
+	BuiltInsDefinitions = 'overwriteBuiltIns.definitions',
+
+	DependenciesQueryIgnoreDefaults = 'dependenciesQuery.ignoreDefaults',
+	DependenciesQueryOverrides = 'dependenciesQuery.overrides',
+
+	ErrorMessageTimer = 'errorMessage.Timer',
+	IgnoreSourceCalls = 'ignoreSourceCalls',
 }
 
 export type SliceDisplay = 'text' | 'diff' | 'tokens'

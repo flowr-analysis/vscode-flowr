@@ -8,9 +8,11 @@ import type { FlowrSession } from './flowr/utils';
 import { selectionSlicer } from './selection-slicer';
 import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
-import type { KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
 import { registerDependencyView } from './flowr/views/dependency-view';
 import { showRepl } from './flowr/terminals/flowr-repl';
+import { VariableResolve , defaultConfigOptions, getConfig as getFlowrConfig, setConfig } from '@eagleoutice/flowr/config';
+import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
+import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
@@ -28,6 +30,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerDiagramCommands(context, outputChannel);
 	registerSliceCommands(context, outputChannel);
 	
+	updateFlowrConfig();
+	vscode.workspace.onDidChangeConfiguration(updateFlowrConfig);
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.internal', async() => {
 		await establishInternalSession();
@@ -79,9 +83,9 @@ export function isVerbose(): boolean {
 	return getConfig().get<boolean>(Settings.VerboseLog, false);
 }
 
-export async function establishInternalSession(forcedEngine?: KnownParserName) {
+export async function establishInternalSession() {
 	destroySession();
-	flowrSession = new FlowrInternalSession(outputChannel, forcedEngine);
+	flowrSession = new FlowrInternalSession(outputChannel);
 	await flowrSession.initialize();
 	return flowrSession;
 }
@@ -91,7 +95,7 @@ export async function getFlowrSession() {
 	}
 	// initialize a default session if none is active
 	// on the web, we always want to use the tree-sitter backend since we can't run R
-	return await establishInternalSession(isWeb() ? 'tree-sitter' : undefined);
+	return await establishInternalSession();
 }
 
 export async function establishServerSession() {
@@ -174,4 +178,31 @@ export function getWasmRootPath(): string {
 		// in the fake browser version of vscode, it needs to be a special scheme, so we do this check
 		return uri.scheme !== 'file' ? uri.toString() : `vscode-file://vscode-app/${uri.fsPath}`;
 	}
+}
+
+function updateFlowrConfig() {
+	const config = getConfig();
+	const wasmRoot = getWasmRootPath();
+	// we don't want to *amend* here since updates to our extension config shouldn't add additional entries while keeping old ones (definitions etc.)
+	setConfig(deepMergeObject(defaultConfigOptions, { 
+		ignoreSourceCalls: config.get<boolean>(Settings.IgnoreSourceCalls, false),
+		solver:            {
+			variables:       config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
+			pointerTracking: config.get<boolean>(Settings.SolverPointerTracking, true)
+		},
+		semantics: {
+			environment: {
+				overwriteBuiltIns: {
+					loadDefaults: config.get<boolean>(Settings.BuiltInsLoadDefaults, true),
+					definitions:  config.get<BuiltInDefinitions>(Settings.BuiltInsDefinitions, [])
+				}
+			}
+		},
+		engines: [{
+			type:               FlowrInternalSession.getEngineToUse(),
+			wasmPath:           `${wasmRoot}/tree-sitter-r.wasm`,
+			treeSitterWasmPath: `${wasmRoot}/tree-sitter.wasm`
+		}]
+	}));
+	outputChannel.appendLine(`Using flowR config ${JSON.stringify(getFlowrConfig())}`);
 }
