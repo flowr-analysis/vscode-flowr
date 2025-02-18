@@ -1,6 +1,6 @@
 # R Code Analyzer (vscode-flowr)
 
-[![Marketplace](https://badgen.net/vs-marketplace/v/code-inspect.vscode-flowr)](https://marketplace.visualstudio.com/items?itemName=code-inspect.vscode-flowr)
+[![Marketplace](https://badgen.net/vs-marketplace/v/code-inspect.vscode-flowr?color=green)](https://marketplace.visualstudio.com/items?itemName=code-inspect.vscode-flowr) [![flowR Badge](https://badgen.net/badge/icon/flowr/cyan?icon=github&label)](https://github.com/flowr-analysis/flowr)
 
 This extension brings [_flowR_](https://github.com/flowr-analysis/flowr) to Visual Studio Code.
 With it, you gain access to the following features (this extension is under active development, so many more features are planned):
