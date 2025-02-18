@@ -43,7 +43,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.repl', async() => {
 		try {
-			const repl = await import('./flowr/terminals/flowr-repl')
+			const repl = await import('./flowr/terminals/flowr-repl');
 			repl.showRepl(context, await getFlowrSession());
 		} catch(e){
 			vscode.window.showErrorMessage('Failed to start flowR REPL');
