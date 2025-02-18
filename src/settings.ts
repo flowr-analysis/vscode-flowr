@@ -11,7 +11,8 @@ export enum Settings {
 	StyleSliceDisplay = 'style.sliceDisplay',
 	StyleOnlyHighlightActiveSelection = 'style.onlyHighlightActiveSelection',
 	StyleMermaidMaxTextLength = 'style.mermaidMaxTextLength',
-	
+	StyleTokenBackground = 'style.tokenBackgroundColor',
+
 	DependencyViewUpdateType = 'dependencyView.updateType',
 	DependencyViewUpdateInterval = 'dependencyView.updateInterval',
 	DependencyViewKeepOnError = 'dependencyView.keepOnError',
