@@ -9,7 +9,7 @@ import { selectionSlicer } from './selection-slicer';
 import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
 import { registerDependencyView } from './flowr/views/dependency-view';
-import { VariableResolve , defaultConfigOptions, getConfig as getFlowrConfig, setConfig } from '@eagleoutice/flowr/config';
+import { VariableResolve , defaultConfigOptions, setConfig } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 
