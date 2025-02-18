@@ -362,8 +362,6 @@ export class Dependency extends vscode.TreeItem {
 		}
 
 		if(this.children.length === 0 && locationMap && this.info?.linkedIds) {
-
-			this.iconPath = new vscode.ThemeIcon('link');
 			/* in the future we should be able to do better when flowR tells us the locations */
 
 			const activeEditor = vscode.window.activeTextEditor;
@@ -379,7 +377,8 @@ export class Dependency extends vscode.TreeItem {
 					verb:        'is linked to',
 					locationMap: this.locationMap,
 					info:        { nodeId: i, functionName: tok },
-					parent:      this
+					parent:      this,
+					icon:        new vscode.ThemeIcon('link')
 				});
 			});
 			this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
