@@ -306,18 +306,6 @@ interface DependenciesParams {
    readonly locationMap?:      LocationMapQueryResult;
 }
 
-function joinWithLast(elems: readonly (string | number)[], inner = ', ', outer = ', and ', onlyTwo = ' and '): string {
-	if(elems.length === 0) {
-		return '';
-	} else if(elems.length === 1) {
-		return `${elems[0]}`
-	} else if(elems.length === 2) {
-		return `${elems[0]}${onlyTwo}${elems[1]}`
-	} else {
-		return elems.slice(0, elems.length - 1).join(inner) + outer + elems[elems.length - 1];
-	}
-}
-
 export class Dependency extends vscode.TreeItem {
 	public readonly children?:     Dependency[];
 	private readonly info?:        DependencyInfo;
@@ -342,7 +330,7 @@ export class Dependency extends vscode.TreeItem {
 		this.children = children;
 		this.info = info;
 		this.parent = parent;
-		this.locationMap = locationMap
+		this.locationMap = locationMap;
 
 		if(info) {
 			this.loc = locationMap?.map[info.nodeId];
@@ -372,7 +360,7 @@ export class Dependency extends vscode.TreeItem {
 
 		if(this.children.length === 0 && locationMap && this.info?.linkedIds) {
 
-			this.iconPath = new vscode.ThemeIcon('link')
+			this.iconPath = new vscode.ThemeIcon('link');
 			/* in the future we should be able to do better when flowR tells us the locations */
 
 			const activeEditor = vscode.window.activeTextEditor;
@@ -384,13 +372,13 @@ export class Dependency extends vscode.TreeItem {
 					return new Dependency({ label: `Linked to unknown location ${i}`, verb: 'is linked to' });
 				}
 				return new Dependency({
-					label: 'unknown',
-					verb: 'is linked to',
+					label:       'unknown',
+					verb:        'is linked to',
 					locationMap: this.locationMap,
-					info: { nodeId: i, functionName: tok },
-					parent: this
-				})
-			})
+					info:        { nodeId: i, functionName: tok },
+					parent:      this
+				});
+			});
 			this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		} else if(icon) {
 			this.iconPath = icon;
