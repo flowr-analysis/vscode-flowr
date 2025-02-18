@@ -307,11 +307,24 @@ interface DependenciesParams {
    readonly locationMap?:      LocationMapQueryResult;
 }
 
+function joinWithLast(elems: readonly (string | number)[], inner = ', ', outer = ', and ', onlyTwo = ' and '): string {
+	if(elems.length === 0) {
+		return '';
+	} else if(elems.length === 1) {
+		return `${elems[0]}`
+	} else if(elems.length === 2) {
+		return `${elems[0]}${onlyTwo}${elems[1]}`
+	} else {
+		return elems.slice(0, elems.length - 1).join(inner) + outer + elems[elems.length - 1];
+	}
+}
+
 export class Dependency extends vscode.TreeItem {
-	public readonly children?: Dependency[];
-	private readonly info?:    DependencyInfo;
-	private readonly loc?:     SourceRange;
-	private parent?:           Dependency;
+	public readonly children?:     Dependency[];
+	private readonly info?:        DependencyInfo;
+	private readonly loc?:         SourceRange;
+	private parent?:               Dependency;
+	private readonly locationMap?: LocationMapQueryResult;
 
 	public setParent(parent: Dependency) {
 		this.parent = parent;
@@ -330,10 +343,11 @@ export class Dependency extends vscode.TreeItem {
 		this.children = children;
 		this.info = info;
 		this.parent = parent;
+		this.locationMap = locationMap
 
 		if(info) {
 			this.loc = locationMap?.map[info.nodeId];
-			this.description = `by ${info.functionName} in ${this.loc ? `(L. ${this.loc[0]})` : 'unknown location'}`;
+			this.description = `by ${info.functionName} in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
 			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location (right-click for more)'}`;
 			if(this.loc && vscode.window.activeTextEditor) {
 				const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
@@ -362,6 +376,24 @@ export class Dependency extends vscode.TreeItem {
 		}
 		if(!root && info) {
 			this.contextValue = 'dependency';
+		}
+	}
+
+	private linkedIds(): string {
+		if(!this.locationMap) {
+			return ''
+		}
+		let found: number[] = []
+		for(const id of this.info?.linkedIds ?? []) {
+			const loc = this.locationMap.map[id];
+			if(loc) {
+				found.push(loc[0])
+			}
+		}
+		if(found.length === 0) {
+			return '';
+		} else {
+			return `, linked to L. ${joinWithLast(found)}.`
 		}
 	}
 
