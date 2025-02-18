@@ -286,6 +286,56 @@
           "default": 5000,
           "minimum": 0,
           "markdownDescription": "The time in milliseconds after which an error message will be removed from the status bar."
+        },
+        "vscode-flowr.config.ignoreSourceCalls": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Whether source calls should be ignored when analyzing code, causing files sourced using the `source` function to be skipped."
+        },
+        "vscode-flowr.config.solver.variableHandling": {
+          "type": "string",
+          "default": "alias",
+          "enum": [
+            "disabled",
+            "alias",
+            "builtin"
+          ],
+          "markdownEnumDescriptions": [
+            "Don't resolve constants at all.",
+            "Use alias tracking to resolve values.",
+            "Only resolve directly assigned builtin constants."
+          ],
+          "markdownDescription": "How to resolve variables and their values when analyzing code."
+        },
+        "vscode-flowr.config.solver.pointerTracking": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Whether to track pointers in the dataflow graph. If this is false, the graph will be over-approximated with regard to containers and accesses."
+        },
+        "vscode-flowr.config.overwriteBuiltIns.loadDefaults": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "When overwriting the builtin definitions of flowR, should the default configuration still be loaded?"
+        },
+        "vscode-flowr.config.overwriteBuiltIns.definitions": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "When overwriting the builtin definitions of flowR, the set of additional definitions to load. For more info on how these need to be formatted, see [the wiki](https://github.com/flowr-analysis/flowr/wiki/Interface#%EF%B8%8F-configuring-flowr)."
+        },
+        "vscode-flowr.dependencyView.query.ignoreDefaults": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "When using the dependency view, should the set of functions that are detected by default be ignored/skipped?"
+        },
+        "vscode-flowr.dependencyView.query.overrides": {
+          "type": "object",
+          "default": {
+            "libraryFunctions": [],
+            "sourceFunctions": [],
+            "readFunctions": [],
+            "writeFunctions": []
+          },
+          "markdownDescription": "When using the dependency view, the set of additional `libraryFunctions`, `sourceFunctions`, `readFunctions` and `writeFunctions` to load. For more info on how these need to be formatted, see [the wiki](https://github.com/flowr-analysis/flowr/wiki/Query-API#dependencies-query)."
         }
       }
     },

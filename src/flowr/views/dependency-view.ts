@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getConfig, getFlowrSession } from '../../extension';
-import type { DependenciesQueryResult, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
+import type { DependenciesQuery, DependenciesQueryResult, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
@@ -137,8 +137,18 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		if(!activeEditor) {
 			return { dep: emptyDependencies, loc: emptyLocationMap };
 		}
+		const config = getConfig();
 		const session = await getFlowrSession();
-		const [result, error] = await session.retrieveQuery(activeEditor.document, [{ type: 'dependencies' }, { type: 'location-map' }]);
+		const [result, error] = await session.retrieveQuery(activeEditor.document, [
+			{ 
+				type:                   'dependencies',
+				ignoreDefaultFunctions: config.get<boolean>(Settings.DependenciesQueryIgnoreDefaults, false),
+				...config.get<Omit<DependenciesQuery, 'type' | 'ignoreDefaultFunctions'>>(Settings.DependenciesQueryOverrides)
+			}, 
+			{ 
+				type: 'location-map'
+			}
+		]);
 		if(error) {
 			this.output.appendLine('[Dependencies View] Error: Could not retrieve dependencies');
 			return 'error';
