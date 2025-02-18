@@ -206,6 +206,9 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	private async reveal() {
+		if(!this.parent?.visible) {
+			return;
+		}
 		const children = await this.getChildren();
 		const autoRevealUntil = getConfig().get<number>(Settings.DependencyViewAutoReveal, 5);
 		for(const root of children ?? []) {
