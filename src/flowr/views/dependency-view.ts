@@ -73,7 +73,6 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 
 		/* lazy startup patches */
 		setTimeout(() => void this.refresh(), 500);
-		setTimeout(() => void this.refresh(), 2000);
 	}
 
 	private activeInterval:   NodeJS.Timeout | undefined;
@@ -348,7 +347,7 @@ export class Dependency extends vscode.TreeItem {
 		if(info) {
 			this.loc = locationMap?.map[info.nodeId];
 			this.description = `by ${info.functionName} in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
-			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location (right-click for more)'}`;
+			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
 			if(this.loc && vscode.window.activeTextEditor) {
 				const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
 				const end = new vscode.Position(this.loc[2] - 1, this.loc[3]);
@@ -371,7 +370,29 @@ export class Dependency extends vscode.TreeItem {
 			this.description =`${children.length} item${children.length === 1 ? '' : 's'}`;
 		}
 
-		if(icon) {
+		if(this.children.length === 0 && locationMap && this.info?.linkedIds) {
+
+			this.iconPath = new vscode.ThemeIcon('link')
+			/* in the future we should be able to do better when flowR tells us the locations */
+
+			const activeEditor = vscode.window.activeTextEditor;
+			this.children = this.info.linkedIds.map(i => {
+				const loc = locationMap.map[i];
+				const tok = loc ? activeEditor?.document.getText(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3])) : undefined;
+
+				if(!tok) {
+					return new Dependency({ label: `Linked to unknown location ${i}`, verb: 'is linked to' });
+				}
+				return new Dependency({
+					label: 'unknown',
+					verb: 'is linked to',
+					locationMap: this.locationMap,
+					info: { nodeId: i, functionName: tok },
+					parent: this
+				})
+			})
+			this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+		} else if(icon) {
 			this.iconPath = icon;
 		}
 		if(!root && info) {
@@ -380,21 +401,8 @@ export class Dependency extends vscode.TreeItem {
 	}
 
 	private linkedIds(): string {
-		if(!this.locationMap) {
-			return ''
-		}
-		let found: number[] = []
-		for(const id of this.info?.linkedIds ?? []) {
-			const loc = this.locationMap.map[id];
-			if(loc) {
-				found.push(loc[0])
-			}
-		}
-		if(found.length === 0) {
-			return '';
-		} else {
-			return `, linked to L. ${joinWithLast(found)}.`
-		}
+		const num = this.info?.linkedIds?.length;
+		return num ? `, linked to ${num} id` + (num === 1 ? '' : 's') : '';
 	}
 
 	getNodeId(): NodeId | undefined {
