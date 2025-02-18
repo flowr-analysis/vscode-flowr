@@ -19,7 +19,12 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	);
 
 	function refreshDesc() {
-		let message = 'This view ';
+		let message: string
+		if(vscode.window.activeTextEditor?.document.languageId !== 'r') {
+			message = 'In an R script, this view ';
+		} else {
+			message = 'This view '
+		}
 		switch(getConfig().get<string>(Settings.DependencyViewUpdateType, 'never')) {
 			case 'interval': {
 				const secs = getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10);
@@ -31,18 +36,22 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 			case 'never': default:
 				message += 'does not update automatically'; break;
 		}
-		message += ' and shows the dependencies of your current R script (change this in the settings).';
+		message += ' and shows the dependencies (configure it in the settings).';
 		tv.message = message;
 	}
 
 	refreshDesc();
-	vscode.workspace.onDidChangeConfiguration(() => {
-		refreshDesc();
-	});
+	const disposeChange = vscode.workspace.onDidChangeConfiguration(() => { refreshDesc(); });
+	const disposeChangeActive = vscode.window.onDidChangeActiveTextEditor(() => { refreshDesc(); });
+
 
 	data.setTreeView(tv);
 	return {
-		dispose: () => data.dispose(),
+		dispose: () => {
+			data.dispose();
+			disposeChange.dispose();
+			disposeChangeActive.dispose();
+		},
 		update:  () => void data.refresh()
 	};
 }
@@ -212,7 +221,6 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		const autoRevealUntil = getConfig().get<number>(Settings.DependencyViewAutoReveal, 5);
 		for(const root of children ?? []) {
 			if(root.children?.length && root.children.length <= autoRevealUntil) {
-				this.output.appendLine(`Revealing ${JSON.stringify(root.label)} as it has ${root.children.length} children (<= ${Settings.DependencyViewAutoReveal})`);
 				this.parent?.reveal(root, { select: false, focus: false, expand: true });
 			}
 		}
