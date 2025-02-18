@@ -259,7 +259,7 @@
         },
         "vscode-flowr.dependencyView.updateInterval": {
           "type": "number",
-          "default": 10,
+          "default": 5,
           "minimum": 0.5,
           "maximum": 999,
           "markdownDescription": "Automatically update the dependency view every n seconds."
