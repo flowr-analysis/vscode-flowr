@@ -30,9 +30,11 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 		output.appendLine(`Slicing for ${node}`);
 		// we use loc slicer for uses with `::` etc.
 		const slice = await slicer.sliceFor(loc && editor ? makeSlicingCriteria([new vscode.Position(loc[0] - 1, loc[1] - 1)], editor?.document, isVerbose()) : [`$${node}`]);
-		setTimeout(() => {
-			void slicer.showReconstruction();
-		}, 20);
+		if(getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
+			setTimeout(() => {
+				void slicer.showReconstruction();
+			}, 20);
+		}
 		if(editor && loc) {
 			setTimeout(() => {
 				editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter);

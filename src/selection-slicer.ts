@@ -138,6 +138,9 @@ class SelectionSlicer {
 		this.decos ||= makeSliceDecorationTypes();
 		displaySlice(ret.editor, ret.sliceElements, this.decos);
 		this.decoratedEditors.push(ret.editor);
+		if(getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
+			showSelectionSliceInEditor();
+		}
 		return ret.code;
 	}
 }

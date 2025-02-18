@@ -13,6 +13,8 @@ export enum Settings {
 	StyleMermaidMaxTextLength = 'style.mermaidMaxTextLength',
 	StyleTokenBackground = 'style.tokenBackgroundColor',
 
+	SliceAutomaticReconstruct = 'slice.automaticReconstruct',
+
 	DependencyViewUpdateType = 'dependencyView.updateType',
 	DependencyViewUpdateInterval = 'dependencyView.updateInterval',
 	DependencyViewKeepOnError = 'dependencyView.keepOnError',
