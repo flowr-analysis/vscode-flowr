@@ -101,7 +101,7 @@
       {
         "command": "vscode-flowr.slice.clear",
         "title": "Clear Current Slice Presentation",
-        "icon": "$(refresh)",
+        "icon": "$(trashcan)",
         "category": "flowR"
       },
       {
@@ -320,6 +320,13 @@
           "command": "vscode-flowr.settings.open",
           "when": "view == flowr-dependencies",
           "group": "navigation@3"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "vscode-flowr.slice.clear",
+          "when": "resourceLangId == r",
+          "group": "navigation"
         }
       ]
     },
