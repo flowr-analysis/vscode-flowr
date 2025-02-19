@@ -42,10 +42,10 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 
 	refreshDesc();
 	const disposeChange = vscode.workspace.onDidChangeConfiguration(() => {
-		refreshDesc(); 
+		refreshDesc();
 	});
 	const disposeChangeActive = vscode.window.onDidChangeActiveTextEditor(() => {
-		refreshDesc(); 
+		refreshDesc();
 	});
 
 
@@ -94,7 +94,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private activeInterval:   NodeJS.Timeout | undefined;
 	private activeDisposable: vscode.Disposable | undefined;
 	private updateConfig() {
-		this.output.appendLine('[Dependencies View] Updating configuration...');
+		this.output.appendLine('[Dependencies View] Updating configuration!');
 		if(this.activeInterval) {
 			clearInterval(this.activeInterval);
 			this.activeInterval = undefined;
@@ -143,21 +143,23 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		}
 		const config = getConfig();
 		const session = await getFlowrSession();
+		const now = Date.now();
 		const [result, error] = await session.retrieveQuery(activeEditor.document, [
-			{ 
+			{
 				type:                   'dependencies',
 				ignoreDefaultFunctions: config.get<boolean>(Settings.DependenciesQueryIgnoreDefaults, false),
 				...config.get<Omit<DependenciesQuery, 'type' | 'ignoreDefaultFunctions'>>(Settings.DependenciesQueryOverrides)
-			}, 
-			{ 
+			},
+			{
 				type: 'location-map'
 			}
 		]);
+		const total = Date.now() - now;
 		if(error) {
-			this.output.appendLine('[Dependencies View] Error: Could not retrieve dependencies');
+			this.output.appendLine('[Dependencies View] Error: Could not retrieve dependencies (parser error)');
 			return 'error';
 		}
-		this.output.appendLine(`[Dependencies View] Refreshed! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
+		this.output.appendLine(`[Dependencies View] Refreshed in ${total}ms! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
 		return { dep: result.dependencies, loc: result['location-map'] };
 	}
 
@@ -170,13 +172,9 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	public async refresh() {
-		if(!this.parent?.visible) {
+		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working) {
 			return;
-		}
-		if(this.working) {
-			return;
-		}
-		if(vscode.window.activeTextEditor?.document.languageId !== 'r') {
+		} else if(vscode.window.activeTextEditor?.document.languageId !== 'r') {
 			return;
 		}
 		const text = this.textFingerprint(vscode.window.activeTextEditor?.document.getText());
@@ -218,7 +216,8 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					this.textBuffer.push([text, res]);
 					this._onDidChangeTreeData.fire(undefined);
 				}).catch(e => {
-					this.output.appendLine(`[Dependencies View] Error: ${e}`);
+					this.output.appendLine(`[Dependencies View] Error: ${(e as Error).message}`);
+					this.output.appendLine((e as Error).stack ?? '');
 				});
 			});
 		} catch(e) {
