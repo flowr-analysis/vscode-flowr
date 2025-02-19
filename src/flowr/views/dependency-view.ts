@@ -78,7 +78,10 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 
 		this.updateConfig();
 		// trigger if config changes:
-		this.disposables.push(vscode.workspace.onDidChangeConfiguration(async() => {
+		this.disposables.push(vscode.workspace.onDidChangeConfiguration(async changed => {
+			if(!changed.affectsConfiguration(Settings.Category)) {
+				return;
+			}
 			this.updateConfig();
 			await this.refresh();
 		}));
@@ -91,6 +94,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private activeInterval:   NodeJS.Timeout | undefined;
 	private activeDisposable: vscode.Disposable | undefined;
 	private updateConfig() {
+		this.output.appendLine('[Dependencies View] Updating configuration...');
 		if(this.activeInterval) {
 			clearInterval(this.activeInterval);
 			this.activeInterval = undefined;
