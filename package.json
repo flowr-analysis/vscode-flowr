@@ -281,6 +281,20 @@
           "default": false,
           "markdownDescription": "Whether to use verbose logging while flowR is active."
         },
+        "vscode-flowr.debug.flowrLogLevel": {
+          "type": "string",
+          "default": "Error",
+          "enum": [
+            "Silly",
+            "Trace",
+            "Debug",
+            "Info",
+            "Warn",
+            "Error",
+            "Fatal"
+          ],
+          "markdownDescription": "What logging level should flowR use?"
+        },
         "vscode-flowr.errorMessage.Timer": {
           "type": "number",
           "default": 5000,

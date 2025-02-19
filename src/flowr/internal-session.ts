@@ -21,12 +21,24 @@ import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
 import { LogLevel, log } from '@eagleoutice/flowr/util/log';
 
-function configureFlowrLogging() {
+function setFlowrLoggingSensitivity() {
+	const desired = getConfig().get<LogLevel>(Settings.DebugFlowrLoglevel, isVerbose() ? LogLevel.Info : LogLevel.Fatal);
 	log.updateSettings(l => {
-		l.settings.minLevel = LogLevel.Fatal;
+		l.settings.minLevel = desired;
 		// disable all formatting highlights
 		l.settings.type = 'json';
 	});
+}
+
+
+function configureFlowrLogging() {
+	vscode.workspace.onDidChangeConfiguration(e => {
+		if(!e.affectsConfiguration(Settings.Category)) {
+			return;
+		}
+		setFlowrLoggingSensitivity();
+	});
+	setFlowrLoggingSensitivity();
 }
 
 export class FlowrInternalSession implements FlowrSession {
