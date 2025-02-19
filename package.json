@@ -228,6 +228,11 @@
           "default": 60000,
           "markdownDescription": "How many milliseconds should the extension wait for the tree-sitter engine to start up?"
         },
+        "vscode-flowr.tree-sitter.lax": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Should flowR use the lax parser for tree-sitter (i.e., allow for parsing errors)?"
+        },
         "vscode-flowr.slice.automaticReconstruct": {
           "type": "boolean",
           "default": true,
@@ -462,7 +467,7 @@
     "watch-web": "npm run copy-wasm-web && webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.2.6",
+    "@eagleoutice/flowr": "^2.2.8",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
