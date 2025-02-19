@@ -19,6 +19,15 @@ import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse
 import type { SemVer } from 'semver';
 import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
+import { LogLevel, log } from '@eagleoutice/flowr/util/log';
+
+function configureFlowrLogging() {
+	log.updateSettings(l => {
+		l.settings.minLevel = LogLevel.Fatal;
+		// disable all formatting highlights
+		l.settings.type = 'json';
+	});
+}
 
 export class FlowrInternalSession implements FlowrSession {
 
@@ -34,6 +43,7 @@ export class FlowrInternalSession implements FlowrSession {
 	constructor(outputChannel: vscode.OutputChannel) {
 		this.outputChannel = outputChannel;
 		this.state = 'inactive';
+		configureFlowrLogging();
 		updateStatusBar();
 	}
 
