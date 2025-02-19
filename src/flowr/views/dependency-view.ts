@@ -157,7 +157,12 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		const total = Date.now() - now;
 		if(error) {
 			this.output.appendLine('[Dependencies View] Error: Could not retrieve dependencies (parser error)');
-			return 'error';
+			if(result.dependencies && result['location-map']) {
+				this.output.appendLine(`[Dependencies View] Refreshed (partially) in ${total}ms! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
+				return { dep: result.dependencies, loc: result['location-map'] };
+			} else {
+				return 'error';
+			}
 		}
 		this.output.appendLine(`[Dependencies View] Refreshed in ${total}ms! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
 		return { dep: result.dependencies, loc: result['location-map'] };

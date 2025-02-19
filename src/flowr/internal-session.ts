@@ -239,7 +239,7 @@ export class FlowrInternalSession implements FlowrSession {
 		const result = await createDataflowPipeline(this.parser, {
 			request: requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps();
-		if(result.normalize.hasError) {
+		if(result.normalize.hasError && (result.normalize.ast.children as unknown[])?.length === 0) {
 			return [{} as QueryResults<T>, true];
 		}
 		return [executeQueries({ ast: result.normalize, dataflow: result.dataflow }, query), result.normalize.hasError ?? false];
