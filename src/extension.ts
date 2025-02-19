@@ -12,6 +12,7 @@ import { registerDependencyView } from './flowr/views/dependency-view';
 import { VariableResolve , defaultConfigOptions, setConfig } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
+import { registerInlineHints } from './flowr/views/inline-values';
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
@@ -76,6 +77,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', () => {
 		updateDependencyView();
 	}));
+
+	context.subscriptions.push(registerInlineHints(outputChannel))
 
 	context.subscriptions.push(new vscode.Disposable(() => disposeDep()));
 	process.on('SIGINT', () => destroySession());
@@ -195,7 +198,7 @@ function updateFlowrConfig() {
 	const config = getConfig();
 	const wasmRoot = getWasmRootPath();
 	// we don't want to *amend* here since updates to our extension config shouldn't add additional entries while keeping old ones (definitions etc.)
-	setConfig(deepMergeObject(defaultConfigOptions, { 
+	setConfig(deepMergeObject(defaultConfigOptions, {
 		ignoreSourceCalls: config.get<boolean>(Settings.IgnoreSourceCalls, false),
 		solver:            {
 			variables:       config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
