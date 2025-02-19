@@ -35,6 +35,8 @@ export enum Settings {
 	IgnoreSourceCalls = 'config.ignoreSourceCalls',
 
 	ErrorMessageTimer = 'errorMessage.Timer',
+
+	DebugFlowrLoglevel = 'debug.flowrLogLevel'
 }
 
 export type SliceDisplay = 'text' | 'diff' | 'tokens'
