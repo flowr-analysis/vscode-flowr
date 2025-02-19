@@ -71,13 +71,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(new vscode.Disposable(() => destroySession()));
 
-	const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
-
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', () => {
-		updateDependencyView();
-	}));
-
-	context.subscriptions.push(new vscode.Disposable(() => disposeDep()));
+	setTimeout(() => {
+		const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
+		context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', () => {
+			updateDependencyView();
+		}));
+		context.subscriptions.push(new vscode.Disposable(() => disposeDep()));
+	}, 10);
 	process.on('SIGINT', () => destroySession());
 
 	if(getConfig().get<boolean>(Settings.ServerAutoConnect)) {
@@ -195,7 +195,7 @@ function updateFlowrConfig() {
 	const config = getConfig();
 	const wasmRoot = getWasmRootPath();
 	// we don't want to *amend* here since updates to our extension config shouldn't add additional entries while keeping old ones (definitions etc.)
-	setConfig(deepMergeObject(defaultConfigOptions, { 
+	setConfig(deepMergeObject(defaultConfigOptions, {
 		ignoreSourceCalls: config.get<boolean>(Settings.IgnoreSourceCalls, false),
 		solver:            {
 			variables:       config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
