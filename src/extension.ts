@@ -213,7 +213,7 @@ function updateFlowrConfig() {
 			type:               FlowrInternalSession.getEngineToUse(),
 			wasmPath:           `${wasmRoot}/tree-sitter-r.wasm`,
 			treeSitterWasmPath: `${wasmRoot}/tree-sitter.wasm`,
-			lax: 				     config.get<boolean>(Settings.TreeSitterLax, true)
+			lax: 				           config.get<boolean>(Settings.TreeSitterLax, true)
 		}]
 	}));
 }
