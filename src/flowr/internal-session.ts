@@ -109,7 +109,7 @@ export class FlowrInternalSession implements FlowrSession {
 					try {
 						this.outputChannel.appendLine('Initializing tree-sitter... (wasm at: ' + getWasmRootPath() + ')');
 
-						const timeout = getConfig().get<number>(Settings.TreeSitterTimeout);
+						const timeout = getConfig().get<number>(Settings.TreeSitterTimeout, 60000);
 						await Promise.race([TreeSitterExecutor.initTreeSitter(), new Promise<void>((_, reject) => setTimeout(() => reject(new Error(`Timeout (${Settings.TreeSitterTimeout} = ${timeout}ms)`)), timeout))]);
 						FlowrInternalSession.treeSitterInitialized = true;
 					} catch(e) {
