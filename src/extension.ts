@@ -71,6 +71,7 @@ export async function activate(context: vscode.ExtensionContext) {
 flowR version: ${flowrVersion().toString()}  
 Extension version: ${(extensionContext.extension.packageJSON as {version: string}).version} (${vscode.ExtensionMode[extensionContext.extensionMode]} mode)  
 VS Code version: ${vscode.version} (web ${isWeb()})  
+Session: ${flowrSession ? `${flowrSession instanceof FlowrServerSession ? 'server' : 'internal'} (${flowrSession instanceof FlowrServerSession ? flowrSession.state : (flowrSession as FlowrInternalSession)?.state})` : 'none'}  
 OS: ${process.platform}  
 Extension config:  
 \`\`\`json
