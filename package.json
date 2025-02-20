@@ -397,12 +397,12 @@
           "group": "navigation@2"
         },
         {
-          "command": "vscode-flowr.settings.open",
+          "command": "vscode-flowr.report",
           "when": "view == flowr-dependencies",
           "group": "navigation@3"
         },
         {
-          "command": "vscode-flowr.report",
+          "command": "vscode-flowr.settings.open",
           "when": "view == flowr-dependencies",
           "group": "navigation@4"
         }
