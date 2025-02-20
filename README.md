@@ -92,6 +92,11 @@ You can easily download the most recent build of the extension by heading to the
 
 Then, you can install it the same way as you would the `vsix` downloaded [from GitHub Releases](#from-github-release).
 
+## Issues and Feature Requests
+If you have an issue with the extension or you have a good idea for a new feature, you can create a new issue from within the extension, and it will automatically be populated with some information about your setup.
+
+To do so, simply press the bug-shaped button in the [dependency view](#dependency-view) or use the "Report Issue or Request Feature" command.
+
 ## Development
 
 ### Building and Running from Source
