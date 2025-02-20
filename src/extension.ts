@@ -69,7 +69,7 @@ export async function activate(context: vscode.ExtensionContext) {
 <!-- Automatically generated issue metadata, please do not edit or delete content below this line -->
 ---
 flowR version: ${flowrVersion().toString()}  
-Extension version: ${(extensionContext.extension.packageJSON as {version: string}).version}  
+Extension version: ${(extensionContext.extension.packageJSON as {version: string}).version} (${vscode.ExtensionMode[extensionContext.extensionMode]} mode)  
 VS Code version: ${vscode.version} (web ${isWeb()})  
 OS: ${process.platform}  
 Extension config:  
