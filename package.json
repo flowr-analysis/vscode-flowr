@@ -131,7 +131,7 @@
       },
       {
         "command": "vscode-flowr.report",
-        "title": "Report Issue (Opens Browser)",
+        "title": "Report Issue or Request Feature (Opens Browser)",
         "icon": "$(bug)",
         "category": "flowR"
       }
@@ -397,9 +397,14 @@
           "group": "navigation@2"
         },
         {
-          "command": "vscode-flowr.settings.open",
+          "command": "vscode-flowr.report",
           "when": "view == flowr-dependencies",
           "group": "navigation@3"
+        },
+        {
+          "command": "vscode-flowr.settings.open",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@4"
         }
       ],
       "editor/title": [

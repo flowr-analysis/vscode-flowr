@@ -61,7 +61,25 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vscode-flowr.report', () => {
-			void vscode.env.openExternal(vscode.Uri.parse('https://github.com/flowr-analysis/flowr/issues/new/choose'));
+			const body = encodeURIComponent(`
+<!-- Please describe your issue, suggestion or feature request in more detail below! -->
+
+
+
+<!-- Automatically generated issue metadata, please do not edit or delete content below this line -->
+---
+flowR version: ${flowrVersion().toString()}  
+Extension version: ${(extensionContext.extension.packageJSON as {version: string}).version} (${vscode.ExtensionMode[extensionContext.extensionMode]} mode)  
+VS Code version: ${vscode.version} (web ${isWeb()})  
+Session: ${flowrSession ? `${flowrSession instanceof FlowrServerSession ? 'server' : 'internal'} (${flowrSession instanceof FlowrServerSession ? flowrSession.state : (flowrSession as FlowrInternalSession)?.state})` : 'none'}  
+OS: ${process.platform}  
+Extension config:  
+\`\`\`json
+${JSON.stringify(getConfig(), null, 2)}
+\`\`\`
+`.trimStart());
+			const url = `https://github.com/flowr-analysis/vscode-flowr/issues/new?body=${body}`;
+			void vscode.env.openExternal(vscode.Uri.parse(url));
 		})
 	);
 
