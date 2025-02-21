@@ -117,6 +117,12 @@ This opens a new terminal in which you can interact with the (local) flowR insta
 
 You can get the extension here: <https://marketplace.visualstudio.com/items?itemName=code-inspect.vscode-flowr>.
 
+<details><summary>Example Installation</summary>
+
+   ![How to install the extension](./media/gif/install-extension-opt.gif)
+
+</details>
+
 ### From GitHub Release
 
 You can find official releases of the extension in the [Releases](https://github.com/flowr-analysis/vscode-flowr/releases) section of the repository. Simply select the version you would like to download, open up the asset's section at the bottom, and download the `vscode-flowr-[version].vsix` contained in it.
