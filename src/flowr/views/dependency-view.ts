@@ -46,14 +46,14 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 						if(getActiveEditorCharLength() <= breakOff) {
 							refreshDesc();
 						}
-					})
+					});
 				} else {
 					message += 'updates on every change (adaptively)';
 					refreshDescDisposable = vscode.workspace.onDidChangeTextDocument(() => {
 						if(getActiveEditorCharLength() > breakOff) {
 							refreshDesc();
 						}
-					})
+					});
 				}
 				break;
 			}
@@ -143,17 +143,19 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				const breakOff = getConfig().get<number>(Settings.DependencyViewAdaptiveBreak, 5000);
 				if(getActiveEditorCharLength() > breakOff) {
 					this.activeInterval = setInterval(() => void this.refresh(), getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10) * 1000);
-					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
+					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(() => {
 						if(getActiveEditorCharLength() <= breakOff) {
-							this.updateConfig()
+							this.updateConfig();
 						}
-				});
+					});
 				} else {
 					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
+						if(e.contentChanges.length > 0) {
 							await this.refresh();
-							if(getActiveEditorCharLength() > breakOff) {
-								this.updateConfig()
-							}
+						}
+						if(getActiveEditorCharLength() > breakOff) {
+							this.updateConfig();
+						}
 					});
 				}
 				break;
@@ -162,7 +164,11 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				this.activeDisposable = vscode.workspace.onWillSaveTextDocument(async() => await this.refresh());
 				break;
 			case 'on change':
-				this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async() => await this.refresh());
+				this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
+					if(e.contentChanges.length > 0) {
+						await this.refresh();
+					}
+				});
 				break;
 			default:
 				this.output.appendLine(`[Dependencies View] Invalid update type: ${getConfig().get<string>(Settings.DependencyViewUpdateType)}`);
@@ -226,9 +232,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	public async refresh() {
-		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working) {
-			return;
-		} else if(vscode.window.activeTextEditor?.document.languageId !== 'r') {
+		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working || vscode.window.activeTextEditor?.document.languageId !== 'r') {
 			return;
 		}
 		const text = this.textFingerprint(vscode.window.activeTextEditor?.document.getText());
