@@ -342,7 +342,7 @@
         },
         "vscode-flowr.config.solver.pointerTracking": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "markdownDescription": "Whether to track pointers in the dataflow graph. If this is false, the graph will be over-approximated with regard to containers and accesses."
         },
         "vscode-flowr.config.solver.resolveSource.ignoreCapitalization": {
