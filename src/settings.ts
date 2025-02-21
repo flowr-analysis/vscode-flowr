@@ -20,6 +20,7 @@ export enum Settings {
 
 	DependencyViewUpdateType = 'dependencyView.updateType',
 	DependencyViewUpdateInterval = 'dependencyView.updateInterval',
+	DependencyViewAdaptiveBreak = 'dependencyView.adaptiveCharacterLimit',
 	DependencyViewKeepOnError = 'dependencyView.keepOnError',
 	DependencyViewAutoReveal = 'dependencyView.autoReveal',
 	DependencyViewCacheLimit = 'dependencyView.cacheLimit',

@@ -253,15 +253,17 @@
         },
         "vscode-flowr.dependencyView.updateType": {
           "type": "string",
-          "default": "interval",
+          "default": "adaptive",
           "enum": [
             "on change",
+            "adaptive",
             "interval",
             "on save",
             "never"
           ],
           "markdownEnumDescriptions": [
             "Update the dependency view on every change in the active editor.",
+            "Update on every change until the source becomes too big, then switch to interval.",
             "Update the dependency every n seconds, see `vscode-flowr.dependencyView.updateInterval`.",
             "Update the dependency view only when the active editor is saved.",
             "Never update the dependency view automatically."
@@ -270,10 +272,16 @@
         },
         "vscode-flowr.dependencyView.updateInterval": {
           "type": "number",
-          "default": 5,
+          "default": 10,
           "minimum": 0.5,
           "maximum": 999,
           "markdownDescription": "Automatically update the dependency view every n seconds."
+        },
+        "vscode-flowr.dependencyView.adaptiveCharacterLimit": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 10,
+          "markdownDescription": "The number of characters in the source after which the dependency view switches to interval updates."
         },
         "vscode-flowr.dependencyView.cacheLimit": {
           "type": "integer",
