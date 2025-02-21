@@ -17,6 +17,8 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 			treeDataProvider: data
 		}
 	);
+	
+	let refreshDescDisposable: vscode.Disposable | undefined;
 
 	function refreshDesc() {
 		let message: string;
@@ -25,10 +27,34 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 		} else {
 			message = 'This view ';
 		}
-		switch(getConfig().get<string>(Settings.DependencyViewUpdateType, 'never')) {
+		if(refreshDescDisposable) {
+			refreshDescDisposable.dispose();
+			refreshDescDisposable = undefined;
+		}
+		switch(getConfig().get<string>(Settings.DependencyViewUpdateType, 'adaptive')) {
 			case 'interval': {
 				const secs = getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10);
 				message += `updates every ${secs} second${secs === 1 ? '' : 's'}`;
+				break;
+			}
+			case 'adaptive': {
+				const breakOff = getConfig().get<number>(Settings.DependencyViewAdaptiveBreak, 5000);
+				if(getActiveEditorCharLength() > breakOff) {
+					const secs = getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10);
+					message += `updates every ${secs} second${secs === 1 ? '' : 's'} (adaptively)`;
+					refreshDescDisposable = vscode.workspace.onDidChangeTextDocument(() => {
+						if(getActiveEditorCharLength() <= breakOff) {
+							refreshDesc();
+						}
+					})
+				} else {
+					message += 'updates on every change (adaptively)';
+					refreshDescDisposable = vscode.workspace.onDidChangeTextDocument(() => {
+						if(getActiveEditorCharLength() > breakOff) {
+							refreshDesc();
+						}
+					})
+				}
 				break;
 			}
 			case 'on save': message += 'updates on save'; break;
@@ -55,6 +81,9 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 			data.dispose();
 			disposeChange.dispose();
 			disposeChangeActive.dispose();
+			if(refreshDescDisposable) {
+				refreshDescDisposable.dispose();
+			}
 		},
 		update: () => void data.refresh()
 	};
@@ -108,6 +137,25 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			case 'never': break;
 			case 'interval': {
 				this.activeInterval = setInterval(() => void this.refresh(), getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10) * 1000);
+				break;
+			}
+			case 'adaptive': {
+				const breakOff = getConfig().get<number>(Settings.DependencyViewAdaptiveBreak, 5000);
+				if(getActiveEditorCharLength() > breakOff) {
+					this.activeInterval = setInterval(() => void this.refresh(), getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10) * 1000);
+					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
+						if(getActiveEditorCharLength() <= breakOff) {
+							this.updateConfig()
+						}
+				});
+				} else {
+					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
+							await this.refresh();
+							if(getActiveEditorCharLength() > breakOff) {
+								this.updateConfig()
+							}
+					});
+				}
 				break;
 			}
 			case 'on save':
@@ -443,3 +491,7 @@ export class Dependency extends vscode.TreeItem {
 		return this.loc;
 	}
 }
+function getActiveEditorCharLength() {
+	return vscode.window.activeTextEditor?.document.getText().length ?? 0;
+}
+
