@@ -9,7 +9,8 @@ import { selectionSlicer } from './selection-slicer';
 import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
 import { registerDependencyView } from './flowr/views/dependency-view';
-import { VariableResolve , defaultConfigOptions, setConfig } from '@eagleoutice/flowr/config';
+import type { FlowrConfigOptions } from '@eagleoutice/flowr/config';
+import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfigOptions, setConfig } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 
@@ -213,11 +214,17 @@ function updateFlowrConfig() {
 	const config = getConfig();
 	const wasmRoot = getWasmRootPath();
 	// we don't want to *amend* here since updates to our extension config shouldn't add additional entries while keeping old ones (definitions etc.)
-	setConfig(deepMergeObject(defaultConfigOptions, {
+	setConfig(deepMergeObject<FlowrConfigOptions>(defaultConfigOptions, {
 		ignoreSourceCalls: config.get<boolean>(Settings.IgnoreSourceCalls, false),
 		solver:            {
 			variables:       config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
-			pointerTracking: config.get<boolean>(Settings.SolverPointerTracking, true)
+			pointerTracking: config.get<boolean>(Settings.SolverPointerTracking, true),
+			resolveSource:   {
+				ignoreCapitalization:  config.get<boolean>(Settings.SolverSourceIgnoreCapitalization, true),
+				inferWorkingDirectory: config.get<InferWorkingDirectory>(Settings.SolverSourceInferWorkingDirectory, InferWorkingDirectory.ActiveScript),
+				searchPath:            config.get<string[]>(Settings.SolverSourceSearchPath, []),
+				dropPaths:             config.get<DropPathsOption>(Settings.SolverSourceDropPaths, DropPathsOption.No)
+			}
 		},
 		semantics: {
 			environment: {
