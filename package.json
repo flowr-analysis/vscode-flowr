@@ -101,7 +101,7 @@
       {
         "command": "vscode-flowr.slice.clear",
         "title": "Clear Current Slice Presentation",
-        "icon": "$(trashcan)",
+        "icon": "$(eye-closed)",
         "category": "flowR"
       },
       {
