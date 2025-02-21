@@ -31,6 +31,11 @@ export enum Settings {
 
 	SolverVariableHandling = 'config.solver.variableHandling',
 	SolverPointerTracking = 'config.solver.pointerTracking',
+	SolverSourceIgnoreCapitalization = 'config.solver.resolveSource.ignoreCapitalization',
+	SolverSourceInferWorkingDirectory = 'config.solver.resolveSource.inferWorkingDirectory',
+	SolverSourceSearchPath = 'config.solver.resolveSource.searchPath',
+	SolverSourceDropPaths = 'config.solver.resolveSource.dropPaths',
+
 	BuiltInsLoadDefaults = 'config.overwriteBuiltIns.loadDefaults',
 	BuiltInsDefinitions = 'config.overwriteBuiltIns.definitions',
 	IgnoreSourceCalls = 'config.ignoreSourceCalls',

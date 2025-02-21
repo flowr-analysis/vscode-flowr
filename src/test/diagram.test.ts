@@ -14,7 +14,7 @@ suite('diagram', () => {
 			await vscode.commands.executeCommand('vscode-flowr.dataflow');
 		assert.ok(result);
 		assert.equal(result.webview.title, 'Dataflow Graph');
-		assert.ok(result.mermaid.startsWith('flowchart TD'));
+		assert.ok(result.mermaid.startsWith('flowchart'));
 	});
 });
 

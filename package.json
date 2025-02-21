@@ -331,6 +331,51 @@
           "default": true,
           "markdownDescription": "Whether to track pointers in the dataflow graph. If this is false, the graph will be over-approximated with regard to containers and accesses."
         },
+        "vscode-flowr.config.solver.resolveSource.ignoreCapitalization": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Find sourced files ignoring their capitalization?"
+        },
+        "vscode-flowr.config.solver.resolveSource.inferWorkingDirectory": {
+          "type": "string",
+          "enum": [
+            "no",
+            "main-script",
+            "active-script",
+            "any-script"
+          ],
+          "enumDescriptions": [
+            "Do not infer the working directory",
+            "Use the main script used for the analysis for the working directory",
+            "Use the active (sourced) script for the working directory",
+            "Consider all loaded scripts for the working directory"
+          ],
+          "default": "active-script",
+          "markdownDescription": "Which working directory to assume when resolving sourced files?"
+        },
+        "vscode-flowr.config.solver.resolveSource.searchPath": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Which (additional) paths should be used to resolve sourced files?"
+        },
+        "vscode-flowr.config.solver.resolveSource.dropPaths": {
+          "type": "string",
+          "enum": [
+            "no",
+            "once",
+            "all"
+          ],
+          "enumDescriptions": [
+            "Do not drop any parts of the path from a source",
+            "Drop the full path and only keep the filename if the path is not found.",
+            "Try every sub path in a source until a file is found."
+          ],
+          "default": "once",
+          "markdownDescription": "How to handle paths in sources that are not found."
+        },
         "vscode-flowr.config.overwriteBuiltIns.loadDefaults": {
           "type": "boolean",
           "default": true,
@@ -472,7 +517,7 @@
     "watch-web": "npm run copy-wasm-web && webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.2.8",
+    "@eagleoutice/flowr": "^2.2.9",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
