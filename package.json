@@ -15,7 +15,7 @@
     "email": "florian.sihler@uni-ulm.de"
   },
   "license": "GPL-3.0",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "engines": {
     "vscode": "^1.60.0"
   },
