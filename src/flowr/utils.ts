@@ -21,7 +21,7 @@ export interface FlowrSession {
 		document: vscode.TextDocument,
 		showErrorMessage?: boolean
 	) => Promise<SliceReturn>
-	retrieveDataflowMermaid: (document: vscode.TextDocument) => Promise<string>
+	retrieveDataflowMermaid: (document: vscode.TextDocument, simplified?: boolean) => Promise<string>
 	retrieveAstMermaid:      (document: vscode.TextDocument) => Promise<string>
 	retrieveCfgMermaid:      (document: vscode.TextDocument) => Promise<string>
 	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<[QueryResults<T>, hasError: boolean]>
