@@ -12,6 +12,15 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 			}
 		}
 	}));
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dataflow-simplified', async() => {
+		const activeEditor = vscode.window.activeTextEditor;
+		if(activeEditor) {
+			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document, true);
+			if(mermaid) {
+				return { mermaid, webview: createWebview('flowr-dataflow', 'Dataflow Graph', mermaid, output) };
+			}
+		}
+	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.ast', async() => {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(activeEditor) {

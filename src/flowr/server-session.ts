@@ -6,7 +6,6 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { establishInternalSession, getConfig, isVerbose, isWeb, updateStatusBar } from '../extension';
 import type { ConnectionType } from '../settings';
 import { Settings } from '../settings';
-import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer';
 import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
@@ -24,6 +23,7 @@ import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/me
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
+import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -162,12 +162,13 @@ export class FlowrServerSession implements FlowrSession {
 		});
 	}
 
-	async retrieveDataflowMermaid(document: vscode.TextDocument): Promise<string> {
+	async retrieveDataflowMermaid(document: vscode.TextDocument, simplified = false): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
-		return dataflowGraphToMermaid({
-			...response.results.dataflow,
-			graph: DataflowGraph.fromJson(response.results.dataflow.graph as unknown as DataflowGraphJson)
-		});
+		return graphToMermaid({
+			graph:               DataflowGraph.fromJson(response.results.dataflow.graph as unknown as DataflowGraphJson),
+			simplified,
+			includeEnvironments: false
+		}).string;
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {

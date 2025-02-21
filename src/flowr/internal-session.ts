@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, getWasmRootPath, isVerbose, isWeb, updateStatusBar } from '../extension';
 import { Settings } from '../settings';
-import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer';
+import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg';
 import type { FlowrSession, SliceReturn } from './utils';
 import { consolidateNewlines, makeSliceElements } from './utils';
@@ -178,14 +178,14 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 	}
 
-	async retrieveDataflowMermaid(document: vscode.TextDocument): Promise<string> {
+	async retrieveDataflowMermaid(document: vscode.TextDocument, simplified = false): Promise<string> {
 		if(!this.parser) {
 			return '';
 		}
 		const result = await createDataflowPipeline(this.parser, {
 			request: requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps();
-		return dataflowGraphToMermaid(result.dataflow);
+		return graphToMermaid({ graph: result.dataflow.graph, simplified, includeEnvironments: false }).string;
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
