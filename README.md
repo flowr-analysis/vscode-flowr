@@ -7,12 +7,49 @@ With it, you gain access to the following features (this extension is under acti
 
 1. 🍕 [**Slicing**](#slicing): Reduce the Program to just the parts relevant to a specific variable or figure.
    This is useful, when you want to reuse code for a figure or statistical analysis in another context or if you just want to understand the code better.
+
+   <details><summary>Slicing Example</summary>
+
+      ![Slicing with flowR](./media/gif/slice-with-clear-opt.gif)
+
+   </details>
+
 2. 📚 [**Inspect Dependencies**](#dependency-view): View the library a given script loads, the files it reads and writes, as well as the sourced scripts.
    This helps you understanding what is required to run a script, where it reads data from, and where it writes data to.
+
+   <details><summary>Example of the Dependency View</summary>
+
+      ![Dependency View with flowR](./media/gif/show-dependencies-opt.gif)
+
+   </details>
+
 3. 🕸️ [**Dataflow Graph**](#dataflow): Visualize the dataflow in a script.
    This helps you understand how data is transformed in a script and where it is used.
+   
+   <details><summary>Example of the Dataflow Graph</summary>
+
+      ![Dataflow Graph with flowR](./media/gif/show-df-graph-opt.gif)
+      
+   </details>
+   
 4. 🧑‍💻 [**flowR REPL Access**](#repl): Explore flowR's capabilities in a REPL (not available in the browser).
    This allows you to interactively explore the features of flowR and understand how it can help you in your daily work.
+
+   <details><summary>Example of the flowR REPL</summary>
+
+      ![The flowR REPL](./media/gif/use-repl-opt.gif)
+
+   </details>
+
+If you notice anything that could be improved, have a feature request, or notice a bug, please [open an issue](#issues-and-feature-requests)!
+
+<details><summary>Reporting an Issue</summary>
+
+   Using the bug icon opens the issue form in your default browser:
+
+   ![How to report an issue](./media/gif/report-issue-opt.gif)
+   
+</details>
 
 ## Use
 
@@ -93,6 +130,7 @@ You can easily download the most recent build of the extension by heading to the
 Then, you can install it the same way as you would the `vsix` downloaded [from GitHub Releases](#from-github-release).
 
 ## Issues and Feature Requests
+
 If you have an issue with the extension or you have a good idea for a new feature, you can create a new issue from within the extension, and it will automatically be populated with some information about your setup.
 
 To do so, simply press the bug-shaped button in the [dependency view](#dependency-view) or use the "Report Issue or Request Feature" command.
