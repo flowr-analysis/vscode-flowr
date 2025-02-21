@@ -218,7 +218,7 @@ function updateFlowrConfig() {
 		ignoreSourceCalls: config.get<boolean>(Settings.IgnoreSourceCalls, false),
 		solver:            {
 			variables:       config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
-			pointerTracking: config.get<boolean>(Settings.SolverPointerTracking, true),
+			pointerTracking: config.get<boolean>(Settings.SolverPointerTracking, false),
 			resolveSource:   {
 				ignoreCapitalization:  config.get<boolean>(Settings.SolverSourceIgnoreCapitalization, true),
 				inferWorkingDirectory: config.get<InferWorkingDirectory>(Settings.SolverSourceInferWorkingDirectory, InferWorkingDirectory.ActiveScript),
