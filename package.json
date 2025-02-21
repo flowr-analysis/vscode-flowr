@@ -472,7 +472,7 @@
     "watch-web": "npm run copy-wasm-web && webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.2.8",
+    "@eagleoutice/flowr": "^2.2.9",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
