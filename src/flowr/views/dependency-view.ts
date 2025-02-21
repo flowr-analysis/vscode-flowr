@@ -85,7 +85,7 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 				refreshDescDisposable.dispose();
 			}
 		},
-		update: () => void data.refresh()
+		update: () => void data.refresh(true)
 	};
 }
 
@@ -231,8 +231,8 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		return text.trim().replace(/\s|^\s*#.*$/gm, '');
 	}
 
-	public async refresh() {
-		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working || vscode.window.activeTextEditor?.document.languageId !== 'r') {
+	public async refresh(force = false) {
+		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working || (!force && vscode.window.activeTextEditor?.document.languageId !== 'r')) {
 			return;
 		}
 		const text = this.textFingerprint(vscode.window.activeTextEditor?.document.getText());
@@ -241,7 +241,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		} else {
 			this.lastText = text ?? '';
 		}
-		this.output.appendLine('Refreshing dependencies');
+		this.output.appendLine('[Dependencies View] Refreshing dependencies' + force ? ' (forced)' : '');
 		this.working = true;
 		try {
 			const has = this.textBuffer.get(e => e?.[0] === text);
