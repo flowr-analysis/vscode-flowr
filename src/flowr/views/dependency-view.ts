@@ -234,17 +234,20 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 
 	public async refresh(force = false) {
 		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working || (!force && vscode.window.activeTextEditor?.document.languageId !== 'r')) {
+			if(force) {
+				this.output.appendLine('[Dependencies View] Do not force refresh (visible: ' + this.parent?.visible + ', working: ' + this.working + ', language: ' + vscode.window.activeTextEditor?.document.languageId + ')');
+			}
 			return;
 		}
 		const text = this.textFingerprint(vscode.window.activeTextEditor?.document.getText());
 		const file = vscode.window.activeTextEditor?.document.uri.fsPath;
-		if(text === this.lastText && file === this.lastFile) {
+		if(!force && text === this.lastText && file === this.lastFile) {
 			return;
 		} else {
 			this.lastText = text ?? '';
 			this.lastFile = file ?? '';
 		}
-		this.output.appendLine('[Dependencies View] Refreshing dependencies' + force ? ' (forced)' : '');
+		this.output.appendLine('[Dependencies View] Refreshing dependencies' + (force ? ' (forced)' : ''));
 		this.working = true;
 		try {
 			const has = this.textBuffer.get(e => e?.[0].path === vscode.window.activeTextEditor?.document.uri.fsPath && e?.[0].content === text);
