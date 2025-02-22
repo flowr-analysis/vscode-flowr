@@ -65,11 +65,11 @@ Additionally, we recommend using the [R extension](https://marketplace.visualstu
 ### Slicing
 
 Slicing describes the process of reducing a program to just the parts relevant to a specific variable or figure.
-With the extension loaded, select a variable you are interested in and either press <kbd>Ctrl</kbd>+<kbd>S</kbd> to slice for it once or <kbd>Ctrl</kbd>+<kbd>P</kbd> to mark the position and continuously update the slice as you edit the file.
+With the extension loaded, select a variable you are interested in and either press <kbd>Alt</kbd>+<kbd>S</kbd> to slice for it once or <kbd>Alt</kbd>+<kbd>P</kbd> to mark the position and continuously update the slice as you edit the file.
 The editor will gray out all code that is not part of the generated slice.
 By default, the editor will also show you a reconstruction of the slice in a separate view (this can be changed in the settings).
 
-If you want to clear the slice highlight, press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> or use the icon in the upper right of your editor:
+If you want to clear the slice highlight, press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> or use the icon in the upper right of your editor:
 
 ![Clear Slice](./media/clear-slice.png)
 
