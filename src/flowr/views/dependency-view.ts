@@ -224,8 +224,9 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	private working = false;
-	private textBuffer: RotaryBuffer<[string, { dep: DependenciesQueryResult, loc: LocationMapQueryResult}]> = new RotaryBuffer(0);
+	private textBuffer: RotaryBuffer<[{ content: string, path: string }, { dep: DependenciesQueryResult, loc: LocationMapQueryResult}]> = new RotaryBuffer(0);
 	private lastText = '';
+	private lastFile = '';
 
 	private textFingerprint(text: string): string {
 		return text.trim().replace(/\s|^\s*#.*$/gm, '');
@@ -239,15 +240,17 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			return;
 		}
 		const text = this.textFingerprint(vscode.window.activeTextEditor?.document.getText());
-		if(!force && text === this.lastText) {
+		const file = vscode.window.activeTextEditor?.document.uri.fsPath;
+		if(!force && text === this.lastText && file === this.lastFile) {
 			return;
 		} else {
 			this.lastText = text ?? '';
+			this.lastFile = file ?? '';
 		}
 		this.output.appendLine('[Dependencies View] Refreshing dependencies' + (force ? ' (forced)' : ''));
 		this.working = true;
 		try {
-			const has = this.textBuffer.get(e => e?.[0] === text);
+			const has = this.textBuffer.get(e => e?.[0].path === vscode.window.activeTextEditor?.document.uri.fsPath && e?.[0].content === text);
 			if(has) {
 				try {
 					this.output.appendLine(`[Dependencies View] Using cached dependencies (Dependencies: ${has[1].dep['.meta'].timing}ms, Locations: ${has[1].loc['.meta'].timing}ms)`);
@@ -276,7 +279,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					}
 					this.activeDependencies = res.dep;
 					this.locationMap = res.loc;
-					this.textBuffer.push([text, res]);
+					this.textBuffer.push([{ content: text, path: vscode.window.activeTextEditor?.document.uri.fsPath ?? '' }, res]);
 					this.makeRootElements();
 					this._onDidChangeTreeData.fire(undefined);
 				}).catch(e => {
