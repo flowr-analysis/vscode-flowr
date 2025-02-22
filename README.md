@@ -2,8 +2,8 @@
 
 [![Marketplace](https://badgen.net/vs-marketplace/v/code-inspect.vscode-flowr?color=green)](https://marketplace.visualstudio.com/items?itemName=code-inspect.vscode-flowr) [![flowR Badge](https://badgen.net/badge/icon/flowr/cyan?icon=github&label)](https://github.com/flowr-analysis/flowr) [![vscode.dev Badge](https://badgen.net/badge/icon/vscode.dev/blue?icon=visualstudio&label)](https://vscode.dev)
 
-This extension brings [_flowR_](https://github.com/flowr-analysis/flowr) to Visual Studio Code.
-With it, you gain access to the following features (this extension is under active development, so many more features are planned):
+This extension brings [_flowR_](https://github.com/flowr-analysis/flowr) to Visual Studio Code. See the [installation instructions](#installing) to get started!
+With this extension, you gain access to the following features (as extension is under active development, many more features are [planned](https://github.com/flowr-analysis/vscode-flowr/issues?q=is%3Aissue%20state%3Aopen%20type%3AFeature)):
 
 1. 🍕 [**Slicing**](#slicing): Reduce the Program to just the parts relevant to a specific variable or figure.
    This is useful, when you want to reuse code for a figure or statistical analysis in another context or if you just want to understand the code better.
