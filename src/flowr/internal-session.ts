@@ -21,24 +21,42 @@ import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
 import { LogLevel, log } from '@eagleoutice/flowr/util/log';
 
-function setFlowrLoggingSensitivity() {
+function setFlowrLoggingSensitivity(output: vscode.OutputChannel) {
 	const desired = getConfig().get<LogLevel>(Settings.DebugFlowrLoglevel, isVerbose() ? LogLevel.Info : LogLevel.Fatal);
+	
 	log.updateSettings(l => {
 		l.settings.minLevel = desired;
 		// disable all formatting highlights
 		l.settings.type = 'json';
+		if(isVerbose()) {
+			// redirect console.log to output channel
+			let lastMessage = '';
+			l.attachTransport(l => {
+				const level = l._meta?.logLevelName ?? 'LEVEL?';
+				const date = l._meta?.date ? l._meta.date.toUTCString() : 'TIME?';
+				let msg = l['0'] as unknown as string | (() => string);
+				if(typeof msg === 'function') {
+					msg = msg();
+				}
+				const message = '[flowR, ' + date + ', ' + level + '] ' + msg;
+				if(lastMessage !== message) {
+					output.appendLine(message);
+					lastMessage = message;
+				}
+			});
+		}
 	});
 }
 
 
-function configureFlowrLogging() {
+function configureFlowrLogging(output: vscode.OutputChannel) {
 	vscode.workspace.onDidChangeConfiguration(e => {
 		if(!e.affectsConfiguration(Settings.Category)) {
 			return;
 		}
-		setFlowrLoggingSensitivity();
+		setFlowrLoggingSensitivity(output);
 	});
-	setFlowrLoggingSensitivity();
+	setFlowrLoggingSensitivity(output);
 }
 
 export class FlowrInternalSession implements FlowrSession {
@@ -55,7 +73,7 @@ export class FlowrInternalSession implements FlowrSession {
 	constructor(outputChannel: vscode.OutputChannel) {
 		this.outputChannel = outputChannel;
 		this.state = 'inactive';
-		configureFlowrLogging();
+		configureFlowrLogging(this.outputChannel);
 		updateStatusBar();
 	}
 
