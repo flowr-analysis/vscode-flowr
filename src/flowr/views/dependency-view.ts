@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getConfig, getFlowrSession } from '../../extension';
+import { getConfig, getFlowrSession, isVerbose } from '../../extension';
 import type { DependenciesQuery, DependenciesQueryResult, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
@@ -115,7 +115,11 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			this.updateConfig();
 			await this.refresh();
 		}));
-		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(async() => await this.refresh()));
+		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(async e => {
+			if(e?.document.languageId === 'r') {
+				await this.refresh();
+			}
+		}));
 
 		/* lazy startup patches */
 		setTimeout(() => void this.refresh(), 500);
@@ -150,7 +154,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					});
 				} else {
 					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
-						if(e.contentChanges.length > 0) {
+						if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && vscode.window.activeTextEditor?.document.languageId === 'r') {
 							await this.refresh();
 						}
 						if(getActiveEditorCharLength() > breakOff) {
@@ -165,7 +169,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				break;
 			case 'on change':
 				this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
-					if(e.contentChanges.length > 0) {
+					if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && vscode.window.activeTextEditor?.document.languageId === 'r') {
 						await this.refresh();
 					}
 				});
@@ -229,19 +233,24 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private lastFile = '';
 
 	private textFingerprint(text: string): string {
-		return text.trim().replace(/\s|^\s*#.*$/gm, '');
+		return text.trim().replace(/[ \t]+$|^[ \t]*#.*$/gm, '');
 	}
 
 	public async refresh(force = false) {
 		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working || (!force && vscode.window.activeTextEditor?.document.languageId !== 'r')) {
 			if(force) {
 				this.output.appendLine('[Dependencies View] Do not force refresh (visible: ' + this.parent?.visible + ', working: ' + this.working + ', language: ' + vscode.window.activeTextEditor?.document.languageId + ')');
+			} else if(isVerbose()) {
+				this.output.appendLine('[Dependencies View] Do not refresh (visible: ' + this.parent?.visible + ', working: ' + this.working + ', language: ' + vscode.window.activeTextEditor?.document.languageId + ')');	
 			}
 			return;
 		}
 		const text = this.textFingerprint(vscode.window.activeTextEditor?.document.getText());
 		const file = vscode.window.activeTextEditor?.document.uri.fsPath;
 		if(!force && text === this.lastText && file === this.lastFile) {
+			if(isVerbose()) {
+				this.output.appendLine('[Dependencies View] Do not refresh (no change)');
+			}
 			return;
 		} else {
 			this.lastText = text ?? '';
