@@ -117,7 +117,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		}));
 		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(async e => {
 			if(e?.document.languageId === 'r') {
-				await this.refresh()
+				await this.refresh();
 			}
 		}));
 

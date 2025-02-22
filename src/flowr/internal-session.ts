@@ -21,11 +21,24 @@ import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
 import { LogLevel, log } from '@eagleoutice/flowr/util/log';
 
+const logLevelToScore = {
+	Silly: LogLevel.Silly,
+	Trace: LogLevel.Trace,
+	Debug: LogLevel.Debug,
+	Info:  LogLevel.Info,
+	Warn:  LogLevel.Warn,
+	Error: LogLevel.Error,
+	Fatal: LogLevel.Fatal
+} as const;
+
 function setFlowrLoggingSensitivity(output: vscode.OutputChannel) {
-	const desired = getConfig().get<LogLevel>(Settings.DebugFlowrLoglevel, isVerbose() ? LogLevel.Info : LogLevel.Fatal);
+	const desired = getConfig().get<keyof typeof logLevelToScore>(Settings.DebugFlowrLoglevel, isVerbose() ? 'Info' : 'Fatal');
+	const level = desired in logLevelToScore ? logLevelToScore[desired] : LogLevel.Info;
+	
+	output.appendLine('[flowR] Setting log level to ' + desired + ' (' + level + ')');
 	
 	log.updateSettings(l => {
-		l.settings.minLevel = desired;
+		l.settings.minLevel = level;
 		// disable all formatting highlights
 		l.settings.type = 'json';
 		if(isVerbose()) {
