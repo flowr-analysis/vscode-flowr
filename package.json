@@ -298,7 +298,7 @@
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Whether to use verbose logging while flowR is active."
+          "markdownDescription": "Whether to use verbose logging while flowR is active (this will also redirect flowR logs to the output panel)."
         },
         "vscode-flowr.debug.flowrLogLevel": {
           "type": "string",
