@@ -11,6 +11,7 @@ import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
 import { Settings } from './settings';
+import { getCriteriaSlicer } from './criteria-slicer';
 
 
 const selectionSlicerAuthority = 'selection-slicer';
@@ -122,6 +123,7 @@ class SelectionSlicer {
 		if(ret === undefined){
 			return '';
 		}
+		getCriteriaSlicer().clearSliceDecos();
 		const provider = getReconstructionContentProvider();
 		const uri = this.makeUri();
 		provider.updateContents(uri, ret.code);

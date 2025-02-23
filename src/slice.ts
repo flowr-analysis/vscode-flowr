@@ -17,9 +17,9 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 		return await getSelectionSlicer().sliceSelectionOnce();
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.slice.dependency', async(dependency: Dependency) => {
-		const node = dependency.getNodeId();
+		const nodeId = dependency.getNodeId();
 		const loc = dependency.getLocation();
-		if(!node) {
+		if(!nodeId) {
 			return;
 		}
 		/* hide any other active slicer in the given document to avoid fighting */
@@ -29,10 +29,11 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 		const slicer = getCriteriaSlicer();
 		/* always with reconstruction */
 		if(isVerbose()) {
-			output.appendLine(`[Dependency View] Slicing for id ${node} (at: ${formatRange(loc)})`);
+			output.appendLine(`[Dependency View] Slicing for id ${nodeId} (at: ${formatRange(loc)})`);
 		}
 		// we use loc slicer for uses with `::` etc.
-		const slice = await slicer.sliceFor(loc && editor ? makeSlicingCriteria([new vscode.Position(loc[0] - 1, loc[1] - 1)], editor?.document, isVerbose()) : [`$${node}`], dependency.getAnalysisInfo());
+		const info = dependency.getAnalysisInfo();
+		const slice = await slicer.sliceFor([`$${nodeId}`], info ? { ...info, id: nodeId } : undefined);
 		if(getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
 			setTimeout(() => {
 				void slicer.showReconstruction();
