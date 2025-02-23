@@ -93,7 +93,11 @@ export class FlowrInternalSession implements FlowrSession {
 	private async workingOnSlice<T = void>(shell: KnownParser, fun: (shell: KnownParser) => Promise<T>): Promise<T> {
 		try {
 			this.setWorking(true);
-			return fun(shell);
+			return await fun(shell);
+		} catch(e) {
+			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
+			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
+			return {} as T;
 		} finally {
 			this.setWorking(false);
 		}
