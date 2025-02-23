@@ -6,6 +6,8 @@ import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/proc
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { RotaryBuffer } from '../utils';
 import { Settings } from '../../settings';
+import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
+import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 
 const FlowrDependencyViewId = 'flowr-dependencies';
 /** returns disposer */
@@ -128,7 +130,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private activeInterval:   NodeJS.Timeout | undefined;
 	private activeDisposable: vscode.Disposable | undefined;
 	private updateConfig() {
-		this.output.appendLine('[Dependencies View] Updating configuration!');
+		this.output.appendLine('[Dependency View] Updating configuration!');
 		if(this.activeInterval) {
 			clearInterval(this.activeInterval);
 			this.activeInterval = undefined;
@@ -175,7 +177,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				});
 				break;
 			default:
-				this.output.appendLine(`[Dependencies View] Invalid update type: ${getConfig().get<string>(Settings.DependencyViewUpdateType)}`);
+				this.output.appendLine(`[Dependency View] Invalid update type: ${getConfig().get<string>(Settings.DependencyViewUpdateType)}`);
 		}
 		const configuredBufSize = getConfig().get<number>(Settings.DependencyViewCacheLimit, 3);
 		if(this.textBuffer.size() !== configuredBufSize) {
@@ -195,7 +197,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		);
 	}
 
-	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult} | 'error'> {
+	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult, ast?: NormalizedAst, dfg?: DataflowGraph} | 'error'> {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(!activeEditor) {
 			return { dep: emptyDependencies, loc: emptyLocationMap };
@@ -203,7 +205,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		const config = getConfig();
 		const session = await getFlowrSession();
 		const now = Date.now();
-		const [result, error] = await session.retrieveQuery(activeEditor.document, [
+		const { result, hasError, dfg, ast } = await session.retrieveQuery(activeEditor.document, [
 			{
 				type:                   'dependencies',
 				ignoreDefaultFunctions: config.get<boolean>(Settings.DependenciesQueryIgnoreDefaults, false),
@@ -214,17 +216,17 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			}
 		]);
 		const total = Date.now() - now;
-		if(error) {
-			this.output.appendLine('[Dependencies View] Error: Could not retrieve dependencies (parser error)');
+		if(hasError) {
+			this.output.appendLine('[Dependency View] Error: Could not retrieve dependencies (parser error)');
 			if(result.dependencies && result['location-map']) {
-				this.output.appendLine(`[Dependencies View] Refreshed (partially) in ${total}ms! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
-				return { dep: result.dependencies, loc: result['location-map'] };
+				this.output.appendLine(`[Dependency View] Refreshed (partially) in ${total}ms! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
+				return { dep: result.dependencies, loc: result['location-map'], ast, dfg };
 			} else {
 				return 'error';
 			}
 		}
-		this.output.appendLine(`[Dependencies View] Refreshed in ${total}ms! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
-		return { dep: result.dependencies, loc: result['location-map'] };
+		this.output.appendLine(`[Dependency View] Refreshed in ${total}ms! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
+		return { dep: result.dependencies, loc: result['location-map'], ast, dfg };
 	}
 
 	private working = false;
@@ -239,9 +241,9 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	public async refresh(force = false) {
 		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working || (!force && vscode.window.activeTextEditor?.document.languageId !== 'r')) {
 			if(force) {
-				this.output.appendLine('[Dependencies View] Do not force refresh (visible: ' + this.parent?.visible + ', working: ' + this.working + ', language: ' + vscode.window.activeTextEditor?.document.languageId + ')');
+				this.output.appendLine('[Dependency View] Do not force refresh (visible: ' + this.parent?.visible + ', working: ' + this.working + ', language: ' + vscode.window.activeTextEditor?.document.languageId + ')');
 			} else if(isVerbose()) {
-				this.output.appendLine('[Dependencies View] Do not refresh (visible: ' + this.parent?.visible + ', working: ' + this.working + ', language: ' + vscode.window.activeTextEditor?.document.languageId + ')');	
+				this.output.appendLine('[Dependency View] Do not refresh (visible: ' + this.parent?.visible + ', working: ' + this.working + ', language: ' + vscode.window.activeTextEditor?.document.languageId + ')');	
 			}
 			return;
 		}
@@ -249,22 +251,22 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		const file = vscode.window.activeTextEditor?.document.uri.fsPath;
 		if(!force && text === this.lastText && file === this.lastFile) {
 			if(isVerbose()) {
-				this.output.appendLine('[Dependencies View] Do not refresh (no change)');
+				this.output.appendLine('[Dependency View] Do not refresh (no change)');
 			}
 			return;
 		} else {
 			this.lastText = text ?? '';
 			this.lastFile = file ?? '';
 		}
-		this.output.appendLine('[Dependencies View] Refreshing dependencies' + (force ? ' (forced)' : ''));
+		this.output.appendLine('[Dependency View] Refreshing dependencies' + (force ? ' (forced)' : ''));
 		this.working = true;
 		try {
 			const has = this.textBuffer.get(e => e?.[0].path === vscode.window.activeTextEditor?.document.uri.fsPath && e?.[0].content === text);
 			if(has) {
 				try {
-					this.output.appendLine(`[Dependencies View] Using cached dependencies (Dependencies: ${has[1].dep['.meta'].timing}ms, Locations: ${has[1].loc['.meta'].timing}ms)`);
+					this.output.appendLine(`[Dependency View] Using cached dependencies (Dependencies: ${has[1].dep['.meta'].timing}ms, Locations: ${has[1].loc['.meta'].timing}ms)`);
 				} catch(e) {
-					this.output.appendLine(`[Dependencies View] Error: ${(e as Error).message}`);
+					this.output.appendLine(`[Dependency View] Error: ${(e as Error).message}`);
 					this.output.appendLine((e as Error).stack ?? '');
 				}
 				this.activeDependencies = has[1].dep;
@@ -289,15 +291,15 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					this.activeDependencies = res.dep;
 					this.locationMap = res.loc;
 					this.textBuffer.push([{ content: text, path: vscode.window.activeTextEditor?.document.uri.fsPath ?? '' }, res]);
-					this.makeRootElements();
+					this.makeRootElements(res.dfg, res.ast);
 					this._onDidChangeTreeData.fire(undefined);
 				}).catch(e => {
-					this.output.appendLine(`[Dependencies View] Error: ${(e as Error).message}`);
+					this.output.appendLine(`[Dependency View] Error: ${(e as Error).message}`);
 					this.output.appendLine((e as Error).stack ?? '');
 				});
 			});
 		} catch(e) {
-			this.output.appendLine('[Dependencies View] Error: Could not refresh dependencies');
+			this.output.appendLine('[Dependency View] Error: Could not refresh dependencies');
 			this.output.appendLine((e as Error).message);
 			this.output.appendLine((e as Error).stack ?? '');
 		} finally {
@@ -335,22 +337,22 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		return element.getParent();
 	}
 
-	private makeRootElements() {
+	private makeRootElements(dfg?: DataflowGraph, ast?: NormalizedAst) {
 		this.rootElements = [
-			this.makeDependency('Libraries', 'loads the library', this.activeDependencies.libraries, new vscode.ThemeIcon('library'), e => e.libraryName),
-			this.makeDependency('Imported Data', 'imports the data', this.activeDependencies.readData, new vscode.ThemeIcon('file-text'), e => e.source),
-			this.makeDependency('Sourced Scripts', 'sources the script', this.activeDependencies.sourcedFiles, new vscode.ThemeIcon('file-code'), e => e.file),
-			this.makeDependency('Outputs', 'produces the output', this.activeDependencies.writtenData, new vscode.ThemeIcon('new-file'), e => e.destination)
+			this.makeDependency('Libraries', 'loads the library', this.activeDependencies.libraries, new vscode.ThemeIcon('library'), e => e.libraryName, dfg, ast),
+			this.makeDependency('Imported Data', 'imports the data', this.activeDependencies.readData, new vscode.ThemeIcon('file-text'), e => e.source, dfg, ast),
+			this.makeDependency('Sourced Scripts', 'sources the script', this.activeDependencies.sourcedFiles, new vscode.ThemeIcon('file-code'), e => e.file, dfg, ast),
+			this.makeDependency('Outputs', 'produces the output', this.activeDependencies.writtenData, new vscode.ThemeIcon('new-file'), e => e.destination, dfg, ast)
 		];
 	}
 
-	private makeDependency<E extends DependencyInfo>(label: string, verb: string, elements: E[], themeIcon: vscode.ThemeIcon, getName: (e: E) => string): Dependency {
-		const parent = new Dependency({ label, icon: themeIcon, root: true, verb, children: this.makeChildren(getName, elements, verb) });
+	private makeDependency<E extends DependencyInfo>(label: string, verb: string, elements: E[], themeIcon: vscode.ThemeIcon, getName: (e: E) => string, dfg?: DataflowGraph, ast?: NormalizedAst): Dependency {
+		const parent = new Dependency({ label, icon: themeIcon, root: true, verb, children: this.makeChildren(getName, elements, verb, dfg, ast), ast, graph: dfg });
 		parent.children?.forEach(c => c.setParent(parent));
 		return parent;
 	}
 
-	private makeChildren<E extends DependencyInfo>(getName: (e: E) => string, elements: E[], verb: string): Dependency[] {
+	private makeChildren<E extends DependencyInfo>(getName: (e: E) => string, elements: E[], verb: string, dfg?: DataflowGraph, ast?: NormalizedAst): Dependency[] {
 		const unknownGuardedName = (e: E) => {
 			const name = getName(e);
 			if(name === 'unknown' && e.lexemeOfArgument) {
@@ -369,7 +371,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		}
 		return Array.from(grouped.entries()).map(([name, elements]) => {
 			if(elements.length === 1) {
-				return new Dependency({ label: unknownGuardedName(elements[0]), info: elements[0], locationMap: this.locationMap, verb });
+				return new Dependency({ label: unknownGuardedName(elements[0]), info: elements[0], locationMap: this.locationMap, verb, graph: dfg, ast });
 			}
 			const res = new Dependency({
 				label:       name,
@@ -380,8 +382,12 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					verb,
 					label:       unknownGuardedName(e),
 					info:        e,
-					locationMap: this.locationMap
-				}))
+					locationMap: this.locationMap,
+					graph:       dfg, 
+					ast
+				})),
+				graph: dfg,
+				ast
 			});
 			res.children?.forEach(c => c.setParent(res));
 			return res;
@@ -411,6 +417,8 @@ interface DependenciesParams {
    readonly collapsibleState?: vscode.TreeItemCollapsibleState;
    readonly icon?:             vscode.ThemeIcon;
    readonly locationMap?:      LocationMapQueryResult;
+	readonly graph?:              DataflowGraph;
+	readonly ast?:                NormalizedAst;
 }
 
 export class Dependency extends vscode.TreeItem {
@@ -419,6 +427,7 @@ export class Dependency extends vscode.TreeItem {
 	private readonly loc?:         SourceRange;
 	private parent?:               Dependency;
 	private readonly locationMap?: LocationMapQueryResult;
+	private readonly dfInfo?:      { graph: DataflowGraph, ast: NormalizedAst };
 
 	public setParent(parent: Dependency) {
 		this.parent = parent;
@@ -427,13 +436,18 @@ export class Dependency extends vscode.TreeItem {
 	public getParent(): Dependency | undefined {
 		return this.parent;
 	}
+	
+	public getAnalysisInfo(): { graph: DataflowGraph, ast: NormalizedAst } | undefined {
+		return this.dfInfo;
+	}
 
 	constructor(
-		{ label, root = false, children = [], info, icon, locationMap, collapsibleState, parent, verb }: DependenciesParams
+		{ label, root = false, children = [], info, icon, locationMap, collapsibleState, parent, verb, graph, ast }: DependenciesParams
 	) {
 		collapsibleState ??= children.length === 0 ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Collapsed;
 		super(label, collapsibleState);
 
+		this.dfInfo = graph && ast ? { graph, ast } : undefined;
 		this.children = children;
 		this.info = info;
 		this.parent = parent;
