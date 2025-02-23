@@ -19,14 +19,14 @@ import type { SemVer } from 'semver';
 import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
 import { LogLevel, log } from '@eagleoutice/flowr/util/log';
-import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
+import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
 import { staticSlicing } from '@eagleoutice/flowr/slicing/static/static-slicer';
-import { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
-import { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
-import { SourceRange } from '@eagleoutice/flowr/util/range';
+import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
+import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
+import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { reconstructToCode } from '@eagleoutice/flowr/reconstruct/reconstruct';
 import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto-select-defaults';
-import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments'
+import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -259,7 +259,7 @@ export class FlowrInternalSession implements FlowrSession {
 
 		let elements: ReadonlySet<NodeId> = new Set();
 		let sliceElements: { id: NodeId, location: SourceRange }[] = [];
-		let code: string = ''
+		let code: string = '';
 	
 		if(info)  {
 			this.outputChannel.appendLine('[Slice (Internal)] Re-Slice using existing dataflow Graph and AST');
@@ -302,10 +302,10 @@ export class FlowrInternalSession implements FlowrSession {
 			return { result: {} as QueryResults<T>, hasError: true, dfg: result.dataflow.graph, ast: result.normalize };
 		}
 		return { 
-			result: executeQueries({ ast: result.normalize, dataflow: result.dataflow }, query), 
+			result:   executeQueries({ ast: result.normalize, dataflow: result.dataflow }, query), 
 			hasError: result.normalize.hasError ?? false,
-			dfg: result.dataflow.graph,
-			ast: result.normalize
+			dfg:      result.dataflow.graph,
+			ast:      result.normalize
 		};
 	}
 

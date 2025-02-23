@@ -6,8 +6,8 @@ import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/proc
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { RotaryBuffer } from '../utils';
 import { Settings } from '../../settings';
-import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
-import { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
+import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
+import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 
 const FlowrDependencyViewId = 'flowr-dependencies';
 /** returns disposer */
@@ -383,7 +383,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					label:       unknownGuardedName(e),
 					info:        e,
 					locationMap: this.locationMap,
-					graph: dfg, 
+					graph:       dfg, 
 					ast
 				})),
 				graph: dfg,
@@ -417,8 +417,8 @@ interface DependenciesParams {
    readonly collapsibleState?: vscode.TreeItemCollapsibleState;
    readonly icon?:             vscode.ThemeIcon;
    readonly locationMap?:      LocationMapQueryResult;
-	readonly graph?:            DataflowGraph;
-	readonly ast?:              NormalizedAst;
+	readonly graph?:              DataflowGraph;
+	readonly ast?:                NormalizedAst;
 }
 
 export class Dependency extends vscode.TreeItem {
@@ -427,7 +427,7 @@ export class Dependency extends vscode.TreeItem {
 	private readonly loc?:         SourceRange;
 	private parent?:               Dependency;
 	private readonly locationMap?: LocationMapQueryResult;
-	private readonly dfInfo?:        { graph: DataflowGraph, ast: NormalizedAst };
+	private readonly dfInfo?:      { graph: DataflowGraph, ast: NormalizedAst };
 
 	public setParent(parent: Dependency) {
 		this.parent = parent;

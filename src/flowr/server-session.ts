@@ -232,7 +232,7 @@ export class FlowrServerSession implements FlowrSession {
 	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<{ result: QueryResults<T>, hasError: boolean, dfg?: DataflowGraph, ast?: NormalizedAst }> {
 		await this.requestFileAnalysis(document, '@query');
 		return { 
-				result: await this.sendCommandWithResponse({
+			result: await this.sendCommandWithResponse({
 				type:      'request-query',
 				id:        String(this.idCounter++),
 				filetoken: '@query',

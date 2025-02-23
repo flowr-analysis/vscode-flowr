@@ -5,8 +5,8 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import type { SingleSlicingCriterion, SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
-import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
-import { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
+import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
+import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 

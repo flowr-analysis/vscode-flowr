@@ -12,9 +12,9 @@ import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
 import { Settings } from './settings';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
-import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
-import { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
-import { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
+import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
+import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
+import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 
 
 const criteriaSlicerAuthority = 'criteria-slicer';
@@ -88,7 +88,7 @@ class CriteriaSlicer {
 
 	protected async update(criteria: SlicingCriteria, info?: { id?: NodeId, graph: DataflowGraph, ast: NormalizedAst }): Promise<string> {
 		if(info?.id) {
-			const expectNode = info.ast.idMap.get(info.id)
+			const expectNode = info.ast.idMap.get(info.id);
 			if(expectNode?.location && expectNode.lexeme) {
 				const expectLoc = expectNode.location;
 				const expectLex = expectNode.lexeme;
