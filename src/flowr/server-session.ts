@@ -210,7 +210,7 @@ export class FlowrServerSession implements FlowrSession {
 		const sliceElements = makeSliceElements(sliceResponse.results.slice.result, id => idToLocation.get(id));
 
 		if(isVerbose()) {
-			this.outputChannel.appendLine('slice: ' + JSON.stringify([...sliceResponse.results.slice.result]));
+			this.outputChannel.appendLine('[Slice (Server)] Contains Ids: ' + JSON.stringify([...sliceResponse.results.slice.result]));
 		}
 		return {
 			code: sliceResponse.results.reconstruct.code,
@@ -229,14 +229,17 @@ export class FlowrServerSession implements FlowrSession {
 		});
 	}
 
-	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<[QueryResults<T>, hasError: boolean]> {
+	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<{ result: QueryResults<T>, hasError: boolean, dfg?: DataflowGraph, ast?: NormalizedAst }> {
 		await this.requestFileAnalysis(document, '@query');
-		return [await this.sendCommandWithResponse({
-			type:      'request-query',
-			id:        String(this.idCounter++),
-			filetoken: '@query',
-			query
-		}), false];
+		return { 
+				result: await this.sendCommandWithResponse({
+				type:      'request-query',
+				id:        String(this.idCounter++),
+				filetoken: '@query',
+				query
+			}), 
+			hasError: false
+		};
 	}
 
 	runRepl(_output: Omit<FlowrReplOptions, 'parser'>): Promise<void> {

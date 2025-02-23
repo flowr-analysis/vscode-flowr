@@ -12,6 +12,8 @@ import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
 import { Settings } from './settings';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
+import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
+import { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 
 
 const criteriaSlicerAuthority = 'criteria-slicer';
@@ -33,8 +35,8 @@ class CriteriaSlicer {
 	decoratedEditors: vscode.TextEditor[] = [];
 
 	// Slice once at the current cursor position
-	async sliceFor(criteria: SlicingCriteria): Promise<string> {
-		return await this.update(criteria);
+	async sliceFor(criteria: SlicingCriteria, info?: { graph: DataflowGraph, ast: NormalizedAst }): Promise<string> {
+		return await this.update(criteria, info);
 	}
 
 	makeUri(): vscode.Uri {
@@ -70,8 +72,8 @@ class CriteriaSlicer {
 		this.decos = undefined;
 	}
 
-	protected async update(criteria: SlicingCriteria): Promise<string> {
-		const ret = await getSliceFor(criteria);
+	protected async update(criteria: SlicingCriteria, info?: { graph: DataflowGraph, ast: NormalizedAst }): Promise<string> {
+		const ret = await getSliceFor(criteria, info);
 		if(ret === undefined){
 			return '';
 		}
@@ -99,7 +101,7 @@ class CriteriaSlicer {
 interface CriteriaSliceReturn extends SliceReturn {
 	editor: vscode.TextEditor
 }
-async function getSliceFor(criteria: SlicingCriteria): Promise<CriteriaSliceReturn | undefined> {
+async function getSliceFor(criteria: SlicingCriteria, info?: { graph: DataflowGraph, ast: NormalizedAst }): Promise<CriteriaSliceReturn | undefined> {
 	const editor = vscode.window.activeTextEditor;
 	if(!editor){
 		return;
@@ -108,7 +110,7 @@ async function getSliceFor(criteria: SlicingCriteria): Promise<CriteriaSliceRetu
 	if(!flowrSession){
 		return;
 	}
-	const ret = await flowrSession.retrieveSlice(criteria, editor.document, false);
+	const ret = await flowrSession.retrieveSlice(criteria, editor.document, false, info);
 	if(!ret.sliceElements.length){
 		return {
 			code:          '# No slice',
