@@ -69,7 +69,7 @@ With the extension loaded, select a variable you are interested in and either pr
 The editor will gray out all code that is not part of the generated slice.
 By default, the editor will also show you a reconstruction of the slice in a separate view (this can be changed in the settings).
 
-If you want to clear the slice highlight, press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> or use the icon in the upper right of your editor:
+If you want to clear the slice highlight, press <kbd>Alt</kbd>+<kbd>C</kbd> or use the icon in the upper right of your editor:
 
 ![Clear Slice](./media/clear-slice.png)
 
