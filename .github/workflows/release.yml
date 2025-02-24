@@ -44,7 +44,7 @@ jobs:
           fi
 
           new_version=$(npm version "$step" -m "[skip ci] Release %s")
-          echo "::set-output name=release_tag::$new_version"
+          echo "release_tag=$new_version" >> $GITHUB_OUTPUT
         env:
           # apparently, putting the message into an env variable first sanitizes it
           # (see https://github.com/flowr-analysis/flowr/security/code-scanning/29)
@@ -53,24 +53,33 @@ jobs:
       - name: Package
         run: vsce package
 
-      # but not the tag as it may be created by the release action
+      # but not the tag as it is created by the release action
       - name: Push version update commmit
         run: git push
 
-      - name: Get changelog
-        id: changelog
+      - name: Get previous tag
+        id: prev_tag
         run: |
-          new_version_tag=${{ steps.version.outputs.release_tag }}
-          new_version_num=${new_version_tag:1}
-          changelog=$(awk -v version="$new_version_num" '/# Version / {printit = $3 == version}; printit;' "CHANGELOG.md")
-          echo "::set-output name=body::$changelog"
+          prev_tag=$(git describe --tags --abbrev=0)
+          echo "prev_tag=$prev_tag" >> $GITHUB_OUTPUT
+      - name: Generate changelog
+        id: changelog
+        uses: heinrichreimer/action-github-changelog-generator@v2.3
+        with:
+          sinceTag: ${{ steps.prev_tag.outputs.prev_tag }}
+      - name: Add changelog to file
+        run: |
+          changelog=${{ steps.changelog.outputs.changelog }}
+          release_tag=${{ steps.version.outputs.release_tag }}
+          echo -e '# Version $release_tag\n$changelog\n\n' >> CHANGELOG.md
+
       - name: GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: vscode-flowr-*.vsix
           token: ${{ secrets.RELEASE_TOKEN }}
           tag_name: ${{ steps.version.outputs.release_tag }}
-          body: ${{ steps.changelog.outputs.body }}
+          body: ${{ steps.changelog.outputs.changelog }}
 
       - name: Marketplace
         run: vsce publish
