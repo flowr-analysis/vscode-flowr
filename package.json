@@ -478,7 +478,7 @@
       "activitybar": [
         {
           "id": "flowr",
-          "title": "R Code Analyzer ( flowR)",
+          "title": "R Code Analyzer (flowR)",
           "icon": "resources/flowR.svg"
         }
       ]
