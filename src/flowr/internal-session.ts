@@ -41,9 +41,9 @@ const logLevelToScore = {
 function setFlowrLoggingSensitivity(output: vscode.OutputChannel) {
 	const desired = getConfig().get<keyof typeof logLevelToScore>(Settings.DebugFlowrLoglevel, isVerbose() ? 'Info' : 'Fatal');
 	const level = desired in logLevelToScore ? logLevelToScore[desired] : LogLevel.Info;
-	
+
 	output.appendLine('[flowR] Setting log level to ' + desired + ' (' + level + ')');
-	
+
 	log.updateSettings(l => {
 		l.settings.minLevel = level;
 		// disable all formatting highlights
@@ -260,14 +260,16 @@ export class FlowrInternalSession implements FlowrSession {
 		let elements: ReadonlySet<NodeId> = new Set();
 		let sliceElements: { id: NodeId, location: SourceRange }[] = [];
 		let code: string = '';
-	
+
 		if(info)  {
 			this.outputChannel.appendLine('[Slice (Internal)] Re-Slice using existing dataflow Graph and AST');
 			const now = Date.now();
 			elements = staticSlicing(info.graph, info.ast, criteria).result;
+			const sliceTime = Date.now() - now;
 			sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
+			const reconstructNow = Date.now();
 			code = reconstructToCode(info.ast, elements, makeMagicCommentHandler(doNotAutoSelect)).code;
-			this.outputChannel.appendLine('[Slice (Internal)] Re-Slice took ' + (Date.now() - now) + 'ms');
+			this.outputChannel.appendLine('[Slice (Internal)] Re-Slice took ' + (Date.now() - now) + 'ms (slice: ' + sliceTime + 'ms, reconstruct: ' + (Date.now() - reconstructNow) + 'ms)');
 		} else {
 			this.outputChannel.appendLine('[Slice (Internal)] Slicing using pipeline');
 			const now = Date.now();
@@ -301,8 +303,8 @@ export class FlowrInternalSession implements FlowrSession {
 		if(result.normalize.hasError && (result.normalize.ast.children as unknown[])?.length === 0) {
 			return { result: {} as QueryResults<T>, hasError: true, dfg: result.dataflow.graph, ast: result.normalize };
 		}
-		return { 
-			result:   executeQueries({ ast: result.normalize, dataflow: result.dataflow }, query), 
+		return {
+			result:   executeQueries({ ast: result.normalize, dataflow: result.dataflow }, query),
 			hasError: result.normalize.hasError ?? false,
 			dfg:      result.dataflow.graph,
 			ast:      result.normalize
