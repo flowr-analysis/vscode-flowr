@@ -112,7 +112,7 @@ export class FlowrInternalSession implements FlowrSession {
 				(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
 				return {} as T;
 			}).finally(() => {
-				setImmediate(() => this.setWorking(false));
+				this.setWorking(false);
 			});
 		});
 	}
