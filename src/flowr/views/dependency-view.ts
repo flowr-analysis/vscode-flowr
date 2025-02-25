@@ -19,7 +19,7 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 			treeDataProvider: data
 		}
 	);
-	
+
 	let refreshDescDisposable: vscode.Disposable | undefined;
 
 	function refreshDesc() {
@@ -239,11 +239,14 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	public async refresh(force = false) {
+		if(this.working && force) {
+			this.working = false;
+		}
 		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working || (!force && vscode.window.activeTextEditor?.document.languageId !== 'r')) {
 			if(force) {
 				this.output.appendLine('[Dependency View] Do not force refresh (visible: ' + this.parent?.visible + ', working: ' + this.working + ', language: ' + vscode.window.activeTextEditor?.document.languageId + ')');
 			} else if(isVerbose()) {
-				this.output.appendLine('[Dependency View] Do not refresh (visible: ' + this.parent?.visible + ', working: ' + this.working + ', language: ' + vscode.window.activeTextEditor?.document.languageId + ')');	
+				this.output.appendLine('[Dependency View] Do not refresh (visible: ' + this.parent?.visible + ', working: ' + this.working + ', language: ' + vscode.window.activeTextEditor?.document.languageId + ')');
 			}
 			return;
 		}
@@ -383,7 +386,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					label:       unknownGuardedName(e),
 					info:        e,
 					locationMap: this.locationMap,
-					graph:       dfg, 
+					graph:       dfg,
 					ast
 				})),
 				graph: dfg,
@@ -436,7 +439,7 @@ export class Dependency extends vscode.TreeItem {
 	public getParent(): Dependency | undefined {
 		return this.parent;
 	}
-	
+
 	public getAnalysisInfo(): { graph: DataflowGraph, ast: NormalizedAst } | undefined {
 		return this.dfInfo;
 	}

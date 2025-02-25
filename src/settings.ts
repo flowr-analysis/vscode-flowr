@@ -14,6 +14,7 @@ export enum Settings {
 	StyleTokenBackground = 'style.tokenBackgroundColor',
 
 	SliceAutomaticReconstruct = 'slice.automaticReconstruct',
+	SliceRevisitThreshold = 'slice.revisitThreshold',
 
 	TreeSitterTimeout = 'tree-sitter.timeout',
 	TreeSitterLax = 'tree-sitter.lax',
