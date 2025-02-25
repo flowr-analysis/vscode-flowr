@@ -177,16 +177,13 @@ export class PositionSlicer {
 	}
 
 	protected async onDocChange(e: vscode.TextDocumentChangeEvent): Promise<void> {
-		// Check if there are changes to the tracked document
-		if(e.document !== this.doc) {
-			return;
-		}
-		if(e.contentChanges.length == 0){
+		// Check if there are changes to the tracked document, we do the version check to see if there are later edits to trigger on
+		if(e.document !== this.doc || e.contentChanges.length === 0 || e.document.version < this.doc.version){
 			return;
 		}
 
 		// Compute new offsets after the changes
-		const newOffsets: number[] = [	];
+		const newOffsets: number[] = [];
 		for(let offset of this.offsets) {
 			for(const cc of e.contentChanges) {
 				offset = shiftOffset(offset, cc);

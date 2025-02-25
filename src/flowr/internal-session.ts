@@ -102,7 +102,7 @@ export class FlowrInternalSession implements FlowrSession {
 		// update the vscode ui
 		return vscode.window.withProgress({
 			location:    vscode.ProgressLocation.Notification,
-			title:       `Slicing...`,
+			title:       'Slicing...',
 			cancellable: false
 		},
 		() => {
@@ -119,7 +119,6 @@ export class FlowrInternalSession implements FlowrSession {
 
 	setWorking(working: boolean): void {
 		this.working = working;
-		this.outputChannel.appendLine('Setting working to: ' + this.working);
 		updateStatusBar();
 	}
 
