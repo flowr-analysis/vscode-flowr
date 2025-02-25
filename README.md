@@ -1,4 +1,4 @@
-# R Code Analyzer (vscode-flowr)
+[![vscode-flowR logo](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/vscode-flowR-logo.png)](https://github.com/flowr-analysis/flowr)
 
 [![Marketplace](https://badgen.net/vs-marketplace/v/code-inspect.vscode-flowr?color=green)](https://marketplace.visualstudio.com/items?itemName=code-inspect.vscode-flowr) [![flowR Badge](https://badgen.net/badge/icon/flowr/cyan?icon=github&label)](https://github.com/flowr-analysis/flowr) [![vscode.dev Badge](https://badgen.net/badge/icon/vscode.dev/blue?icon=visualstudio&label)](https://vscode.dev)
 
