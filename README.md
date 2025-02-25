@@ -25,13 +25,13 @@ With this extension, you gain access to the following features (as extension is 
 
 3. 🕸️ [**Dataflow Graph**](#dataflow): Visualize the dataflow in a script.
    This helps you understand how data is transformed in a script and where it is used.
-   
+
    <details><summary>Example of the Dataflow Graph</summary>
 
       ![Dataflow Graph with flowR](./media/gif/show-df-graph-opt.gif)
-      
+
    </details>
-   
+
 4. 🧑‍💻 [**flowR REPL Access**](#repl): Explore flowR's capabilities in a REPL (not available in the browser).
    This allows you to interactively explore the features of flowR and understand how it can help you in your daily work.
 
@@ -48,7 +48,7 @@ If you notice anything that could be improved, have a feature request, or notice
    Using the bug icon opens the issue form in your default browser:
 
    ![How to report an issue](./media/gif/report-issue-opt.gif)
-   
+
 </details>
 
 ## Use
@@ -166,3 +166,16 @@ This repository contains some git hooks to ensure that linting and other actions
 ```shell
 git config core.hooksPath .githooks
 ```
+
+### Contributors
+
+<a href="https://github.com/flowr-analysis/vscode-flowr/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=flowr-analysis/vscode-flowr"  alt="vscode-flowR Contributors"/>
+</a>
+
+----
+
+_vscode-flowr_ is part of _flowr_, which is actively developed by [Florian Sihler](https://eagleoutice.github.io/portfolio/) under the
+[GPLv3 License](LICENSE).\
+It is partially supported by the German Research Foundation (DFG) under the grant [504226141](https://gepris.dfg.de/gepris/projekt/504226141) ("CodeInspector").
+
