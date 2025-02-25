@@ -262,20 +262,23 @@ export class FlowrInternalSession implements FlowrSession {
 		let code: string = '';
 
 		if(info)  {
-			this.outputChannel.appendLine('[Slice (Internal)] Re-Slice using existing dataflow Graph and AST');
+			const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
+			this.outputChannel.appendLine(`[Slice (Internal)] Re-Slice using existing dataflow Graph and AST (threshold: ${threshold})`);
 			const now = Date.now();
-			elements = staticSlicing(info.graph, info.ast, criteria).result;
+			elements = staticSlicing(info.graph, info.ast, criteria, threshold).result;
 			const sliceTime = Date.now() - now;
 			sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
 			const reconstructNow = Date.now();
 			code = reconstructToCode(info.ast, elements, makeMagicCommentHandler(doNotAutoSelect)).code;
 			this.outputChannel.appendLine('[Slice (Internal)] Re-Slice took ' + (Date.now() - now) + 'ms (slice: ' + sliceTime + 'ms, reconstruct: ' + (Date.now() - reconstructNow) + 'ms)');
 		} else {
-			this.outputChannel.appendLine('[Slice (Internal)] Slicing using pipeline');
+			const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
+			this.outputChannel.appendLine(`[Slice (Internal)] Slicing using pipeline (threshold: ${threshold})`);
 			const now = Date.now();
 			const slicer = createSlicePipeline(this.parser as KnownParser, {
 				criterion: criteria,
-				request:   requestFromInput(content)
+				request:   requestFromInput(content),
+				threshold
 			});
 			const result = await slicer.allRemainingSteps();
 

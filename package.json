@@ -277,6 +277,12 @@
           "maximum": 999,
           "markdownDescription": "Automatically update the dependency view every n seconds."
         },
+        "vscode-flowr.slice.revisitThreshold": {
+          "type": "integer",
+          "default": 12,
+          "minimum": 1,
+          "markdownDescription": "How often is flowR allowed to revisit, e.g., a function definition to infer more informations before it stops? Currently this only affects the internal session."
+        },
         "vscode-flowr.dependencyView.adaptiveCharacterLimit": {
           "type": "number",
           "default": 5000,
