@@ -15,7 +15,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
 		return await getSelectionSlicer().sliceSelectionOnce();
 	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.slice.dependency', async(dependency: Dependency) => {
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.slice.dependency', (dependency: Dependency) => {
 		const nodeId = dependency.getNodeId();
 		const loc = dependency.getLocation();
 		if(!nodeId) {
@@ -32,18 +32,21 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 		}
 		// we use loc slicer for uses with `::` etc.
 		const info = dependency.getAnalysisInfo();
-		const slice = await slicer.sliceFor([`$${nodeId}`], info ? { ...info, id: nodeId } : undefined);
-		if(getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
-			setTimeout(() => {
-				void slicer.showReconstruction();
-			}, 20);
-		}
-		if(editor && loc) {
-			setTimeout(() => {
-				editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter);
-			}, 50);
-		}
-		return slice;
+		setTimeout(() => {
+			void (async() => {
+				await slicer.sliceFor([`$${nodeId}`], info ? { ...info, id: nodeId } : undefined);
+				if(getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
+					setTimeout(() => {
+						void slicer.showReconstruction();
+					}, 20);
+				}
+				if(editor && loc) {
+					setTimeout(() => {
+						editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter);
+					}, 50);
+				}
+			})();
+		}, 1);
 	}));
 	// maybe find a place for this
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {

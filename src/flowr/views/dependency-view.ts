@@ -157,6 +157,12 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				} else {
 					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
 						if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && vscode.window.activeTextEditor?.document.languageId === 'r') {
+							if(e.document.version < (vscode.window.activeTextEditor?.document.version ?? 0)) {
+								if(isVerbose()) {
+									this.output.appendLine('Skip update because event version: ' + e.document.version + 'is less than that of the active document: ' + (vscode.window.activeTextEditor?.document.version ?? 0) + ' (there is a newer version!).');
+								}
+								return;
+							}
 							await this.refresh();
 						}
 						if(getActiveEditorCharLength() > breakOff) {
@@ -172,6 +178,12 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			case 'on change':
 				this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
 					if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && vscode.window.activeTextEditor?.document.languageId === 'r') {
+						if(e.document.version < (vscode.window.activeTextEditor?.document.version ?? 0)) {
+							if(isVerbose()) {
+								this.output.appendLine('Skip update because event version: ' + e.document.version + 'is less than that of the active document: ' + (vscode.window.activeTextEditor?.document.version ?? 0) + ' (there is a newer version!).');
+							}
+							return;
+						}
 						await this.refresh();
 					}
 				});

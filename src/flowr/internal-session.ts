@@ -98,16 +98,23 @@ export class FlowrInternalSession implements FlowrSession {
 	}
 
 	private async workingOnSlice<T = void>(shell: KnownParser, fun: (shell: KnownParser) => Promise<T>): Promise<T> {
-		try {
+		this.setWorking(true);
+		// update the vscode ui
+		return vscode.window.withProgress({
+			location:    vscode.ProgressLocation.Notification,
+			title:       'Slicing...',
+			cancellable: false
+		},
+		() => {
 			this.setWorking(true);
-			return await fun(shell);
-		} catch(e) {
-			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
-			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
-			return {} as T;
-		} finally {
-			this.setWorking(false);
-		}
+			return fun(shell).catch(e => {
+				this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
+				(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
+				return {} as T;
+			}).finally(() => {
+				setImmediate(() => this.setWorking(false));
+			});
+		});
 	}
 
 	setWorking(working: boolean): void {
@@ -266,9 +273,11 @@ export class FlowrInternalSession implements FlowrSession {
 			this.outputChannel.appendLine(`[Slice (Internal)] Re-Slice using existing dataflow Graph and AST (threshold: ${threshold})`);
 			const now = Date.now();
 			elements = staticSlicing(info.graph, info.ast, criteria, threshold).result;
+			const sliceTime = Date.now() - now;
 			sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
+			const reconstructNow = Date.now();
 			code = reconstructToCode(info.ast, elements, makeMagicCommentHandler(doNotAutoSelect)).code;
-			this.outputChannel.appendLine('[Slice (Internal)] Re-Slice took ' + (Date.now() - now) + 'ms');
+			this.outputChannel.appendLine('[Slice (Internal)] Re-Slice took ' + (Date.now() - now) + 'ms (slice: ' + sliceTime + 'ms, reconstruct: ' + (Date.now() - reconstructNow) + 'ms)');
 		} else {
 			const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
 			this.outputChannel.appendLine(`[Slice (Internal)] Slicing using pipeline (threshold: ${threshold})`);
