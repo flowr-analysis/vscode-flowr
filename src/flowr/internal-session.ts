@@ -98,20 +98,28 @@ export class FlowrInternalSession implements FlowrSession {
 	}
 
 	private async workingOnSlice<T = void>(shell: KnownParser, fun: (shell: KnownParser) => Promise<T>): Promise<T> {
-		try {
+		this.setWorking(true);
+		// update the vscode ui
+		return vscode.window.withProgress({
+			location:    vscode.ProgressLocation.Notification,
+			title:       `Slicing...`,
+			cancellable: false
+		},
+		() => {
 			this.setWorking(true);
-			return await fun(shell);
-		} catch(e) {
-			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
-			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
-			return {} as T;
-		} finally {
-			this.setWorking(false);
-		}
+			return fun(shell).catch(e => {
+				this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
+				(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
+				return {} as T;
+			}).finally(() => {
+				setImmediate(() => this.setWorking(false));
+			});
+		});
 	}
 
 	setWorking(working: boolean): void {
 		this.working = working;
+		this.outputChannel.appendLine('Setting working to: ' + this.working);
 		updateStatusBar();
 	}
 

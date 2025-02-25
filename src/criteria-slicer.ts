@@ -37,12 +37,12 @@ class CriteriaSlicer {
 	decos: DecoTypes | undefined;
 
 	decoratedEditors: vscode.TextEditor[] = [];
-	
+
 	private disposables: vscode.Disposable[] = [];
 
 	// Slice once at the current cursor position
-	async sliceFor(criteria: SlicingCriteria, info?: { id?: NodeId, graph: DataflowGraph, ast: NormalizedAst }): Promise<string> {
-		return await this.update(criteria, info);
+	sliceFor(criteria: SlicingCriteria, info?: { id?: NodeId, graph: DataflowGraph, ast: NormalizedAst }): Promise<string> {
+		return this.update(criteria, info);
 	}
 
 	makeUri(): vscode.Uri {
@@ -77,12 +77,12 @@ class CriteriaSlicer {
 		this.decos?.dispose();
 		this.decos = undefined;
 	}
-	
+
 	public disposeCurrent(): void {
 		this.clearSliceDecos();
 		for(const d of this.disposables){
 			d.dispose();
-		}	
+		}
 		this.disposables = [];
 	}
 
@@ -103,7 +103,7 @@ class CriteriaSlicer {
 				}));
 			}
 		}
-		
+
 		const ret = await getSliceFor(criteria, info);
 		if(ret === undefined){
 			return '';
@@ -141,7 +141,7 @@ async function getSliceFor(criteria: SlicingCriteria, info?: { graph: DataflowGr
 	if(!flowrSession){
 		return;
 	}
-	const ret = await flowrSession.retrieveSlice(criteria, editor.document, false, info);
+	const ret = await flowrSession.retrieveSlice(criteria, editor.document, true, info);
 	if(!ret.sliceElements.length){
 		return {
 			code:          '# No slice',
