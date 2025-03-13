@@ -10,7 +10,7 @@ With this extension, you gain access to the following features (as the extension
 
    <details><summary>Slicing Example</summary>
 
-      ![Slicing with flowR](./media/gif/slice-with-clear-opt.gif)
+      ![Slicing with flowR](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/gif/slice-with-clear-opt.gif)
 
    </details>
 
@@ -19,7 +19,7 @@ With this extension, you gain access to the following features (as the extension
 
    <details><summary>Example of the Dependency View</summary>
 
-      ![Dependency View with flowR](./media/gif/show-dependencies-opt.gif)
+      ![Dependency View with flowR](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/gif/show-dependencies-opt.gif)
 
    </details>
 
@@ -28,7 +28,7 @@ With this extension, you gain access to the following features (as the extension
 
    <details><summary>Example of the Dataflow Graph</summary>
 
-      ![Dataflow Graph with flowR](./media/gif/show-df-graph-opt.gif)
+      ![Dataflow Graph with flowR](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/gif/show-df-graph-opt.gif)
 
    </details>
 
@@ -37,7 +37,7 @@ With this extension, you gain access to the following features (as the extension
 
    <details><summary>Example of the flowR REPL</summary>
 
-      ![The flowR REPL](./media/gif/use-repl-opt.gif)
+      ![The flowR REPL](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/gif/use-repl-opt.gif)
 
    </details>
 
@@ -47,7 +47,7 @@ If you notice anything that could be improved, have a feature request, or notice
 
    Using the bug icon opens the issue form in your default browser:
 
-   ![How to report an issue](./media/gif/report-issue-opt.gif)
+   ![How to report an issue](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/gif/report-issue-opt.gif)
 
 </details>
 
@@ -71,7 +71,7 @@ By default, the editor will also show you a reconstruction of the slice in a sep
 
 If you want to clear the slice highlight, press <kbd>Alt</kbd>+<kbd>C</kbd> or use the icon in the upper right of your editor:
 
-![Clear Slice](./media/clear-slice.png)
+![Clear Slice](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/clear-slice.png)
 
 Note, that there are other ways to slice, for example with the [Dependency View](#dependency-view).
 
@@ -85,11 +85,11 @@ You can also view the reconstruction of a piece of code based on the current sli
 
 To clear the slice highlighting, use the "Clear Current Slice Presentation" command or the trash icon in the upper right of the editor.
 
-![A screenshot of the extension being used to reconstruct a slice](media/reconstruct.png)
+![A screenshot of the extension being used to reconstruct a slice](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/reconstruct.png)
 
 ### Dependency View
 
-![A screenshot of a dependency diagram for a piece of code](media/dependencies.png)
+![A screenshot of a dependency diagram for a piece of code](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/dependencies.png)
 
 Using the extension, the sidebar should contain a flowR icon which holds more information on the current file, listing the libraries loaded, the files read and written, and the sourced scripts. If you expand the respective sections, clicking on the found entries should open them in the editor. The context menu (available with a right click) allows you to [slice](#slicing) for the selected entry.
 
@@ -99,17 +99,17 @@ You can generate and view the dataflow graph for any R source file by using the 
 
 In the future, we plan on including the ability to select nodes in the dataflow graph and have relevant code sections highlighted, and vice versa.
 
-![A screenshot of a dataflow diagram for a piece of code](media/dataflow.png)
+![A screenshot of a dataflow diagram for a piece of code](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/dataflow.png)
 
 ### REPL
 
 flowR offers a [REPL](https://github.com/flowr-analysis/flowr/wiki/Interface#using-the-repl), a "read-eval-print loop", which allows you to interactively explore the features of flowR. You can open a new REPL either with the "Launch a new flowR REPL" command (in the command palette which you can open with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) or by clicking on the shell icon of the flowR sidebar:
 
-![How to open the flowR REPL](media/repl.png)
+![How to open the flowR REPL](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/repl.png)
 
 This opens a new terminal in which you can interact with the (local) flowR installation:
 
-![A screenshot of the flowR REPL](media/repl-sample.png)
+![A screenshot of the flowR REPL](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/repl-sample.png)
 
 ## Installing
 
@@ -119,7 +119,7 @@ You can get the extension here: <https://marketplace.visualstudio.com/items?item
 
 <details><summary>Example Installation</summary>
 
-   ![How to install the extension](./media/gif/install-extension-opt.gif)
+   ![How to install the extension](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/gif/install-extension-opt.gif)
 
 </details>
 
