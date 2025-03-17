@@ -92,7 +92,10 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 }
 
 const emptyDependencies: DependenciesQueryResult = { libraries: [], readData: [], sourcedFiles: [], writtenData: [], '.meta': { timing: -1 } };
-const emptyLocationMap: LocationMapQueryResult = { map: {}, '.meta': { timing: -1 } };
+const emptyLocationMap: LocationMapQueryResult = { map: {
+	files: [],
+	ids:   {}
+}, '.meta': { timing: -1 } };
 type Update = Dependency | undefined | null
 class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private readonly output:               vscode.OutputChannel;
@@ -469,7 +472,7 @@ export class Dependency extends vscode.TreeItem {
 		this.locationMap = locationMap;
 
 		if(info) {
-			this.loc = locationMap?.map[info.nodeId];
+			this.loc = locationMap?.map.ids[info.nodeId]?.[1];
 			this.description = `by ${info.functionName} in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
 			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
 			this.id = label + info.nodeId + JSON.stringify(this.loc) + info.functionName + this.linkedIds();
@@ -502,7 +505,7 @@ export class Dependency extends vscode.TreeItem {
 
 			const activeEditor = vscode.window.activeTextEditor;
 			this.children = this.info.linkedIds.map(i => {
-				const loc = locationMap.map[i];
+				const loc = locationMap.map.ids[i]?.[1];
 				const tok = loc ? activeEditor?.document.getText(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3])) : undefined;
 
 				if(!tok) {
