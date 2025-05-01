@@ -83,6 +83,12 @@ ${JSON.stringify(getConfig(), null, 2)}
 			void vscode.env.openExternal(vscode.Uri.parse(url));
 		})
 	);
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-flowr.feedback', () => {
+			const url = 'https://docs.google.com/forms/d/e/1FAIpQLScKFhgnh9LGVU7QzqLvFwZe1oiv_5jNhkIO-G-zND0ppqsMxQ/viewform?pli=1';
+			void vscode.env.openExternal(vscode.Uri.parse(url));
+		})
+	);
 
 	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 	context.subscriptions.push(statusBarItem);

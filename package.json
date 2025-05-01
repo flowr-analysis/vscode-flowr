@@ -140,6 +140,12 @@
         "title": "Report Issue or Request Feature (Opens Browser)",
         "icon": "$(bug)",
         "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.feedback",
+        "title": "Give feedback (Opens Browser)",
+        "icon": "$(feedback)",
+        "category": "flowR"
       }
     ],
     "configuration": {
@@ -464,6 +470,21 @@
         {
           "command": "vscode-flowr.report",
           "when": "view == flowr-dependencies",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vscode-flowr.feedback",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vscode-flowr.session.connect",
+          "when": "view == flowr-dependencies && !isWeb",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vscode-flowr.session.disconnect",
+          "when": "view == flowr-dependencies && !isWeb",
           "group": "navigation@3"
         },
         {
