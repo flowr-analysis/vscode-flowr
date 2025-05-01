@@ -124,6 +124,18 @@
         "enablement": "shellExecutionSupported"
       },
       {
+        "command": "vscode-flowr.session.connect",
+        "title": "Connect to flowR Server",
+        "icon": "$(server)",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.session.disconnect",
+        "title": "Disconnect from flowR Server",
+        "icon": "$(server)",
+        "category": "flowR"
+      },
+      {
         "command": "vscode-flowr.feedback",
         "title": "Give feedback (Opens Browser)",
         "icon": "$(feedback)",

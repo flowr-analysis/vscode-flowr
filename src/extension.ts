@@ -37,6 +37,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		await establishInternalSession();
 		return flowrSession;
 	}));
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', async() => {
+		await establishServerSession();
+		return flowrSession;
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.disconnect', () => {
+		if(flowrSession instanceof FlowrServerSession) {
+			destroySession();
+		}
+	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.repl', async() => {
 		try {
 			const repl = await import('./flowr/terminals/flowr-repl');
@@ -52,8 +61,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vscode-flowr.feedback', () => {
-			void vscode.window.showQuickPick(['Report a Bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result: string | undefined) => { 
-				if(result === 'Report a Bug') {
+			void vscode.window.showQuickPick(['Report a bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result) => { 
+				if(result === 'Report a bug') {
 					const body = encodeURIComponent(`
 						<!-- Please describe your issue, suggestion or feature request in more detail below! -->
 						
