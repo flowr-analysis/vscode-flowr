@@ -61,8 +61,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vscode-flowr.feedback', () => {
-			void vscode.window.showQuickPick(['Report a bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result) => { 
-				if(result === 'Report a bug') {
+			void vscode.window.showQuickPick(['Report a Bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result: string) => { 
+				if(result === 'Report a Bug') {
 					const body = encodeURIComponent(`
 						<!-- Please describe your issue, suggestion or feature request in more detail below! -->
 						
