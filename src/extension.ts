@@ -37,15 +37,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		await establishInternalSession();
 		return flowrSession;
 	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', async() => {
-		await establishServerSession();
-		return flowrSession;
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.disconnect', () => {
-		if(flowrSession instanceof FlowrServerSession) {
-			destroySession();
-		}
-	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.repl', async() => {
 		try {
 			const repl = await import('./flowr/terminals/flowr-repl');

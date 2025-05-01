@@ -124,18 +124,6 @@
         "enablement": "shellExecutionSupported"
       },
       {
-        "command": "vscode-flowr.session.connect",
-        "title": "Connect to flowR Server",
-        "icon": "$(server)",
-        "category": "flowR"
-      },
-      {
-        "command": "vscode-flowr.session.disconnect",
-        "title": "Disconnect from flowR Server",
-        "icon": "$(server)",
-        "category": "flowR"
-      },
-      {
         "command": "vscode-flowr.feedback",
         "title": "Give feedback (Opens Browser)",
         "icon": "$(feedback)",
@@ -464,16 +452,6 @@
         {
           "command": "vscode-flowr.feedback",
           "when": "view == flowr-dependencies",
-          "group": "navigation@3"
-        },
-        {
-          "command": "vscode-flowr.session.connect",
-          "when": "view == flowr-dependencies && !isWeb",
-          "group": "navigation@3"
-        },
-        {
-          "command": "vscode-flowr.session.disconnect",
-          "when": "view == flowr-dependencies && !isWeb",
           "group": "navigation@3"
         },
         {
