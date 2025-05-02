@@ -31,6 +31,8 @@ jobs:
           registry-url: "https://registry.npmjs.org/"
       - name: Install vsce
         run: npm install -g @vscode/vsce
+      - name: Install ovsx
+        run: npm install -g ovsx
       - name: Install dependencies
         run: npm ci
 
@@ -76,3 +78,7 @@ jobs:
         run: vsce publish
         env:
           VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE }}
+      - name: OpenVSX
+        run: ovsx publish
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX }}
