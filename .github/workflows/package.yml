@@ -5,6 +5,13 @@ on:
 jobs:
   package:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: read
+      id-token: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
