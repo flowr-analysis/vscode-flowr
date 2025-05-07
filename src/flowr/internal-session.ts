@@ -117,6 +117,46 @@ export class FlowrInternalSession implements FlowrSession {
 		});
 	}
 
+	private async workingOnAst<T = void>(shell: KnownParser, fun: (shell: KnownParser) => Promise<T>): Promise<T> {
+		this.setWorking(true);
+		// update the vscode ui
+		return vscode.window.withProgress({
+			location:    vscode.ProgressLocation.Notification,
+			title:       'Creating AST...',
+			cancellable: false
+		},
+		() => {
+			this.setWorking(true);
+			return fun(shell).catch(e => {
+				this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
+				(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
+				return {} as T;
+			}).finally(() => {
+				this.setWorking(false);
+			});
+		});
+	}
+
+	private async workingOnCFG<T = void>(shell: KnownParser, fun: (shell: KnownParser) => Promise<T>): Promise<T> {
+		this.setWorking(true);
+		// update the vscode ui
+		return vscode.window.withProgress({
+			location:    vscode.ProgressLocation.Notification,
+			title:       'Creating Control Flow Graph...',
+			cancellable: false
+		},
+		() => {
+			this.setWorking(true);
+			return fun(shell).catch(e => {
+				this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
+				(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
+				return {} as T;
+			}).finally(() => {
+				this.setWorking(false);
+			});
+		});
+	}
+
 	setWorking(working: boolean): void {
 		this.working = working;
 		updateStatusBar();
@@ -241,7 +281,7 @@ export class FlowrInternalSession implements FlowrSession {
 		if(!this.parser) {
 			return '';
 		}
-		return await this.workingOnSlice(this.parser, async s => {
+		return await this.workingOnAst(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
 				request: requestFromInput(consolidateNewlines(document.getText()))
 			}).allRemainingSteps();
@@ -253,7 +293,7 @@ export class FlowrInternalSession implements FlowrSession {
 		if(!this.parser) {
 			return '';
 		}
-		return await this.workingOnSlice(this.parser, async s => {
+		return await this.workingOnCFG(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
 				request: requestFromInput(consolidateNewlines(document.getText()))
 			}).allRemainingSteps();
