@@ -239,10 +239,13 @@ export class FlowrInternalSession implements FlowrSession {
 		if(!this.parser) {
 			return '';
 		}
-		const result = await createDataflowPipeline(this.parser, {
-			request: requestFromInput(consolidateNewlines(document.getText()))
-		}).allRemainingSteps();
-		return graphToMermaid({ graph: result.dataflow.graph, simplified, includeEnvironments: false }).string;
+		return await this.workingOn(this.parser, async s => {
+			const result = await createDataflowPipeline(s, {
+				request: requestFromInput(consolidateNewlines(document.getText()))
+			}).allRemainingSteps();
+			return graphToMermaid({ graph: result.dataflow.graph, simplified, includeEnvironments: false }).string;
+		}, 'dfg');
+		
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
