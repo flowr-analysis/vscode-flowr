@@ -97,12 +97,20 @@ export class FlowrInternalSession implements FlowrSession {
 		updateStatusBar();
 	}
 
-	private async workingOnSlice<T = void>(shell: KnownParser, fun: (shell: KnownParser) => Promise<T>): Promise<T> {
+	private async workingOn<T = void>(shell: KnownParser, fun: (shell: KnownParser) => Promise<T>, action: string): Promise<T> {
 		this.setWorking(true);
 		// update the vscode ui
 		return vscode.window.withProgress({
-			location:    vscode.ProgressLocation.Notification,
-			title:       'Slicing...',
+			location: vscode.ProgressLocation.Notification,
+			title:    (() => {
+				switch(action) {
+					case 'slice': return 'Creating Slice...';
+					case 'ast':   return 'Creating AST...';
+					case 'cfg':   return 'Creating Control Flow Graph...';
+					case 'dfg':   return 'Creating Data Flow Graph...';
+					default:      return 'Working...';
+				}
+			})(),
 			cancellable: false
 		},
 		() => {
@@ -213,7 +221,7 @@ export class FlowrInternalSession implements FlowrSession {
 			};
 		}
 		try {
-			return await this.workingOnSlice(this.parser, async() => await this.extractSlice(document, criteria, info));
+			return await this.workingOn(this.parser, async() => await this.extractSlice(document, criteria, info), 'slice');
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
@@ -231,34 +239,37 @@ export class FlowrInternalSession implements FlowrSession {
 		if(!this.parser) {
 			return '';
 		}
-		const result = await createDataflowPipeline(this.parser, {
-			request: requestFromInput(consolidateNewlines(document.getText()))
-		}).allRemainingSteps();
-		return graphToMermaid({ graph: result.dataflow.graph, simplified, includeEnvironments: false }).string;
+		return await this.workingOn(this.parser, async s => {
+			const result = await createDataflowPipeline(s, {
+				request: requestFromInput(consolidateNewlines(document.getText()))
+			}).allRemainingSteps();
+			return graphToMermaid({ graph: result.dataflow.graph, simplified, includeEnvironments: false }).string;
+		}, 'dfg');
+		
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
 		if(!this.parser) {
 			return '';
 		}
-		return await this.workingOnSlice(this.parser, async s => {
+		return await this.workingOn(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
 				request: requestFromInput(consolidateNewlines(document.getText()))
 			}).allRemainingSteps();
 			return normalizedAstToMermaid(result.normalize.ast);
-		});
+		}, 'ast');
 	}
 
 	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
 		if(!this.parser) {
 			return '';
 		}
-		return await this.workingOnSlice(this.parser, async s => {
+		return await this.workingOn(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
 				request: requestFromInput(consolidateNewlines(document.getText()))
 			}).allRemainingSteps();
 			return cfgToMermaid(extractCFG(result.normalize), result.normalize);
-		});
+		}, 'cfg');
 	}
 
 	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, info?: { graph: DataflowGraph, ast: NormalizedAst }): Promise<SliceReturn> {
