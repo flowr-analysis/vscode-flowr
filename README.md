@@ -1,6 +1,13 @@
-[![vscode-flowR logo](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/flowr-vscode-positron-logo.png)](https://github.com/flowr-analysis/flowr)
+[![vscode-flowR logo](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/
+/media/flowr-vscode-positron-logo.png)](https://github.com/flowr-analysis/flowr)
 
-[![Marketplace](https://badgen.net/vs-marketplace/v/code-inspect.vscode-flowr?color=green)](https://marketplace.visualstudio.com/items?itemName=code-inspect.vscode-flowr) [![flowR Badge](https://badgen.net/badge/icon/flowr/cyan?icon=github&label)](https://github.com/flowr-analysis/flowr) [![vscode.dev Badge](https://badgen.net/badge/icon/vscode.dev/blue?icon=visualstudio&label)](https://vscode.dev)
+<div align="center">
+
+<a href="">[![Marketplace](https://badgen.net/vs-marketplace/v/code-inspect.vscode-flowr?color=green)](https://marketplace.visualstudio.com/items?itemName=code-inspect.vscode-flowr) </a> 
+<a href="">[![flowR Badge](https://badgen.net/badge/icon/flowr/cyan?icon=github&label)](https://github.com/flowr-analysis/flowr)</a> 
+<a href="">[![vscode.dev Badge](https://badgen.net/badge/icon/vscode.dev/blue?icon=visualstudio&label)](https://vscode.dev)</a>
+
+</div>
 
 This extension brings [_flowR_](https://github.com/flowr-analysis/flowr) to Visual Studio Code and Positron. See the [installation instructions](#installing) to get started!
 With this extension, you gain access to the following features (as the extension is under active development, many more features are [planned](https://github.com/flowr-analysis/vscode-flowr/issues?q=is%3Aissue%20state%3Aopen%20type%3AFeature)):
