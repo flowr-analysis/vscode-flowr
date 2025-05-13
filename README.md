@@ -1,8 +1,14 @@
-[![vscode-flowR logo](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/vscode-flowR-logo.png)](https://github.com/flowr-analysis/flowr)
+[![vscode-flowR logo](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/flowr-vscode-positron-logo.png)](https://github.com/flowr-analysis/flowr)
 
-[![Marketplace](https://badgen.net/vs-marketplace/v/code-inspect.vscode-flowr?color=green)](https://marketplace.visualstudio.com/items?itemName=code-inspect.vscode-flowr) [![flowR Badge](https://badgen.net/badge/icon/flowr/cyan?icon=github&label)](https://github.com/flowr-analysis/flowr) [![vscode.dev Badge](https://badgen.net/badge/icon/vscode.dev/blue?icon=visualstudio&label)](https://vscode.dev)
+<div align="center">
 
-This extension brings [_flowR_](https://github.com/flowr-analysis/flowr) to Visual Studio Code. See the [installation instructions](#installing) to get started!
+[![Marketplace](https://badgen.net/vs-marketplace/v/code-inspect.vscode-flowr?color=green)](https://marketplace.visualstudio.com/items?itemName=code-inspect.vscode-flowr)
+[![flowR Badge](https://badgen.net/badge/icon/flowr/cyan?icon=github&label)](https://github.com/flowr-analysis/flowr)
+[![vscode.dev Badge](https://badgen.net/badge/icon/vscode.dev/blue?icon=visualstudio&label)](https://vscode.dev)
+
+</div>
+
+This extension brings [_flowR_](https://github.com/flowr-analysis/flowr) to Visual Studio Code and Positron. See the [installation instructions](#installing) to get started!
 With this extension, you gain access to the following features (as the extension is under active development, many more features are [planned](https://github.com/flowr-analysis/vscode-flowr/issues?q=is%3Aissue%20state%3Aopen%20type%3AFeature)):
 
 1. 🍕 [**Slicing**](#slicing): Reduce the Program to just the parts relevant to a specific variable or figure.
@@ -60,7 +66,7 @@ This section provides a brief overview of the features provided by this extensio
 Installing the extension is sufficient for all features!
 Yet, flowR may benefit from a local R installation (which has to be available on your `PATH`) so it can incorporate your local R setup into its analysis.
 
-Additionally, we recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code along with this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r).
+Additionally, we recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code or the [R extension](https://open-vsx.org/vscode/item/?itemName=REditorSupport.r) for Positron along with this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r). In case of migration from RStudio to Positron you can also check out [this article](https://positron.posit.co/rstudio-keybindings.html).
 
 ### Slicing
 
@@ -123,12 +129,17 @@ You can get the extension here: <https://marketplace.visualstudio.com/items?item
 
 </details>
 
+### From Open VSX
+You can get the extension here: <https://open-vsx.org/extension/code-inspect/vscode-flowr>.
+
+
 ### From GitHub Release
 
 You can find official releases of the extension in the [Releases](https://github.com/flowr-analysis/vscode-flowr/releases) section of the repository. Simply select the version you would like to download, open up the asset's section at the bottom, and download the `vscode-flowr-[version].vsix` contained in it.
 
 From Visual Studio Code, open the Extensions tab and click on the three dots in the top right to select "Install from VSIX..." Alternatively, you can use the Command Palette to select the option directly. Then, you can select the `vsix` file you downloaded to install it.
 
+This works the same way in Positron. The repository for Visual Studio Code is the same as the one for Positron, so you can use the same `vsix` file.
 ### From Build Artifact
 
 You can easily download the most recent build of the extension by heading to the [Actions tab](https://github.com/flowr-analysis/vscode-flowr/actions/workflows/package.yml), where you will find a list of runs. Selecting the most recent run will display a summary of it, at the bottom of which you can find the Artifacts section and the `Extension vsix` artifact. Download it and unzip it.
@@ -137,7 +148,7 @@ Then, you can install it the same way as you would the `vsix` downloaded [from G
 
 ## Issues and Feature Requests
 
-If you have an issue with the extension or you have a good idea for a new feature, you can create a new issue from within the extension, and it will automatically be populated with some information about your setup.
+If you have an issue with the extension, or you have a good idea for a new feature, you can create a new issue from within the extension, and it will automatically be populated with some information about your setup.
 
 To do so, simply press the bug-shaped button in the [dependency view](#dependency-view) or use the "Report Issue or Request Feature" command.
 
@@ -158,6 +169,8 @@ Opening the cloned repository in Visual Studio Code allows using the [existing l
 You can then open the [example folder](https://github.com/flowr-analysis/vscode-flowr/tree/main/example) contained in this repository to try out the extension for yourself.
 
 To build the extension into a `vsix` file, see [this documentation article](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
+
+This will also work for Positron, as the extension is the same for both Visual Studio Code and Positron.
 
 ### Git Hooks
 
