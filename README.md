@@ -1,4 +1,4 @@
-[![vscode-flowR logo](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/flowr-vscode-positron-logo.png)](https://github.com/flowr-analysis/flowr)
+[![vscode-flowR logo](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/flowR-vscode-positron-logo.png)](https://github.com/flowr-analysis/flowr)
 
 <div align="center">
 
