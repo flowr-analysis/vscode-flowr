@@ -26,7 +26,7 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { reconstructToCode } from '@eagleoutice/flowr/reconstruct/reconstruct';
 import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto-select-defaults';
 import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
-import {extractSimpleCfg} from "@eagleoutice/flowr/control-flow/extract-cfg";
+import { extractSimpleCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,

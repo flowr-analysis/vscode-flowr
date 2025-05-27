@@ -22,8 +22,8 @@ import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/fl
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
-import {BiMap} from "@eagleoutice/flowr/util/collections/bimap";
-import {extractSimpleCfg} from "@eagleoutice/flowr/control-flow/extract-cfg";
+import { BiMap } from '@eagleoutice/flowr/util/collections/bimap';
+import { extractSimpleCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
 
 export class FlowrServerSession implements FlowrSession {
 
