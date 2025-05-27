@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import type { FlowrSession } from '../utils';
-import { ansiFormatter } from '@eagleoutice/flowr/util/ansi';
 import * as readline from 'readline';
 import { Stream } from 'stream';
 import { replCompleter } from '@eagleoutice/flowr/cli/repl/core';
+import {ansiFormatter} from "@eagleoutice/flowr/util/text/ansi";
 
 export function showRepl(context: vscode.ExtensionContext, session: FlowrSession) {
 	// check if we have a terminal already

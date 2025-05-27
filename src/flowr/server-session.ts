@@ -6,7 +6,6 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { establishInternalSession, getConfig, isVerbose, isWeb, updateStatusBar } from '../extension';
 import type { ConnectionType } from '../settings';
 import { Settings } from '../settings';
-import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { FlowrSession, SliceReturn } from './utils';
@@ -16,7 +15,6 @@ import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/process
 import type { DataflowGraphJson } from '@eagleoutice/flowr/dataflow/graph/graph';
 import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
-import { BiMap } from '@eagleoutice/flowr/util/bimap';
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-hello';
 import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/repl/server/messages/message-analysis';
 import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-slice';
@@ -24,6 +22,8 @@ import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/fl
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
+import {BiMap} from "@eagleoutice/flowr/util/collections/bimap";
+import {extractSimpleCfg} from "@eagleoutice/flowr/control-flow/extract-cfg";
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -182,7 +182,7 @@ export class FlowrServerSession implements FlowrSession {
 			...response.results.normalize,
 			idMap: new BiMap()
 		};
-		return cfgToMermaid(extractCFG(normalize), normalize);
+		return cfgToMermaid(extractSimpleCfg(normalize), normalize);
 	}
 
 	async retrieveSlice(criteria: SlicingCriteria, document: vscode.TextDocument): Promise<SliceReturn> {
