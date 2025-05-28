@@ -13,6 +13,7 @@ import type { FlowrConfigOptions } from '@eagleoutice/flowr/config';
 import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfigOptions, setConfig } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
+import { registerInlineHints } from './flowr/views/inline-values';
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
@@ -95,6 +96,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(new vscode.Disposable(() => destroySession()));
 
+	const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
+
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', () => {
+		updateDependencyView();
+	}));
+
+	context.subscriptions.push(registerInlineHints(outputChannel))
+
+	context.subscriptions.push(new vscode.Disposable(() => disposeDep()));
 	setTimeout(() => {
 		const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
 		context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', () => {
