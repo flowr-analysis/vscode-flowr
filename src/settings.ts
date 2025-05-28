@@ -14,11 +14,14 @@ export enum Settings {
 	StyleTokenBackground = 'style.tokenBackgroundColor',
 
 	SliceAutomaticReconstruct = 'slice.automaticReconstruct',
+	SliceRevisitThreshold = 'slice.revisitThreshold',
 
 	TreeSitterTimeout = 'tree-sitter.timeout',
+	TreeSitterLax = 'tree-sitter.lax',
 
 	DependencyViewUpdateType = 'dependencyView.updateType',
 	DependencyViewUpdateInterval = 'dependencyView.updateInterval',
+	DependencyViewAdaptiveBreak = 'dependencyView.adaptiveCharacterLimit',
 	DependencyViewKeepOnError = 'dependencyView.keepOnError',
 	DependencyViewAutoReveal = 'dependencyView.autoReveal',
 	DependencyViewCacheLimit = 'dependencyView.cacheLimit',
@@ -30,11 +33,18 @@ export enum Settings {
 
 	SolverVariableHandling = 'config.solver.variableHandling',
 	SolverPointerTracking = 'config.solver.pointerTracking',
+	SolverSourceIgnoreCapitalization = 'config.solver.resolveSource.ignoreCapitalization',
+	SolverSourceInferWorkingDirectory = 'config.solver.resolveSource.inferWorkingDirectory',
+	SolverSourceSearchPath = 'config.solver.resolveSource.searchPath',
+	SolverSourceDropPaths = 'config.solver.resolveSource.dropPaths',
+
 	BuiltInsLoadDefaults = 'config.overwriteBuiltIns.loadDefaults',
 	BuiltInsDefinitions = 'config.overwriteBuiltIns.definitions',
 	IgnoreSourceCalls = 'config.ignoreSourceCalls',
 
 	ErrorMessageTimer = 'errorMessage.Timer',
+
+	DebugFlowrLoglevel = 'debug.flowrLogLevel'
 }
 
 export type SliceDisplay = 'text' | 'diff' | 'tokens'

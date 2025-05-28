@@ -5,7 +5,7 @@ import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-si
 import { requestFromInput } from '@eagleoutice/flowr/r-bridge/retriever';
 import { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import { VertexType } from '@eagleoutice/flowr/dataflow/graph/vertex';
-import { resolve } from '@eagleoutice/flowr/dataflow/environments/resolve-by-name';
+import { resolveIdToValue } from '@eagleoutice/flowr/dataflow/environments/resolve-by-name';
 import { RLogicalValue } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-logical';
 import { RNumberValue, RStringValue } from '@eagleoutice/flowr/r-bridge/lang-4.x/convert-values';
 
@@ -80,7 +80,7 @@ class FlowrInlayHintsProvider implements vscode.InlayHintsProvider {
 		if(!this.analysisInfo) {
 			return [];
 		}
-		const values = resolve(variable, { graph: this.analysisInfo.dataflow.graph, full: true, idMap: this.analysisInfo.normalize.idMap });
+		const values = resolveIdToValue(variable, { graph: this.analysisInfo.dataflow.graph, full: true, idMap: this.analysisInfo.normalize.idMap });
 
 		return values?.map(unwrapRValue).filter(isNotUndefined) ?? [];
 	}

@@ -15,7 +15,7 @@
     "email": "florian.sihler@uni-ulm.de"
   },
   "license": "GPL-3.0",
-  "version": "0.5.4",
+  "version": "0.5.13",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -101,12 +101,18 @@
       {
         "command": "vscode-flowr.slice.clear",
         "title": "Clear Current Slice Presentation",
-        "icon": "$(trashcan)",
+        "icon": "$(eye-closed)",
         "category": "flowR"
       },
       {
         "command": "vscode-flowr.dataflow",
         "title": "Show Dataflow Graph",
+        "icon": "$(graph)",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.dataflow-simplified",
+        "title": "Show a simplified Dataflow Graph",
         "icon": "$(graph)",
         "category": "flowR"
       },
@@ -130,9 +136,9 @@
         "category": "flowR"
       },
       {
-        "command": "vscode-flowr.report",
-        "title": "Report Issue (Opens Browser)",
-        "icon": "$(bug)",
+        "command": "vscode-flowr.feedback",
+        "title": "Give feedback (Opens Browser)",
+        "icon": "$(feedback)",
         "category": "flowR"
       }
     ],
@@ -228,6 +234,11 @@
           "default": 60000,
           "markdownDescription": "How many milliseconds should the extension wait for the tree-sitter engine to start up?"
         },
+        "vscode-flowr.tree-sitter.lax": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Should flowR use the lax parser for tree-sitter (i.e., allow for parsing errors)?"
+        },
         "vscode-flowr.slice.automaticReconstruct": {
           "type": "boolean",
           "default": true,
@@ -242,15 +253,17 @@
         },
         "vscode-flowr.dependencyView.updateType": {
           "type": "string",
-          "default": "interval",
+          "default": "adaptive",
           "enum": [
             "on change",
+            "adaptive",
             "interval",
             "on save",
             "never"
           ],
           "markdownEnumDescriptions": [
             "Update the dependency view on every change in the active editor.",
+            "Update on every change until the source becomes too big, then switch to interval.",
             "Update the dependency every n seconds, see `vscode-flowr.dependencyView.updateInterval`.",
             "Update the dependency view only when the active editor is saved.",
             "Never update the dependency view automatically."
@@ -259,10 +272,22 @@
         },
         "vscode-flowr.dependencyView.updateInterval": {
           "type": "number",
-          "default": 5,
+          "default": 10,
           "minimum": 0.5,
           "maximum": 999,
           "markdownDescription": "Automatically update the dependency view every n seconds."
+        },
+        "vscode-flowr.slice.revisitThreshold": {
+          "type": "integer",
+          "default": 12,
+          "minimum": 1,
+          "markdownDescription": "How often is flowR allowed to revisit, e.g., a function definition to infer more informations before it stops? Currently this only affects the internal session."
+        },
+        "vscode-flowr.dependencyView.adaptiveCharacterLimit": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 10,
+          "markdownDescription": "The number of characters in the source after which the dependency view switches to interval updates."
         },
         "vscode-flowr.dependencyView.cacheLimit": {
           "type": "integer",
@@ -279,7 +304,21 @@
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Whether to use verbose logging while flowR is active."
+          "markdownDescription": "Whether to use verbose logging while flowR is active (this will also redirect flowR logs to the output panel)."
+        },
+        "vscode-flowr.debug.flowrLogLevel": {
+          "type": "string",
+          "default": "Error",
+          "enum": [
+            "Silly",
+            "Trace",
+            "Debug",
+            "Info",
+            "Warn",
+            "Error",
+            "Fatal"
+          ],
+          "markdownDescription": "What logging level should flowR use?"
         },
         "vscode-flowr.errorMessage.Timer": {
           "type": "number",
@@ -309,8 +348,53 @@
         },
         "vscode-flowr.config.solver.pointerTracking": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "markdownDescription": "Whether to track pointers in the dataflow graph. If this is false, the graph will be over-approximated with regard to containers and accesses."
+        },
+        "vscode-flowr.config.solver.resolveSource.ignoreCapitalization": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Find sourced files ignoring their capitalization?"
+        },
+        "vscode-flowr.config.solver.resolveSource.inferWorkingDirectory": {
+          "type": "string",
+          "enum": [
+            "no",
+            "main-script",
+            "active-script",
+            "any-script"
+          ],
+          "enumDescriptions": [
+            "Do not infer the working directory",
+            "Use the main script used for the analysis for the working directory",
+            "Use the active (sourced) script for the working directory",
+            "Consider all loaded scripts for the working directory"
+          ],
+          "default": "active-script",
+          "markdownDescription": "Which working directory to assume when resolving sourced files?"
+        },
+        "vscode-flowr.config.solver.resolveSource.searchPath": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Which (additional) paths should be used to resolve sourced files?"
+        },
+        "vscode-flowr.config.solver.resolveSource.dropPaths": {
+          "type": "string",
+          "enum": [
+            "no",
+            "once",
+            "all"
+          ],
+          "enumDescriptions": [
+            "Do not drop any parts of the path from a source",
+            "Drop the full path and only keep the filename if the path is not found.",
+            "Try every sub path in a source until a file is found."
+          ],
+          "default": "once",
+          "markdownDescription": "How to handle paths in sources that are not found."
         },
         "vscode-flowr.config.overwriteBuiltIns.loadDefaults": {
           "type": "boolean",
@@ -378,9 +462,14 @@
           "group": "navigation@2"
         },
         {
-          "command": "vscode-flowr.settings.open",
+          "command": "vscode-flowr.feedback",
           "when": "view == flowr-dependencies",
           "group": "navigation@3"
+        },
+        {
+          "command": "vscode-flowr.settings.open",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@4"
         }
       ],
       "editor/title": [
@@ -395,7 +484,7 @@
       "activitybar": [
         {
           "id": "flowr",
-          "title": "flowR",
+          "title": "R Code Analyzer (flowR)",
           "icon": "resources/flowR.svg"
         }
       ]
@@ -434,7 +523,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile && npm run package-web",
-    "copy-wasm": "mkdir -p out/flowr/tree-sitter && cp src/flowr/tree-sitter/*.wasm out/flowr/tree-sitter && mkdir -p node_modules/@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/ && cp src/flowr/tree-sitter/*.wasm node_modules/@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/",
+    "copy-wasm": "mkdir -p dist/node_modules/@eagleoutice/tree-sitter-r/ && mkdir -p dist/node_modules/web-tree-sitter && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/node_modules/@eagleoutice/tree-sitter-r/ && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/node_modules/web-tree-sitter/ && mkdir -p out/flowr/tree-sitter/ && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm node_modules/web-tree-sitter/tree-sitter.wasm out/flowr/tree-sitter/",
     "compile": "npm run copy-wasm && tsc -p ./",
     "watch": "npm run copy-wasm && tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
@@ -442,13 +531,13 @@
     "test": "vscode-test",
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse",
     "browser": "vscode-test-web --extensionDevelopmentPath=. .",
-    "copy-wasm-web": "mkdir -p dist/web && cp src/flowr/tree-sitter/*.wasm dist/web",
+    "copy-wasm-web": "mkdir -p dist/web && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/web && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/web",
     "compile-web": "npm run copy-wasm-web && webpack",
     "package-web": "npm run copy-wasm-web && webpack --mode production --devtool hidden-source-map",
     "watch-web": "npm run copy-wasm-web && webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.2.6",
+    "@eagleoutice/flowr": "^2.2.13",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",

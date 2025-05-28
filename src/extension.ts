@@ -9,7 +9,8 @@ import { selectionSlicer } from './selection-slicer';
 import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
 import { registerDependencyView } from './flowr/views/dependency-view';
-import { VariableResolve , defaultConfigOptions, setConfig } from '@eagleoutice/flowr/config';
+import type { FlowrConfigOptions } from '@eagleoutice/flowr/config';
+import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfigOptions, setConfig } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerInlineHints } from './flowr/views/inline-values';
@@ -59,12 +60,35 @@ export async function activate(context: vscode.ExtensionContext) {
 		await vscode.commands.executeCommand('workbench.action.openSettings', Settings.Category);
 	}));
 
-
 	context.subscriptions.push(
-		vscode.commands.registerCommand('vscode-flowr.report', () => {
-			void vscode.env.openExternal(vscode.Uri.parse('https://github.com/flowr-analysis/flowr/issues/new/choose'));
-		})
-	);
+		vscode.commands.registerCommand('vscode-flowr.feedback', () => {
+			void vscode.window.showQuickPick(['Report a Bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result: string | undefined) => { 
+				if(result === 'Report a Bug') {
+					const body = encodeURIComponent(`
+						<!-- Please describe your issue, suggestion or feature request in more detail below! -->
+						
+						
+						
+						<!-- Automatically generated issue metadata, please do not edit or delete content below this line -->
+						---
+						flowR version: ${flowrVersion().toString()}  
+						Extension version: ${(extensionContext.extension.packageJSON as {version: string}).version} (${vscode.ExtensionMode[extensionContext.extensionMode]} mode)  
+						VS Code version: ${vscode.version} (web ${isWeb()})  
+						Session: ${flowrSession ? `${flowrSession instanceof FlowrServerSession ? 'server' : 'internal'} (${flowrSession instanceof FlowrServerSession ? flowrSession.state : (flowrSession as FlowrInternalSession)?.state})` : 'none'}  
+						OS: ${process.platform}  
+						Extension config:  
+						\`\`\`json
+						${JSON.stringify(getConfig(), null, 2)}
+						\`\`\`
+						`.trimStart());
+					const url = `https://github.com/flowr-analysis/vscode-flowr/issues/new?body=${body}`;
+					void vscode.env.openExternal(vscode.Uri.parse(url));
+				} else if(result === 'Provide Feedback') {
+					const url = 'https://docs.google.com/forms/d/e/1FAIpQLScKFhgnh9LGVU7QzqLvFwZe1oiv_5jNhkIO-G-zND0ppqsMxQ/viewform?pli=1';
+					vscode.env.openExternal(vscode.Uri.parse(url));
+				}
+			});	
+		}));
 
 	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 	context.subscriptions.push(statusBarItem);
@@ -81,6 +105,13 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(registerInlineHints(outputChannel))
 
 	context.subscriptions.push(new vscode.Disposable(() => disposeDep()));
+	setTimeout(() => {
+		const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
+		context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', () => {
+			updateDependencyView();
+		}));
+		context.subscriptions.push(new vscode.Disposable(() => disposeDep()));
+	}, 10);
 	process.on('SIGINT', () => destroySession());
 
 	if(getConfig().get<boolean>(Settings.ServerAutoConnect)) {
@@ -198,11 +229,17 @@ function updateFlowrConfig() {
 	const config = getConfig();
 	const wasmRoot = getWasmRootPath();
 	// we don't want to *amend* here since updates to our extension config shouldn't add additional entries while keeping old ones (definitions etc.)
-	setConfig(deepMergeObject(defaultConfigOptions, {
+	setConfig(deepMergeObject<FlowrConfigOptions>(defaultConfigOptions, {
 		ignoreSourceCalls: config.get<boolean>(Settings.IgnoreSourceCalls, false),
 		solver:            {
 			variables:       config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
-			pointerTracking: config.get<boolean>(Settings.SolverPointerTracking, true)
+			pointerTracking: config.get<boolean>(Settings.SolverPointerTracking, false),
+			resolveSource:   {
+				ignoreCapitalization:  config.get<boolean>(Settings.SolverSourceIgnoreCapitalization, true),
+				inferWorkingDirectory: config.get<InferWorkingDirectory>(Settings.SolverSourceInferWorkingDirectory, InferWorkingDirectory.ActiveScript),
+				searchPath:            config.get<string[]>(Settings.SolverSourceSearchPath, []),
+				dropPaths:             config.get<DropPathsOption>(Settings.SolverSourceDropPaths, DropPathsOption.No)
+			}
 		},
 		semantics: {
 			environment: {
@@ -215,7 +252,8 @@ function updateFlowrConfig() {
 		engines: [{
 			type:               FlowrInternalSession.getEngineToUse(),
 			wasmPath:           `${wasmRoot}/tree-sitter-r.wasm`,
-			treeSitterWasmPath: `${wasmRoot}/tree-sitter.wasm`
+			treeSitterWasmPath: `${wasmRoot}/tree-sitter.wasm`,
+			lax:                config.get<boolean>(Settings.TreeSitterLax, true)
 		}]
 	}));
 }

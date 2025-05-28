@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, getWasmRootPath, isVerbose, isWeb, updateStatusBar } from '../extension';
 import { Settings } from '../settings';
-import { dataflowGraphToMermaid } from '@eagleoutice/flowr/core/print/dataflow-printer';
-import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg';
+import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import type { FlowrSession, SliceReturn } from './utils';
 import { consolidateNewlines, makeSliceElements } from './utils';
 import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell';
@@ -13,12 +12,72 @@ import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { KnownParser, KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
 import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/tree-sitter-executor';
-import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
-import { executeQueries } from '@eagleoutice/flowr/queries/query';
+import { executeQueries, type Queries, type QueryResults, type SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { SemVer } from 'semver';
 import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
+import { LogLevel, log } from '@eagleoutice/flowr/util/log';
+import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
+import { staticSlicing } from '@eagleoutice/flowr/slicing/static/static-slicer';
+import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
+import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
+import type { SourceRange } from '@eagleoutice/flowr/util/range';
+import { reconstructToCode } from '@eagleoutice/flowr/reconstruct/reconstruct';
+import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto-select-defaults';
+import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
+import { extractSimpleCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
+
+const logLevelToScore = {
+	Silly: LogLevel.Silly,
+	Trace: LogLevel.Trace,
+	Debug: LogLevel.Debug,
+	Info:  LogLevel.Info,
+	Warn:  LogLevel.Warn,
+	Error: LogLevel.Error,
+	Fatal: LogLevel.Fatal
+} as const;
+
+function setFlowrLoggingSensitivity(output: vscode.OutputChannel) {
+	const desired = getConfig().get<keyof typeof logLevelToScore>(Settings.DebugFlowrLoglevel, isVerbose() ? 'Info' : 'Fatal');
+	const level = desired in logLevelToScore ? logLevelToScore[desired] : LogLevel.Info;
+
+	output.appendLine('[flowR] Setting log level to ' + desired + ' (' + level + ')');
+
+	log.updateSettings(l => {
+		l.settings.minLevel = level;
+		// disable all formatting highlights
+		l.settings.type = 'json';
+		if(isVerbose()) {
+			// redirect console.log to output channel
+			let lastMessage = '';
+			l.attachTransport(l => {
+				const level = l._meta?.logLevelName ?? 'LEVEL?';
+				const date = l._meta?.date ? l._meta.date.toUTCString() : 'TIME?';
+				let msg = l['0'] as unknown as string | (() => string);
+				if(typeof msg === 'function') {
+					msg = msg();
+				}
+				const message = '[flowR, ' + date + ', ' + level + '] ' + msg;
+				if(lastMessage !== message) {
+					output.appendLine(message);
+					lastMessage = message;
+				}
+			});
+		}
+	});
+}
+
+
+function configureFlowrLogging(output: vscode.OutputChannel) {
+	vscode.workspace.onDidChangeConfiguration(e => {
+		if(!e.affectsConfiguration(Settings.Category)) {
+			return;
+		}
+		setFlowrLoggingSensitivity(output);
+	});
+	setFlowrLoggingSensitivity(output);
+}
 
 export class FlowrInternalSession implements FlowrSession {
 
@@ -34,16 +93,36 @@ export class FlowrInternalSession implements FlowrSession {
 	constructor(outputChannel: vscode.OutputChannel) {
 		this.outputChannel = outputChannel;
 		this.state = 'inactive';
+		configureFlowrLogging(this.outputChannel);
 		updateStatusBar();
 	}
 
-	private async workingOnSlice<T = void>(shell: KnownParser, fun: (shell: KnownParser) => Promise<T>): Promise<T> {
-		try {
+	private async workingOn<T = void>(shell: KnownParser, fun: (shell: KnownParser) => Promise<T>, action: string): Promise<T> {
+		this.setWorking(true);
+		// update the vscode ui
+		return vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title:    (() => {
+				switch(action) {
+					case 'slice': return 'Creating Slice...';
+					case 'ast':   return 'Creating AST...';
+					case 'cfg':   return 'Creating Control Flow Graph...';
+					case 'dfg':   return 'Creating Data Flow Graph...';
+					default:      return 'Working...';
+				}
+			})(),
+			cancellable: false
+		},
+		() => {
 			this.setWorking(true);
-			return fun(shell);
-		} finally {
-			this.setWorking(false);
-		}
+			return fun(shell).catch(e => {
+				this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
+				(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
+				return {} as T;
+			}).finally(() => {
+				this.setWorking(false);
+			});
+		});
 	}
 
 	setWorking(working: boolean): void {
@@ -109,7 +188,7 @@ export class FlowrInternalSession implements FlowrSession {
 					try {
 						this.outputChannel.appendLine('Initializing tree-sitter... (wasm at: ' + getWasmRootPath() + ')');
 
-						const timeout = getConfig().get<number>(Settings.TreeSitterTimeout);
+						const timeout = getConfig().get<number>(Settings.TreeSitterTimeout, 60000);
 						await Promise.race([TreeSitterExecutor.initTreeSitter(), new Promise<void>((_, reject) => setTimeout(() => reject(new Error(`Timeout (${Settings.TreeSitterTimeout} = ${timeout}ms)`)), timeout))]);
 						FlowrInternalSession.treeSitterInitialized = true;
 					} catch(e) {
@@ -134,7 +213,7 @@ export class FlowrInternalSession implements FlowrSession {
 		this.parser?.close();
 	}
 
-	async retrieveSlice(criteria: SlicingCriteria, document: vscode.TextDocument, showErrorMessage: boolean = true): Promise<SliceReturn> {
+	async retrieveSlice(criteria: SlicingCriteria, document: vscode.TextDocument, showErrorMessage: boolean = true, info?: { graph: DataflowGraph, ast: NormalizedAst }): Promise<SliceReturn> {
 		if(!this.parser) {
 			return {
 				code:          '',
@@ -142,7 +221,7 @@ export class FlowrInternalSession implements FlowrSession {
 			};
 		}
 		try {
-			return await this.workingOnSlice(this.parser, async() => await this.extractSlice(document, criteria));
+			return await this.workingOn(this.parser, async() => await this.extractSlice(document, criteria, info), 'slice');
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
@@ -156,71 +235,101 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 	}
 
-	async retrieveDataflowMermaid(document: vscode.TextDocument): Promise<string> {
+	async retrieveDataflowMermaid(document: vscode.TextDocument, simplified = false): Promise<string> {
 		if(!this.parser) {
 			return '';
 		}
-		const result = await createDataflowPipeline(this.parser, {
-			request: requestFromInput(consolidateNewlines(document.getText()))
-		}).allRemainingSteps();
-		return dataflowGraphToMermaid(result.dataflow);
+		return await this.workingOn(this.parser, async s => {
+			const result = await createDataflowPipeline(s, {
+				request: requestFromInput(consolidateNewlines(document.getText()))
+			}).allRemainingSteps();
+			return graphToMermaid({ graph: result.dataflow.graph, simplified, includeEnvironments: false }).string;
+		}, 'dfg');
+		
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
 		if(!this.parser) {
 			return '';
 		}
-		return await this.workingOnSlice(this.parser, async s => {
+		return await this.workingOn(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
 				request: requestFromInput(consolidateNewlines(document.getText()))
 			}).allRemainingSteps();
 			return normalizedAstToMermaid(result.normalize.ast);
-		});
+		}, 'ast');
 	}
 
 	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
 		if(!this.parser) {
 			return '';
 		}
-		return await this.workingOnSlice(this.parser, async s => {
+		return await this.workingOn(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
 				request: requestFromInput(consolidateNewlines(document.getText()))
 			}).allRemainingSteps();
-			return cfgToMermaid(extractCFG(result.normalize), result.normalize);
-		});
+			return cfgToMermaid(extractSimpleCfg(result.normalize), result.normalize);
+		}, 'cfg');
 	}
 
-	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria): Promise<SliceReturn> {
+	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, info?: { graph: DataflowGraph, ast: NormalizedAst }): Promise<SliceReturn> {
 		const content = consolidateNewlines(document.getText());
 
-		const slicer = createSlicePipeline(this.parser as KnownParser, {
-			criterion: criteria,
-			request:   requestFromInput(content)
-		});
-		const result = await slicer.allRemainingSteps();
+		let elements: ReadonlySet<NodeId> = new Set();
+		let sliceElements: { id: NodeId, location: SourceRange }[] = [];
+		let code: string = '';
 
-		const sliceElements = makeSliceElements(result.slice.result, id => result.normalize.idMap.get(id)?.location);
+		if(info)  {
+			const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
+			this.outputChannel.appendLine(`[Slice (Internal)] Re-Slice using existing dataflow Graph and AST (threshold: ${threshold})`);
+			const now = Date.now();
+			elements = staticSlicing(info.graph, info.ast, criteria, threshold).result;
+			const sliceTime = Date.now() - now;
+			sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
+			const reconstructNow = Date.now();
+			code = reconstructToCode(info.ast, elements, makeMagicCommentHandler(doNotAutoSelect)).code;
+			this.outputChannel.appendLine('[Slice (Internal)] Re-Slice took ' + (Date.now() - now) + 'ms (slice: ' + sliceTime + 'ms, reconstruct: ' + (Date.now() - reconstructNow) + 'ms)');
+		} else {
+			const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
+			this.outputChannel.appendLine(`[Slice (Internal)] Slicing using pipeline (threshold: ${threshold})`);
+			const now = Date.now();
+			const slicer = createSlicePipeline(this.parser as KnownParser, {
+				criterion: criteria,
+				request:   requestFromInput(content),
+				threshold
+			});
+			const result = await slicer.allRemainingSteps();
 
+			sliceElements = makeSliceElements(result.slice.result, id => result.normalize.idMap.get(id)?.location);
+			elements = result.slice.result;
+			code = result.reconstruct.code;
+			this.outputChannel.appendLine('[Slice (Internal)] Slicing took ' + (Date.now() - now) + 'ms');
+		}
 		if(isVerbose()) {
-			this.outputChannel.appendLine('slice: ' + JSON.stringify([...result.slice.result]));
+			this.outputChannel.appendLine('[Slice (Internal)] Contains Ids: ' + JSON.stringify([...elements]));
 		}
 		return {
-			code: result.reconstruct.code,
+			code,
 			sliceElements
 		};
 	}
 
-	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<[QueryResults<T>, error: boolean]> {
+	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<{ result: QueryResults<T>, hasError: boolean, dfg?: DataflowGraph, ast?: NormalizedAst }> {
 		if(!this.parser) {
 			throw new Error('No parser available');
 		}
 		const result = await createDataflowPipeline(this.parser, {
 			request: requestFromInput(consolidateNewlines(document.getText()))
 		}).allRemainingSteps();
-		if(result.normalize.hasError) {
-			return [{} as QueryResults<T>, true];
+		if(result.normalize.hasError && (result.normalize.ast.children as unknown[])?.length === 0) {
+			return { result: {} as QueryResults<T>, hasError: true, dfg: result.dataflow.graph, ast: result.normalize };
 		}
-		return [executeQueries({ ast: result.normalize, dataflow: result.dataflow }, query), result.normalize.hasError ?? false];
+		return {
+			result:   executeQueries({ ast: result.normalize, dataflow: result.dataflow }, query),
+			hasError: result.normalize.hasError ?? false,
+			dfg:      result.dataflow.graph,
+			ast:      result.normalize
+		};
 	}
 
 	public async runRepl(config: Omit<Required<FlowrReplOptions>, 'parser'>) {

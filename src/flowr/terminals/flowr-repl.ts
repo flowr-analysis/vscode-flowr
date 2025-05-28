@@ -1,11 +1,19 @@
 import * as vscode from 'vscode';
 import type { FlowrSession } from '../utils';
-import { ansiFormatter } from '@eagleoutice/flowr/util/ansi';
 import * as readline from 'readline';
 import { Stream } from 'stream';
 import { replCompleter } from '@eagleoutice/flowr/cli/repl/core';
+import { ansiFormatter } from '@eagleoutice/flowr/util/text/ansi';
 
 export function showRepl(context: vscode.ExtensionContext, session: FlowrSession) {
+	// check if we have a terminal already
+	const terminals = vscode.window.terminals;
+	for(const terminal of terminals) {
+		if(terminal.name === 'flowr REPL') {
+			terminal.show();
+			return;
+		}
+	}
 	const writeEmitter = new vscode.EventEmitter<string>();
 	// make a readable stream
 	const readable = new Stream.Readable({
