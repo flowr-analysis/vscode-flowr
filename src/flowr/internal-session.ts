@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, getWasmRootPath, isVerbose, isWeb, updateStatusBar } from '../extension';
 import { Settings } from '../settings';
 import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
-import { extractCFG } from '@eagleoutice/flowr/util/cfg/cfg';
 import type { FlowrSession, SliceReturn } from './utils';
 import { consolidateNewlines, makeSliceElements } from './utils';
 import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell';
@@ -27,6 +26,7 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { reconstructToCode } from '@eagleoutice/flowr/reconstruct/reconstruct';
 import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto-select-defaults';
 import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
+import { extractSimpleCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -268,7 +268,7 @@ export class FlowrInternalSession implements FlowrSession {
 			const result = await createNormalizePipeline(s, {
 				request: requestFromInput(consolidateNewlines(document.getText()))
 			}).allRemainingSteps();
-			return cfgToMermaid(extractCFG(result.normalize), result.normalize);
+			return cfgToMermaid(extractSimpleCfg(result.normalize), result.normalize);
 		}, 'cfg');
 	}
 

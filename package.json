@@ -523,7 +523,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile && npm run package-web",
-    "copy-wasm": "mkdir -p out/flowr/tree-sitter && cp src/flowr/tree-sitter/*.wasm out/flowr/tree-sitter && mkdir -p node_modules/@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/ && cp src/flowr/tree-sitter/*.wasm node_modules/@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/",
+    "copy-wasm": "mkdir -p dist/node_modules/@eagleoutice/tree-sitter-r/ && mkdir -p dist/node_modules/web-tree-sitter && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/node_modules/@eagleoutice/tree-sitter-r/ && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/node_modules/web-tree-sitter/ && mkdir -p out/flowr/tree-sitter/ && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm node_modules/web-tree-sitter/tree-sitter.wasm out/flowr/tree-sitter/",
     "compile": "npm run copy-wasm && tsc -p ./",
     "watch": "npm run copy-wasm && tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
@@ -531,13 +531,13 @@
     "test": "vscode-test",
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse",
     "browser": "vscode-test-web --extensionDevelopmentPath=. .",
-    "copy-wasm-web": "mkdir -p dist/web && cp src/flowr/tree-sitter/*.wasm dist/web",
+    "copy-wasm-web": "mkdir -p dist/web && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/web && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/web",
     "compile-web": "npm run copy-wasm-web && webpack",
     "package-web": "npm run copy-wasm-web && webpack --mode production --devtool hidden-source-map",
     "watch-web": "npm run copy-wasm-web && webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.2.12",
+    "@eagleoutice/flowr": "^2.2.13",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
