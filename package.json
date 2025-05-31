@@ -46,6 +46,12 @@
         "icon": "$(gear)"
       },
       {
+        "command": "vscode-flowr.lint.run",
+        "icon": "$(bug)",
+        "title": "Code Quality Analysis (Linter)",
+        "category": "flowR"
+      },
+      {
         "command": "vscode-flowr.internal.slice.dependency",
         "title": "Show Slice of Dependency",
         "category": "flowR",
