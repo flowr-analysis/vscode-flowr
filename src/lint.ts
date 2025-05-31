@@ -42,7 +42,7 @@ class LinterService {
 					finding.range[0] - 1,
 					finding.range[1] - 1,
 					finding.range[2] - 1,
-					finding.range[3] - 1
+					finding.range[3]
 				);
 				diagnostics.push(
 					new vscode.Diagnostic(
