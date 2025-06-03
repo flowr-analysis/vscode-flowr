@@ -13,6 +13,7 @@ import type { FlowrConfigOptions } from '@eagleoutice/flowr/config';
 import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfigOptions, setConfig } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
+import { registerLintCommands } from './lint';
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
@@ -29,6 +30,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	registerDiagramCommands(context, outputChannel);
 	registerSliceCommands(context, outputChannel);
+	registerLintCommands(context, outputChannel);
 
 	updateFlowrConfig();
 	vscode.workspace.onDidChangeConfiguration(updateFlowrConfig);
