@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { getFlowrSession } from './extension';
+import { getFlowrSession } from './main';
 import type { LintingRuleNames, LintingRuleResult } from '@eagleoutice/flowr/linter/linter-rules';
 import { LintingRules } from '@eagleoutice/flowr/linter/linter-rules';
+import { LintingPrettyPrintContext } from '@eagleoutice/flowr/linter/linter-format';
 
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(output);
@@ -47,7 +48,10 @@ class LinterService {
 				diagnostics.push(
 					new vscode.Diagnostic(
 						range,
-						ruleName + ': ' + rule.prettyPrint(finding as LintingRuleResult<LintingRuleNames>),
+						ruleName + ': ' + rule.prettyPrint[LintingPrettyPrintContext.Full](
+							finding as LintingRuleResult<LintingRuleNames>, 
+							findings['.meta'] as LintingRuleResult<LintingRuleNames>['.meta']
+						),
 						vscode.DiagnosticSeverity.Warning
 					)
 				);
