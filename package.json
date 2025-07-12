@@ -538,13 +538,13 @@
     "test": "vscode-test",
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse",
     "browser": "vscode-test-web --extensionDevelopmentPath=. .",
-    "copy-wasm-web": "mkdir -p dist/web && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/web && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/web",
+    "copy-wasm-web": "npm run copy-wasm && mkdir -p dist/web && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/web && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/web",
     "compile-web": "npm run copy-wasm-web && webpack",
     "package-web": "npm run copy-wasm-web && webpack --mode production --devtool hidden-source-map",
     "watch-web": "npm run copy-wasm-web && webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.2.15",
+    "@eagleoutice/flowr": "^2.2.16",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",

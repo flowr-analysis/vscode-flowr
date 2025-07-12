@@ -10,7 +10,7 @@ import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
 import { registerDependencyView } from './flowr/views/dependency-view';
 import type { FlowrConfigOptions } from '@eagleoutice/flowr/config';
-import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfigOptions, setConfig } from '@eagleoutice/flowr/config';
+import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfigOptions } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
@@ -26,7 +26,7 @@ let flowrSession: FlowrSession | undefined;
 export async function activate(context: vscode.ExtensionContext) {
 	extensionContext = context;
 	outputChannel = vscode.window.createOutputChannel('flowR');
-	outputChannel.appendLine(`flowR extension activated (ships with flowR v${flowrVersion().toString()})`);
+	outputChannel.appendLine(`flowR extension activated (ships with flowR v${flowrVersion().toString()}, web: ${isWeb()})`);
 
 	registerDiagramCommands(context, outputChannel);
 	registerSliceCommands(context, outputChannel);
@@ -204,7 +204,7 @@ export function isWeb() {
 	// apparently there is no official way to test this from the vscode api other
 	// than in the command availability context stuff, which is not what we want
 	// this is dirty but it should work since the WebSocket is unavailable in node
-	return typeof WebSocket !== 'undefined';
+	return typeof __webpack_require__ === 'function'
 }
 
 export function getWasmRootPath(): string {
@@ -217,11 +217,13 @@ export function getWasmRootPath(): string {
 	}
 }
 
+export let VSCodeFlowrConfiguration = defaultConfigOptions;
+
 function updateFlowrConfig() {
 	const config = getConfig();
 	const wasmRoot = getWasmRootPath();
 	// we don't want to *amend* here since updates to our extension config shouldn't add additional entries while keeping old ones (definitions etc.)
-	setConfig(deepMergeObject<FlowrConfigOptions>(defaultConfigOptions, {
+	VSCodeFlowrConfiguration = deepMergeObject<FlowrConfigOptions>(defaultConfigOptions, {
 		ignoreSourceCalls: config.get<boolean>(Settings.IgnoreSourceCalls, false),
 		solver:            {
 			variables:       config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
@@ -247,5 +249,5 @@ function updateFlowrConfig() {
 			treeSitterWasmPath: `${wasmRoot}/tree-sitter.wasm`,
 			lax:                config.get<boolean>(Settings.TreeSitterLax, true)
 		}]
-	}));
+	});
 }
