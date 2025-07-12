@@ -4,7 +4,7 @@
 // (either per command or updating as the cursor moves)
 
 import * as vscode from 'vscode';
-import { getConfig, getFlowrSession } from './main';
+import { getConfig, getFlowrSession } from './extension';
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
 import type { SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';

@@ -3,7 +3,7 @@
 // and display their slices
 
 import * as vscode from 'vscode';
-import { getConfig, getFlowrSession, isVerbose, updateStatusBar } from './main';
+import { getConfig, getFlowrSession, isVerbose, updateStatusBar } from './extension';
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
 import { getPositionAt, makeSlicingCriteria } from './flowr/utils';
 import type { DecoTypes } from './slice';

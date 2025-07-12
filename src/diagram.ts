@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getConfig, getFlowrSession } from './main';
+import { getConfig, getFlowrSession } from './extension';
 import { Settings } from './settings';
 
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getConfig, getFlowrSession, isVerbose } from '../../main';
+import { getConfig, getFlowrSession, isVerbose } from '../../extension';
 import type { DependenciesQuery, DependenciesQueryResult, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';

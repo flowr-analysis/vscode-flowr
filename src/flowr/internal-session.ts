@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { BEST_R_MAJOR, MINIMUM_R_MAJOR, VSCodeFlowrConfiguration, getConfig, getWasmRootPath, isVerbose, isWeb, updateFlowrConfig, updateStatusBar } from '../main';
+import { BEST_R_MAJOR, MINIMUM_R_MAJOR, getConfig, getWasmRootPath, isVerbose, isWeb, updateStatusBar } from '../extension';
 import { Settings } from '../settings';
 import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import type { FlowrSession, SliceReturn } from './utils';
@@ -27,7 +27,6 @@ import { reconstructToCode } from '@eagleoutice/flowr/reconstruct/reconstruct';
 import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto-select-defaults';
 import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
 import { extractSimpleCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
-import { getEngineConfig } from '@eagleoutice/flowr/config';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -134,6 +133,7 @@ export class FlowrInternalSession implements FlowrSession {
 	async initialize() {
 		this.state = 'loading';
 		updateStatusBar();
+
 		this.outputChannel.appendLine('Starting internal flowR engine');
 
 		switch(FlowrInternalSession.getEngineToUse()) {
@@ -148,7 +148,7 @@ export class FlowrInternalSession implements FlowrSession {
 				}
 				this.outputChannel.appendLine(`Using options ${JSON.stringify(options)}`);
 
-				this.parser = new RShell(getEngineConfig(VSCodeFlowrConfiguration, 'r-shell'), options);
+				this.parser = new RShell(options);
 				this.parser.tryToInjectHomeLibPath();
 
 				// wait at most 1 second for the version, since the R shell doesn't let us know if the path
@@ -187,7 +187,7 @@ export class FlowrInternalSession implements FlowrSession {
 				if(!FlowrInternalSession.treeSitterInitialized) {
 					try {
 						this.outputChannel.appendLine('Initializing tree-sitter... (wasm at: ' + getWasmRootPath() + ')');
-						updateFlowrConfig()
+
 						const timeout = getConfig().get<number>(Settings.TreeSitterTimeout, 60000);
 						await Promise.race([TreeSitterExecutor.initTreeSitter(), new Promise<void>((_, reject) => setTimeout(() => reject(new Error(`Timeout (${Settings.TreeSitterTimeout} = ${timeout}ms)`)), timeout))]);
 						FlowrInternalSession.treeSitterInitialized = true;
@@ -242,7 +242,7 @@ export class FlowrInternalSession implements FlowrSession {
 		return await this.workingOn(this.parser, async s => {
 			const result = await createDataflowPipeline(s, {
 				request: requestFromInput(consolidateNewlines(document.getText()))
-			}, VSCodeFlowrConfiguration).allRemainingSteps();
+			}).allRemainingSteps();
 			return graphToMermaid({ graph: result.dataflow.graph, simplified, includeEnvironments: false }).string;
 		}, 'dfg');
 		
@@ -255,7 +255,7 @@ export class FlowrInternalSession implements FlowrSession {
 		return await this.workingOn(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
 				request: requestFromInput(consolidateNewlines(document.getText()))
-			}, VSCodeFlowrConfiguration).allRemainingSteps();
+			}).allRemainingSteps();
 			return normalizedAstToMermaid(result.normalize.ast);
 		}, 'ast');
 	}
@@ -267,7 +267,7 @@ export class FlowrInternalSession implements FlowrSession {
 		return await this.workingOn(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
 				request: requestFromInput(consolidateNewlines(document.getText()))
-			}, VSCodeFlowrConfiguration).allRemainingSteps();
+			}).allRemainingSteps();
 			return cfgToMermaid(extractSimpleCfg(result.normalize), result.normalize);
 		}, 'cfg');
 	}
@@ -297,7 +297,7 @@ export class FlowrInternalSession implements FlowrSession {
 				criterion: criteria,
 				request:   requestFromInput(content),
 				threshold
-			}, VSCodeFlowrConfiguration);
+			});
 			const result = await slicer.allRemainingSteps();
 
 			sliceElements = makeSliceElements(result.slice.result, id => result.normalize.idMap.get(id)?.location);
@@ -320,12 +320,12 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 		const result = await createDataflowPipeline(this.parser, {
 			request: requestFromInput(consolidateNewlines(document.getText()))
-		}, VSCodeFlowrConfiguration).allRemainingSteps();
+		}).allRemainingSteps();
 		if(result.normalize.hasError && (result.normalize.ast.children as unknown[])?.length === 0) {
 			return { result: {} as QueryResults<T>, hasError: true, dfg: result.dataflow.graph, ast: result.normalize };
 		}
 		return {
-			result:   executeQueries({ ast: result.normalize, dataflow: result.dataflow, config: VSCodeFlowrConfiguration }, query),
+			result:   executeQueries({ ast: result.normalize, dataflow: result.dataflow }, query),
 			hasError: result.normalize.hasError ?? false,
 			dfg:      result.dataflow.graph,
 			ast:      result.normalize
@@ -337,7 +337,7 @@ export class FlowrInternalSession implements FlowrSession {
 			return;
 		}
 		(config.output as { stdout: (s: string) => void}).stdout(await versionReplString(this.parser));
-		await repl(VSCodeFlowrConfiguration, { ...config, parser: this.parser });
+		await repl({ ...config, parser: this.parser });
 	}
 
 	public static getEngineToUse(): KnownParserName {

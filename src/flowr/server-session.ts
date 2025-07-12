@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as ws from 'ws';
 import type { FlowrMessage } from '@eagleoutice/flowr/cli/repl/server/messages/all-messages';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
-import { establishInternalSession, getConfig, isVerbose, isWeb, updateStatusBar } from '../main';
+import { establishInternalSession, getConfig, isVerbose, isWeb, updateStatusBar } from '../extension';
 import type { ConnectionType } from '../settings';
 import { Settings } from '../settings';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';

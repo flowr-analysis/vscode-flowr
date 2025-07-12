@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
-import { getConfig, isVerbose } from './main';
+import { getConfig, isVerbose } from './extension';
 import type { SliceDisplay } from './settings';
 import { Settings } from './settings';
 import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-slicer';
