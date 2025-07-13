@@ -79,7 +79,7 @@ Extension config:
 \`\`\`json
 ${JSON.stringify(getConfig(), null, 2)}
 \`\`\`
-						`.trimStart());
+						`.trim());
 					const url = `https://github.com/flowr-analysis/vscode-flowr/issues/new?body=${body}`;
 					void vscode.env.openExternal(vscode.Uri.parse(url));
 				} else if(result === 'Provide Feedback') {
