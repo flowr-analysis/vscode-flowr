@@ -199,10 +199,9 @@ export function updateStatusBar() {
 }
 
 export function isWeb() {
-	// apparently there is no official way to test this from the vscode api other
-	// than in the command availability context stuff, which is not what we want
-	// this is dirty but it should work since the WebSocket is unavailable in node
-	return typeof WebSocket !== 'undefined';
+	// uiKind doesn't do the check we want here, since it still returns the desktop environment if we're in the vscode desktop fake browser version
+	// also, this is the recommended check according to https://code.visualstudio.com/updates/v1_101#_web-environment-detection
+	return !(typeof process === 'object' && process.versions.node);
 }
 
 export function getWasmRootPath(): string {
