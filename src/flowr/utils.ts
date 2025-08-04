@@ -27,7 +27,7 @@ export interface FlowrSession {
 	retrieveDataflowMermaid: (document: vscode.TextDocument, simplified?: boolean) => Promise<string>
 	retrieveAstMermaid:      (document: vscode.TextDocument) => Promise<string>
 	retrieveCfgMermaid:      (document: vscode.TextDocument) => Promise<string>
-	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<{ result: QueryResults<T>, hasError: boolean, dfg?: DataflowGraph, ast?: NormalizedAst }>
+		retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<{ result: QueryResults<T>, hasError: boolean, dfg?: DataflowGraph, ast?: NormalizedAst }>
 	runRepl:                 (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }
 
