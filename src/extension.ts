@@ -66,22 +66,22 @@ export async function activate(context: vscode.ExtensionContext) {
 			void vscode.window.showQuickPick(['Report a Bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result: string | undefined) => {
 				if(result === 'Report a Bug') {
 					const body = encodeURIComponent(`
-						<!-- Please describe your issue, suggestion or feature request in more detail below! -->
+<!-- Please describe your issue, suggestion or feature request in more detail below! -->
 
 
 
-						<!-- Automatically generated issue metadata, please do not edit or delete content below this line -->
-						---
-						flowR version: ${flowrVersion().toString()}
-						Extension version: ${(extensionContext.extension.packageJSON as {version: string}).version} (${vscode.ExtensionMode[extensionContext.extensionMode]} mode)
-						VS Code version: ${vscode.version} (web ${isWeb()})
-						Session: ${flowrSession ? `${flowrSession instanceof FlowrServerSession ? 'server' : 'internal'} (${flowrSession instanceof FlowrServerSession ? flowrSession.state : (flowrSession as FlowrInternalSession)?.state})` : 'none'}
-						OS: ${process.platform}
-						Extension config:
-						\`\`\`json
-						${JSON.stringify(getConfig(), null, 2)}
-						\`\`\`
-						`.trimStart());
+<!-- Automatically generated issue metadata, please do not edit or delete content below this line -->
+---
+flowR version: ${flowrVersion().toString()}  
+Extension version: ${(extensionContext.extension.packageJSON as {version: string}).version} (${vscode.ExtensionMode[extensionContext.extensionMode]} mode)  
+VS Code version: ${vscode.version} (web ${isWeb()})  
+Session: ${flowrSession ? `${flowrSession instanceof FlowrServerSession ? 'server' : 'internal'} (${flowrSession instanceof FlowrServerSession ? flowrSession.state : (flowrSession as FlowrInternalSession)?.state})` : 'none'}  
+OS: ${process.platform}  
+Extension config:  
+\`\`\`json
+${JSON.stringify(getConfig(), null, 2)}
+\`\`\`
+						`.trim());
 					const url = `https://github.com/flowr-analysis/vscode-flowr/issues/new?body=${body}`;
 					void vscode.env.openExternal(vscode.Uri.parse(url));
 				} else if(result === 'Provide Feedback') {
@@ -201,10 +201,9 @@ export function updateStatusBar() {
 }
 
 export function isWeb() {
-	// apparently there is no official way to test this from the vscode api other
-	// than in the command availability context stuff, which is not what we want
-	// this is dirty but it should work since the WebSocket is unavailable in node
-	return typeof __webpack_require__ === 'function';
+	// uiKind doesn't do the check we want here, since it still returns the desktop environment if we're in the vscode desktop fake browser version
+	// also, this is the recommended check according to https://code.visualstudio.com/updates/v1_101#_web-environment-detection
+	return !(typeof process === 'object' && process.versions.node);
 }
 
 export function getWasmRootPath(): string {
