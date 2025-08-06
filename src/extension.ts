@@ -10,9 +10,10 @@ import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
 import { registerDependencyView } from './flowr/views/dependency-view';
 import type { FlowrConfigOptions } from '@eagleoutice/flowr/config';
-import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfigOptions, setConfig } from '@eagleoutice/flowr/config';
+import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfigOptions } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
+import { registerLintCommands } from './lint';
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
@@ -25,10 +26,11 @@ let flowrSession: FlowrSession | undefined;
 export async function activate(context: vscode.ExtensionContext) {
 	extensionContext = context;
 	outputChannel = vscode.window.createOutputChannel('flowR');
-	outputChannel.appendLine(`flowR extension activated (ships with flowR v${flowrVersion().toString()})`);
+	outputChannel.appendLine(`flowR extension activated (ships with flowR v${flowrVersion().toString()}, web: ${isWeb()})`);
 
 	registerDiagramCommands(context, outputChannel);
 	registerSliceCommands(context, outputChannel);
+	registerLintCommands(context, outputChannel);
 
 	updateFlowrConfig();
 	vscode.workspace.onDidChangeConfiguration(updateFlowrConfig);
@@ -61,7 +63,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vscode-flowr.feedback', () => {
-			void vscode.window.showQuickPick(['Report a Bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result: string | undefined) => { 
+			void vscode.window.showQuickPick(['Report a Bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result: string | undefined) => {
 				if(result === 'Report a Bug') {
 					const body = encodeURIComponent(`
 <!-- Please describe your issue, suggestion or feature request in more detail below! -->
@@ -86,7 +88,7 @@ ${JSON.stringify(getConfig(), null, 2)}
 					const url = 'https://docs.google.com/forms/d/e/1FAIpQLScKFhgnh9LGVU7QzqLvFwZe1oiv_5jNhkIO-G-zND0ppqsMxQ/viewform?pli=1';
 					vscode.env.openExternal(vscode.Uri.parse(url));
 				}
-			});	
+			});
 		}));
 
 	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -214,11 +216,13 @@ export function getWasmRootPath(): string {
 	}
 }
 
+export let VSCodeFlowrConfiguration = defaultConfigOptions;
+
 function updateFlowrConfig() {
 	const config = getConfig();
 	const wasmRoot = getWasmRootPath();
 	// we don't want to *amend* here since updates to our extension config shouldn't add additional entries while keeping old ones (definitions etc.)
-	setConfig(deepMergeObject<FlowrConfigOptions>(defaultConfigOptions, {
+	VSCodeFlowrConfiguration = deepMergeObject<FlowrConfigOptions>(defaultConfigOptions, {
 		ignoreSourceCalls: config.get<boolean>(Settings.IgnoreSourceCalls, false),
 		solver:            {
 			variables:       config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
@@ -244,5 +248,5 @@ function updateFlowrConfig() {
 			treeSitterWasmPath: `${wasmRoot}/tree-sitter.wasm`,
 			lax:                config.get<boolean>(Settings.TreeSitterLax, true)
 		}]
-	}));
+	});
 }
