@@ -19,7 +19,7 @@ import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
 import { LogLevel, log } from '@eagleoutice/flowr/util/log';
 import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
-import { staticSlicing } from '@eagleoutice/flowr/slicing/static/static-slicer';
+import { staticSlice } from '@eagleoutice/flowr/slicing/static/static-slicer';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
@@ -28,6 +28,7 @@ import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto
 import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
 import { extractSimpleCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
 import { getEngineConfig } from '@eagleoutice/flowr/config';
+import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -187,7 +188,7 @@ export class FlowrInternalSession implements FlowrSession {
 				if(!FlowrInternalSession.treeSitterInitialized) {
 					try {
 						const timeout = getConfig().get<number>(Settings.TreeSitterTimeout, 60000);
-						
+
 						this.outputChannel.appendLine('Initializing tree-sitter... (wasm at: ' + getWasmRootPath() + ', timeout: ' + timeout + 'ms)');
 
 						await Promise.race([TreeSitterExecutor.initTreeSitter(
@@ -248,7 +249,7 @@ export class FlowrInternalSession implements FlowrSession {
 			}, VSCodeFlowrConfiguration).allRemainingSteps();
 			return graphToMermaid({ graph: result.dataflow.graph, simplified, includeEnvironments: false }).string;
 		}, 'dfg');
-		
+
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
@@ -286,7 +287,7 @@ export class FlowrInternalSession implements FlowrSession {
 			const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
 			this.outputChannel.appendLine(`[Slice (Internal)] Re-Slice using existing dataflow Graph and AST (threshold: ${threshold})`);
 			const now = Date.now();
-			elements = staticSlicing(info.graph, info.ast, criteria, threshold).result;
+			elements = staticSlice(info.graph, info.ast, criteria, SliceDirection.Backward, threshold).result;
 			const sliceTime = Date.now() - now;
 			sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
 			const reconstructNow = Date.now();

@@ -63,21 +63,21 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vscode-flowr.feedback', () => {
-			void vscode.window.showQuickPick(['Report a Bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result: string | undefined) => { 
+			void vscode.window.showQuickPick(['Report a Bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result: string | undefined) => {
 				if(result === 'Report a Bug') {
 					const body = encodeURIComponent(`
 						<!-- Please describe your issue, suggestion or feature request in more detail below! -->
-						
-						
-						
+
+
+
 						<!-- Automatically generated issue metadata, please do not edit or delete content below this line -->
 						---
-						flowR version: ${flowrVersion().toString()}  
-						Extension version: ${(extensionContext.extension.packageJSON as {version: string}).version} (${vscode.ExtensionMode[extensionContext.extensionMode]} mode)  
-						VS Code version: ${vscode.version} (web ${isWeb()})  
-						Session: ${flowrSession ? `${flowrSession instanceof FlowrServerSession ? 'server' : 'internal'} (${flowrSession instanceof FlowrServerSession ? flowrSession.state : (flowrSession as FlowrInternalSession)?.state})` : 'none'}  
-						OS: ${process.platform}  
-						Extension config:  
+						flowR version: ${flowrVersion().toString()}
+						Extension version: ${(extensionContext.extension.packageJSON as {version: string}).version} (${vscode.ExtensionMode[extensionContext.extensionMode]} mode)
+						VS Code version: ${vscode.version} (web ${isWeb()})
+						Session: ${flowrSession ? `${flowrSession instanceof FlowrServerSession ? 'server' : 'internal'} (${flowrSession instanceof FlowrServerSession ? flowrSession.state : (flowrSession as FlowrInternalSession)?.state})` : 'none'}
+						OS: ${process.platform}
+						Extension config:
 						\`\`\`json
 						${JSON.stringify(getConfig(), null, 2)}
 						\`\`\`
@@ -88,7 +88,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					const url = 'https://docs.google.com/forms/d/e/1FAIpQLScKFhgnh9LGVU7QzqLvFwZe1oiv_5jNhkIO-G-zND0ppqsMxQ/viewform?pli=1';
 					vscode.env.openExternal(vscode.Uri.parse(url));
 				}
-			});	
+			});
 		}));
 
 	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -204,7 +204,7 @@ export function isWeb() {
 	// apparently there is no official way to test this from the vscode api other
 	// than in the command availability context stuff, which is not what we want
 	// this is dirty but it should work since the WebSocket is unavailable in node
-	return typeof __webpack_require__ === 'function'
+	return typeof __webpack_require__ === 'function';
 }
 
 export function getWasmRootPath(): string {
