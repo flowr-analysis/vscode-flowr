@@ -18,26 +18,26 @@ class LinterService {
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
 	}
-   
+
 	async runLinting(): Promise<void> {
 		const activeEditor = vscode.window.activeTextEditor;
 
 		if(!activeEditor) {
 			return;
 		}
-   
+
 		const diagnostics: vscode.Diagnostic[] = [];
-		this.output.appendLine(`[Lint] Analyzing document: ${activeEditor.document.fileName}`);
+		this.output.appendLine(`[Lint, Preview] Analyzing document: ${activeEditor.document.fileName}`);
 		const session = await getFlowrSession();
-      
+
 		const lint = await session.retrieveQuery(activeEditor.document, [{ type: 'linter' }]);
-      
+
 		for(const [ruleName, findings] of Object.entries(lint.result.linter.results)) {
 			const rule = LintingRules[ruleName as LintingRuleNames];
 
 			this.output.appendLine(`[Lint] Found ${findings.results.length} issues for rule: ${ruleName}`);
 			this.output.appendLine(`[Lint] ${JSON.stringify(findings)}`);
-         
+
 			for(const finding of findings.results) {
 				const range = new vscode.Range(
 					finding.range[0] - 1,
@@ -49,7 +49,7 @@ class LinterService {
 					new vscode.Diagnostic(
 						range,
 						ruleName + ': ' + rule.prettyPrint[LintingPrettyPrintContext.Full](
-							finding as LintingRuleResult<LintingRuleNames>, 
+							finding as LintingRuleResult<LintingRuleNames>,
 							findings['.meta'] as LintingRuleResult<LintingRuleNames>['.meta']
 						),
 						vscode.DiagnosticSeverity.Warning
