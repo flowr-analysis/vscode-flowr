@@ -24,6 +24,7 @@ import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import { BiMap } from '@eagleoutice/flowr/util/collections/bimap';
 import { extractSimpleCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
+import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -229,15 +230,15 @@ export class FlowrServerSession implements FlowrSession {
 		});
 	}
 
-	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<{ result: QueryResults<T>, hasError: boolean, dfg?: DataflowGraph, ast?: NormalizedAst }> {
+	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<{ result: QueryResults<T>, hasError: boolean, dfi?: DataflowInformation, ast?: NormalizedAst }> {
 		await this.requestFileAnalysis(document, '@query');
-		return { 
+		return {
 			result: await this.sendCommandWithResponse({
 				type:      'request-query',
 				id:        String(this.idCounter++),
 				filetoken: '@query',
 				query
-			}), 
+			}),
 			hasError: false
 		};
 	}
