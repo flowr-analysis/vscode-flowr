@@ -5,8 +5,8 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import type { SingleSlicingCriterion, SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
-import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
+import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
@@ -22,12 +22,12 @@ export interface FlowrSession {
 		criteria: SlicingCriteria,
 		document: vscode.TextDocument,
 		showErrorMessage?: boolean,
-		info?: { graph: DataflowGraph, ast: NormalizedAst }
+		info?: { dfi: DataflowInformation, ast: NormalizedAst }
 	) => Promise<SliceReturn>
 	retrieveDataflowMermaid: (document: vscode.TextDocument, simplified?: boolean) => Promise<string>
 	retrieveAstMermaid:      (document: vscode.TextDocument) => Promise<string>
 	retrieveCfgMermaid:      (document: vscode.TextDocument) => Promise<string>
-	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<{ result: QueryResults<T>, hasError: boolean, dfg?: DataflowGraph, ast?: NormalizedAst }>
+	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<{ result: QueryResults<T>, hasError: boolean, dfi?: DataflowInformation, ast?: NormalizedAst }>
 	runRepl:                 (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }
 
@@ -97,7 +97,7 @@ export class RotaryBuffer<T> {
 		}
 		return this.buffer.find(item);
 	}
-	
+
 	size(): number {
 		return this.buffer.length;
 	}

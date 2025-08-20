@@ -6,8 +6,8 @@ import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/proc
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { RotaryBuffer } from '../utils';
 import { Settings } from '../../settings';
-import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
+import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 
 const FlowrDependencyViewId = 'flowr-dependencies';
 /** returns disposer */
@@ -212,7 +212,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		);
 	}
 
-	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult, ast?: NormalizedAst, dfg?: DataflowGraph} | 'error'> {
+	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult, ast?: NormalizedAst, dfi?: DataflowInformation} | 'error'> {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(!activeEditor) {
 			return { dep: emptyDependencies, loc: emptyLocationMap };
@@ -220,7 +220,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		const config = getConfig();
 		const session = await getFlowrSession();
 		const now = Date.now();
-		const { result, hasError, dfg, ast } = await session.retrieveQuery(activeEditor.document, [
+		const { result, hasError, dfi, ast } = await session.retrieveQuery(activeEditor.document, [
 			{
 				type:                   'dependencies',
 				ignoreDefaultFunctions: config.get<boolean>(Settings.DependenciesQueryIgnoreDefaults, false),
@@ -235,13 +235,13 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			this.output.appendLine('[Dependency View] Error: Could not retrieve dependencies (parser error)');
 			if(result.dependencies && result['location-map']) {
 				this.output.appendLine(`[Dependency View] Refreshed (partially) in ${total}ms! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
-				return { dep: result.dependencies, loc: result['location-map'], ast, dfg };
+				return { dep: result.dependencies, loc: result['location-map'], ast, dfi };
 			} else {
 				return 'error';
 			}
 		}
 		this.output.appendLine(`[Dependency View] Refreshed in ${total}ms! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
-		return { dep: result.dependencies, loc: result['location-map'], ast, dfg };
+		return { dep: result.dependencies, loc: result['location-map'], ast, dfi };
 	}
 
 	private working = false;
@@ -309,7 +309,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					this.activeDependencies = res.dep;
 					this.locationMap = res.loc;
 					this.textBuffer.push([{ content: text, path: vscode.window.activeTextEditor?.document.uri.fsPath ?? '' }, res]);
-					this.makeRootElements(res.dfg, res.ast);
+					this.makeRootElements(res.dfi, res.ast);
 					this._onDidChangeTreeData.fire(undefined);
 				}).catch(e => {
 					this.output.appendLine(`[Dependency View] Error: ${(e as Error).message}`);
@@ -355,22 +355,22 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		return element.getParent();
 	}
 
-	private makeRootElements(dfg?: DataflowGraph, ast?: NormalizedAst) {
+	private makeRootElements(dfi?: DataflowInformation, ast?: NormalizedAst) {
 		this.rootElements = [
-			this.makeDependency('Libraries', 'loads the library', this.activeDependencies.libraries, new vscode.ThemeIcon('library'), e => e.libraryName, dfg, ast),
-			this.makeDependency('Imported Data', 'imports the data', this.activeDependencies.readData, new vscode.ThemeIcon('file-text'), e => e.source, dfg, ast),
-			this.makeDependency('Sourced Scripts', 'sources the script', this.activeDependencies.sourcedFiles, new vscode.ThemeIcon('file-code'), e => e.file, dfg, ast),
-			this.makeDependency('Outputs', 'produces the output', this.activeDependencies.writtenData, new vscode.ThemeIcon('new-file'), e => e.destination, dfg, ast)
+			this.makeDependency('Libraries', 'loads the library', this.activeDependencies.libraries, new vscode.ThemeIcon('library'), e => e.libraryName, dfi, ast),
+			this.makeDependency('Imported Data', 'imports the data', this.activeDependencies.readData, new vscode.ThemeIcon('file-text'), e => e.source, dfi, ast),
+			this.makeDependency('Sourced Scripts', 'sources the script', this.activeDependencies.sourcedFiles, new vscode.ThemeIcon('file-code'), e => e.file, dfi, ast),
+			this.makeDependency('Outputs', 'produces the output', this.activeDependencies.writtenData, new vscode.ThemeIcon('new-file'), e => e.destination, dfi, ast)
 		];
 	}
 
-	private makeDependency<E extends DependencyInfo>(label: string, verb: string, elements: E[], themeIcon: vscode.ThemeIcon, getName: (e: E) => string, dfg?: DataflowGraph, ast?: NormalizedAst): Dependency {
-		const parent = new Dependency({ label, icon: themeIcon, root: true, verb, children: this.makeChildren(getName, elements, verb, dfg, ast), ast, graph: dfg });
+	private makeDependency<E extends DependencyInfo>(label: string, verb: string, elements: E[], themeIcon: vscode.ThemeIcon, getName: (e: E) => string, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency {
+		const parent = new Dependency({ label, icon: themeIcon, root: true, verb, children: this.makeChildren(getName, elements, verb, dfi, ast), ast, dfi });
 		parent.children?.forEach(c => c.setParent(parent));
 		return parent;
 	}
 
-	private makeChildren<E extends DependencyInfo>(getName: (e: E) => string, elements: E[], verb: string, dfg?: DataflowGraph, ast?: NormalizedAst): Dependency[] {
+	private makeChildren<E extends DependencyInfo>(getName: (e: E) => string, elements: E[], verb: string, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency[] {
 		const unknownGuardedName = (e: E) => {
 			const name = getName(e);
 			if(name === 'unknown' && e.lexemeOfArgument) {
@@ -389,7 +389,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		}
 		return Array.from(grouped.entries()).map(([name, elements]) => {
 			if(elements.length === 1) {
-				return new Dependency({ label: unknownGuardedName(elements[0]), info: elements[0], locationMap: this.locationMap, verb, graph: dfg, ast });
+				return new Dependency({ label: unknownGuardedName(elements[0]), info: elements[0], locationMap: this.locationMap, verb, dfi, ast });
 			}
 			const res = new Dependency({
 				label:       name,
@@ -401,10 +401,10 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					label:       unknownGuardedName(e),
 					info:        e,
 					locationMap: this.locationMap,
-					graph:       dfg,
+					dfi:         dfi,
 					ast
 				})),
-				graph: dfg,
+				dfi: dfi,
 				ast
 			});
 			res.children?.forEach(c => c.setParent(res));
@@ -435,7 +435,7 @@ interface DependenciesParams {
    readonly collapsibleState?: vscode.TreeItemCollapsibleState;
    readonly icon?:             vscode.ThemeIcon;
    readonly locationMap?:      LocationMapQueryResult;
-	readonly graph?:              DataflowGraph;
+	readonly dfi?:                DataflowInformation;
 	readonly ast?:                NormalizedAst;
 }
 
@@ -445,27 +445,28 @@ export class Dependency extends vscode.TreeItem {
 	private readonly loc?:         SourceRange;
 	private parent?:               Dependency;
 	private readonly locationMap?: LocationMapQueryResult;
-	private readonly dfInfo?:      { graph: DataflowGraph, ast: NormalizedAst };
+	private readonly dfInfo?:      { dfi: DataflowInformation, ast: NormalizedAst };
 
 	public setParent(parent: Dependency) {
 		this.parent = parent;
+		this.id = (parent.id ?? '') + this.id;
 	}
 
 	public getParent(): Dependency | undefined {
 		return this.parent;
 	}
 
-	public getAnalysisInfo(): { graph: DataflowGraph, ast: NormalizedAst } | undefined {
+	public getAnalysisInfo(): { dfi: DataflowInformation, ast: NormalizedAst } | undefined {
 		return this.dfInfo;
 	}
 
 	constructor(
-		{ label, root = false, children = [], info, icon, locationMap, collapsibleState, parent, verb, graph, ast }: DependenciesParams
+		{ label, root = false, children = [], info, icon, locationMap, collapsibleState, parent, verb, dfi, ast }: DependenciesParams
 	) {
 		collapsibleState ??= children.length === 0 ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Collapsed;
 		super(label, collapsibleState);
 
-		this.dfInfo = graph && ast ? { graph, ast } : undefined;
+		this.dfInfo = dfi && ast ? { dfi: dfi, ast } : undefined;
 		this.children = children;
 		this.info = info;
 		this.parent = parent;
@@ -475,7 +476,7 @@ export class Dependency extends vscode.TreeItem {
 			this.loc = locationMap?.map.ids[info.nodeId]?.[1];
 			this.description = `by ${info.functionName} in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
 			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
-			this.id = label + info.nodeId + JSON.stringify(this.loc) + info.functionName + this.linkedIds();
+			this.id = (parent?.id ?? '') + label + info.nodeId + JSON.stringify(this.loc) + info.functionName + this.linkedIds();
 			if(this.loc && vscode.window.activeTextEditor) {
 				const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
 				const end = new vscode.Position(this.loc[2] - 1, this.loc[3]);

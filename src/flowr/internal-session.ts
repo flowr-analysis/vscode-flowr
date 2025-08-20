@@ -18,7 +18,6 @@ import type { SemVer } from 'semver';
 import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
 import { LogLevel, log } from '@eagleoutice/flowr/util/log';
-import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
 import { staticSlice } from '@eagleoutice/flowr/slicing/static/static-slicer';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
@@ -29,6 +28,7 @@ import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-sel
 import { extractSimpleCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
 import { getEngineConfig } from '@eagleoutice/flowr/config';
 import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
+import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -217,7 +217,7 @@ export class FlowrInternalSession implements FlowrSession {
 		this.parser?.close();
 	}
 
-	async retrieveSlice(criteria: SlicingCriteria, document: vscode.TextDocument, showErrorMessage: boolean = true, info?: { graph: DataflowGraph, ast: NormalizedAst }): Promise<SliceReturn> {
+	async retrieveSlice(criteria: SlicingCriteria, document: vscode.TextDocument, showErrorMessage: boolean = true, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
 		if(!this.parser) {
 			return {
 				code:          '',
@@ -276,18 +276,18 @@ export class FlowrInternalSession implements FlowrSession {
 		}, 'cfg');
 	}
 
-	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, info?: { graph: DataflowGraph, ast: NormalizedAst }): Promise<SliceReturn> {
+	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
 		const content = consolidateNewlines(document.getText());
 
-		let elements: ReadonlySet<NodeId> = new Set();
-		let sliceElements: { id: NodeId, location: SourceRange }[] = [];
-		let code: string = '';
+		let elements: ReadonlySet<NodeId>;
+		let sliceElements: { id: NodeId, location: SourceRange }[];
+		let code: string;
 
 		if(info)  {
 			const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
 			this.outputChannel.appendLine(`[Slice (Internal)] Re-Slice using existing dataflow Graph and AST (threshold: ${threshold})`);
 			const now = Date.now();
-			elements = staticSlice(info.graph, info.ast, criteria, SliceDirection.Backward, threshold).result;
+			elements = staticSlice(info.dfi, info.ast, criteria, SliceDirection.Backward, threshold).result;
 			const sliceTime = Date.now() - now;
 			sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
 			const reconstructNow = Date.now();
@@ -318,7 +318,7 @@ export class FlowrInternalSession implements FlowrSession {
 		};
 	}
 
-	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<{ result: QueryResults<T>, hasError: boolean, dfg?: DataflowGraph, ast?: NormalizedAst }> {
+	public async retrieveQuery<T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>): Promise<{ result: QueryResults<T>, hasError: boolean, dfi?: DataflowInformation, ast?: NormalizedAst }> {
 		if(!this.parser) {
 			throw new Error('No parser available');
 		}
@@ -326,12 +326,12 @@ export class FlowrInternalSession implements FlowrSession {
 			request: requestFromInput(consolidateNewlines(document.getText()))
 		}, VSCodeFlowrConfiguration).allRemainingSteps();
 		if(result.normalize.hasError && (result.normalize.ast.children as unknown[])?.length === 0) {
-			return { result: {} as QueryResults<T>, hasError: true, dfg: result.dataflow.graph, ast: result.normalize };
+			return { result: {} as QueryResults<T>, hasError: true, dfi: result.dataflow, ast: result.normalize };
 		}
 		return {
 			result:   executeQueries({ ast: result.normalize, dataflow: result.dataflow, config: VSCodeFlowrConfiguration }, query),
 			hasError: result.normalize.hasError ?? false,
-			dfg:      result.dataflow.graph,
+			dfi:      result.dataflow,
 			ast:      result.normalize
 		};
 	}

@@ -8,5 +8,6 @@ for (i in 1:(n - 1)) {
   product <- product * i
 }
 
+print(123)
 cat("Sum:", sum, "\n")
 cat("Product:", product, "\n")
