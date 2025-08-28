@@ -58,6 +58,36 @@ If you notice anything that could be improved, have a feature request, or notice
 
 </details>
 
+So far, the extension appeared in the following publications:
+
+* [Tool Demonstration at ASE '24](https://doi.org/10.1145/3691620.3695359)
+  <details><summary>Reference</summary>
+
+   ```bibtex
+   @inproceedings{DBLP:conf/kbse/SihlerT24,
+      author       = {Florian Sihler and
+                        Matthias Tichy},
+      editor       = {Vladimir Filkov and
+                        Baishakhi Ray and
+                        Minghui Zhou},
+      title        = {flowR: {A} Static Program Slicer for {R}},
+      booktitle    = {Proceedings of the 39th {IEEE/ACM} International Conference on Automated
+                        Software Engineering, {ASE} 2024, Sacramento, CA, USA, October 27
+                        - November 1, 2024},
+      pages        = {2390--2393},
+      publisher    = {{ACM}},
+      year         = {2024},
+      url          = {https://doi.org/10.1145/3691620.3695359},
+      doi          = {10.1145/3691620.3695359},
+      timestamp    = {Mon, 03 Mar 2025 21:16:51 +0100},
+      biburl       = {https://dblp.org/rec/conf/kbse/SihlerT24.bib},
+      bibsource    = {dblp computer science bibliography, https://dblp.org}
+   }
+   ```
+
+   </details>
+
+
 ## Use
 
 This section provides a brief overview of the features provided by this extension and how to use them. See [below](#installing) for instructions on how to install the extension.
@@ -102,7 +132,7 @@ Using the extension, the sidebar should contain a flowR icon which holds more in
 
 ### Dataflow
 
-You can generate and view the dataflow graph for any R source file by using the "Show Dataflow Graph" command while the file is open in the active editor (open the command palette with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> and search for the command). The dataflow graph will then be displayed in an interactive tab on the side, where you can pan and zoom to inspect it. There is also a simplified version that contains less details!
+You can generate and vflowR is a sophisticated, static dataflow analyzer for the R programming language,iew the dataflow graph for any R source file by using the "Show Dataflow Graph" command while the file is open in the active editor (open the command palette with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> and search for the command). The dataflow graph will then be displayed in an interactive tab on the side, where you can pan and zoom to inspect it. There is also a simplified version that contains less details!
 
 In the future, we plan on including the ability to select nodes in the dataflow graph and have relevant code sections highlighted, and vice versa.
 
@@ -141,6 +171,7 @@ You can find official releases of the extension in the [Releases](https://github
 From Visual Studio Code, open the Extensions tab and click on the three dots in the top right to select "Install from VSIX..." Alternatively, you can use the Command Palette to select the option directly. Then, you can select the `vsix` file you downloaded to install it.
 
 This works the same way in Positron. The repository for Visual Studio Code is the same as the one for Positron, so you can use the same `vsix` file.
+
 ### From Build Artifact
 
 You can easily download the most recent build of the extension by heading to the [Actions tab](https://github.com/flowr-analysis/vscode-flowr/actions/workflows/package.yml), where you will find a list of runs. Selecting the most recent run will display a summary of it, at the bottom of which you can find the Artifacts section and the `Extension vsix` artifact. Download it and unzip it.

@@ -1,0 +1,40 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: 'flowR: A Static Program Slicer for R'
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Florian
+    family-names: Sihler
+    email: florian.sihler@uni-ulm.de
+    affiliation: Ulm University
+    orcid: 'https://orcid.org/0000-0001-7195-7801'
+  - orcid: 'https://orcid.org/0000-0002-9067-3748'
+    affiliation: Ulm Universitz
+    email: matthias.tichy@uni-ulm.de
+    given-names: Matthias
+    family-names: Tichy
+identifiers:
+  - type: doi
+    value: 10.1145/3691620.3695359
+    description: Tool Demonstration at ASE '24
+  - type: doi
+    value: 10.5281/zenodo.13319290
+    description: Underlying flowR
+  - type: doi
+    value: 10.5281/zenodo.15648788
+    description: Presentation at HiRSE
+repository-code: 'https://github.com/flowr-analysis/vscode-flowr'
+repository: 'https://github.com/flowr-analysis/flowr'
+abstract: >-
+  flowR is a sophisticated, static dataflow analyzer for the
+  R programming language, offering support for program
+  slicing, dependency analysis, and linting!
+keywords:
+  - static program analysis
+  - r
+license: GPL-3.0
