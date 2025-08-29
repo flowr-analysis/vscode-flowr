@@ -426,6 +426,19 @@
             "writeFunctions": []
           },
           "markdownDescription": "When using the dependency view, the set of additional `libraryFunctions`, `sourceFunctions`, `readFunctions` and `writeFunctions` to load. For more info on how these need to be formatted, see [the wiki](https://github.com/flowr-analysis/flowr/wiki/Query-API#dependencies-query)."
+        },
+        "vscode-flowr.linter.enabledRules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "The names of the linting rules that should be enabled. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their identifiers. An empty array causes all linting rules to be enabled."
+        },
+        "vscode-flowr.linter.ruleConfigs": {
+          "type": "object",
+          "default": {},
+          "markdownDescription": "Custom configurations for enabled linting rules. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their configurations. Entries should use rule names as keys and configurations as vaules, for example: `{ \"naming-convention\": { \"caseing\": \"snake_case\" } }`."
         }
       }
     },
