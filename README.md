@@ -132,7 +132,7 @@ Using the extension, the sidebar should contain a flowR icon which holds more in
 
 ### Dataflow
 
-You can generate and vflowR is a sophisticated, static dataflow analyzer for the R programming language,iew the dataflow graph for any R source file by using the "Show Dataflow Graph" command while the file is open in the active editor (open the command palette with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> and search for the command). The dataflow graph will then be displayed in an interactive tab on the side, where you can pan and zoom to inspect it. There is also a simplified version that contains less details!
+You can generate and view the dataflow graph for any R source file by using the "Show Dataflow Graph" command while the file is open in the active editor (open the command palette with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> and search for the command). The dataflow graph will then be displayed in an interactive tab on the side, where you can pan and zoom to inspect it. There is also a simplified version that contains less details!
 
 In the future, we plan on including the ability to select nodes in the dataflow graph and have relevant code sections highlighted, and vice versa.
 
