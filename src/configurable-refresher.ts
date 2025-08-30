@@ -2,14 +2,16 @@ import { getConfig, isVerbose } from './extension';
 import { Settings } from './settings';
 import * as vscode from 'vscode';
 
+type Callback<T> = (() => Promise<T>) | (() => T)
+
 export interface ConfigurableRefresherConstructor {
-    name:                 string;
-	configUpdateTypeKey:     Settings;
-	configAdaptiveBreakKey:  Settings;
-	configUpdateIntervalKey: Settings;
-	refreshCallback:         () => Promise<void>;
-	configChangedCallback:   (() => void) | undefined;
-	output:                  vscode.OutputChannel;
+    name:                   string;
+	configUpdateTypeKey:       Settings;
+	configAdaptiveBreakKey:    Settings;
+	configUpdateIntervalKey:   Settings;
+	refreshCallback:           Callback<void>;
+    configChangedCallback?: Callback<void>;
+	output:                    vscode.OutputChannel;
 }
 
 /**
@@ -17,46 +19,43 @@ export interface ConfigurableRefresherConstructor {
  * The callback can be called based on an interval
  */
 export class ConfigurableRefresher {
-	private readonly configUpdateTypeKey:       Settings;
-	private readonly configAdaptiveBreakKey:    Settings;
-	private readonly configUpdateIntervalKey:   Settings;	
-	private readonly name:                      string;
-	private readonly refreshCallback:           () => Promise<void>;
-	private readonly configChangedCallback:     (() => void) | undefined;
-	private activeInterval:                     NodeJS.Timeout | undefined;
-	private activeDisposable:                   vscode.Disposable | undefined;
-	private readonly didChangeConfigDisposable: vscode.Disposable;
-	private readonly output:                    vscode.OutputChannel;
+	private activeInterval:   NodeJS.Timeout | undefined;
+	private activeDisposable: vscode.Disposable | undefined;
+	private disposables:      vscode.Disposable[] = [];
+	private readonly spec:    ConfigurableRefresherConstructor;
 
 	constructor(c: ConfigurableRefresherConstructor) {
-		// TODO: Just save the entire config as one object lul
-		this.configUpdateTypeKey = c.configUpdateTypeKey;
-		this.configAdaptiveBreakKey = c.configAdaptiveBreakKey;
-		this.configUpdateIntervalKey = c.configUpdateIntervalKey;
-		this.refreshCallback = c.refreshCallback;
-		this.configChangedCallback = c.configChangedCallback;
-		this.name = c.name;
-		this.output = c.output;
+		this.spec = c;
         
-		this.didChangeConfigDisposable = vscode.workspace.onDidChangeConfiguration(async e => {
-			await this.onDidChangeConfiguration(e);
-		});
+		this.disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+			if(!e.affectsConfiguration(Settings.Category)) {
+				return;
+			}
+            
+			this.runConfigChangedCallback();
+			this.update();
+			this.runRefreshCallback();
+		}));
+
+		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(e => {
+			if(e?.document.languageId === 'r') {
+				this.runRefreshCallback();
+			}
+		}));
 
 		this.update();
 	}
 
-	private async onDidChangeConfiguration(e: vscode.ConfigurationChangeEvent) {
-		if(!e.affectsConfiguration(Settings.Category)) {
-			return;
-		}
-	
-		this.update();
-		this.configChangedCallback?.();
-		await this.refreshCallback();
+	private runRefreshCallback() {
+		void this.spec.refreshCallback();
+	}
+
+	private runConfigChangedCallback() {
+		void this.spec.configChangedCallback?.();
 	}
 
 	private update() {
-		this.output.append(`${this.name} Updating Configuration`);
+		this.spec.output.append(`${this.spec.name} Updating Configuration`);
 	
 		if(this.activeInterval) {
 			clearInterval(this.activeInterval);
@@ -66,31 +65,31 @@ export class ConfigurableRefresher {
 			this.activeDisposable.dispose();
 			this.activeDisposable = undefined;
 		}
-		switch(getConfig().get<string>(this.configUpdateTypeKey, 'never')) {
+		switch(getConfig().get<string>(this.spec.configUpdateTypeKey, 'never')) {
 			case 'never': break;
 			case 'interval': {
-				this.activeInterval = setInterval(() => void this.refreshCallback(), getConfig().get<number>(this.configUpdateIntervalKey, 10) * 1000);
+				this.activeInterval = setInterval(() => this.runRefreshCallback(), getConfig().get<number>(this.spec.configUpdateIntervalKey, 10) * 1000);
 				break;
 			}
 			case 'adaptive': {
-				const breakOff = getConfig().get<number>(this.configAdaptiveBreakKey, 5000);
+				const breakOff = getConfig().get<number>(this.spec.configAdaptiveBreakKey, 5000);
 				if(getActiveEditorCharLength() > breakOff) {
-					this.activeInterval = setInterval(() => void this.refreshCallback(), getConfig().get<number>(this.configUpdateIntervalKey, 10) * 1000);
+					this.activeInterval = setInterval(() => this.runRefreshCallback(), getConfig().get<number>(this.spec.configUpdateIntervalKey, 10) * 1000);
 					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(() => {
 						if(getActiveEditorCharLength() <= breakOff) {
 							this.update();
 						}
 					});
 				} else {
-					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
+					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(e => {
 						if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && vscode.window.activeTextEditor?.document.languageId === 'r') {
 							if(e.document.version < (vscode.window.activeTextEditor?.document.version ?? 0)) {
 								if(isVerbose()) {
-									this.output.appendLine('Skip update because event version: ' + e.document.version + 'is less than that of the active document: ' + (vscode.window.activeTextEditor?.document.version ?? 0) + ' (there is a newer version!).');
+									this.spec.output.appendLine('Skip update because event version: ' + e.document.version + 'is less than that of the active document: ' + (vscode.window.activeTextEditor?.document.version ?? 0) + ' (there is a newer version!).');
 								}
 								return;
 							}
-							await this.refreshCallback();
+							this.runRefreshCallback();
 						}
 						if(getActiveEditorCharLength() > breakOff) {
 							this.update();
@@ -100,33 +99,34 @@ export class ConfigurableRefresher {
 				break;
 			}
 			case 'on save':
-				this.activeDisposable = vscode.workspace.onWillSaveTextDocument(async() => await this.refreshCallback());
+				this.activeDisposable = vscode.workspace.onWillSaveTextDocument(() => this.runRefreshCallback());
 				break;
 			case 'on change':
-				this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
+				this.activeDisposable = vscode.workspace.onDidChangeTextDocument(e => {
 					if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && vscode.window.activeTextEditor?.document.languageId === 'r') {
 						if(e.document.version < (vscode.window.activeTextEditor?.document.version ?? 0)) {
 							if(isVerbose()) {
-								this.output.appendLine('Skip update because event version: ' + e.document.version + 'is less than that of the active document: ' + (vscode.window.activeTextEditor?.document.version ?? 0) + ' (there is a newer version!).');
+								this.spec.output.appendLine('Skip update because event version: ' + e.document.version + 'is less than that of the active document: ' + (vscode.window.activeTextEditor?.document.version ?? 0) + ' (there is a newer version!).');
 							}
 							return;
 						}
-						await this.refreshCallback();
+						this.runRefreshCallback();
 					}
 				});
 				break;
 			default:
-				this.output.appendLine(`[${this.name}] Invalid update type: ${getConfig().get<string>(this.configUpdateTypeKey)}`);
+				this.spec.output.appendLine(`[${this.spec.name}] Invalid update type: ${getConfig().get<string>(this.spec.configUpdateTypeKey)}`);
 		}
 	}
 
 	public dispose() {
 		clearInterval(this.activeInterval);
 		this.activeDisposable?.dispose();
-		this.didChangeConfigDisposable.dispose();
-	}
 
-	// TODO: toString() e.g. dependency-view z.25
+		for(const d of this.disposables) {
+			d.dispose();
+		}
+	}
 }
 
 function getActiveEditorCharLength() {

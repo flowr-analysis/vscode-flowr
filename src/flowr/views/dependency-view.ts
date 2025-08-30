@@ -8,6 +8,7 @@ import { RotaryBuffer } from '../utils';
 import { Settings } from '../../settings';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
+import { ConfigurableRefresher } from '../../configurable-refresher';
 
 const FlowrDependencyViewId = 'flowr-dependencies';
 /** returns disposer */
@@ -107,97 +108,30 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private parent:                        vscode.TreeView<Dependency> | undefined;
 	private rootElements:                  Dependency[] | undefined;
 
+	private refreher: ConfigurableRefresher;
+
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
 
-
-		this.updateConfig();
-		// trigger if config changes:
-		this.disposables.push(vscode.workspace.onDidChangeConfiguration(async changed => {
-			if(!changed.affectsConfiguration(Settings.Category)) {
-				return;
-			}
-			this.updateConfig();
-			await this.refresh();
-		}));
-		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(async e => {
-			if(e?.document.languageId === 'r') {
-				await this.refresh();
-			}
-		}));
+		this.refreher = new ConfigurableRefresher({
+			name:                    'Dependency View',
+			configUpdateTypeKey:     Settings.DependencyViewUpdateType,
+			configUpdateIntervalKey: Settings.DependencyViewUpdateInterval,
+			configAdaptiveBreakKey:  Settings.DependencyViewAdaptiveBreak,
+			refreshCallback:         async() => {
+				await this.refresh(); 
+			},
+			configChangedCallback: () => {
+				const configuredBufSize = getConfig().get<number>(Settings.DependencyViewCacheLimit, 3);
+				if(this.textBuffer.size() !== configuredBufSize) {
+					this.textBuffer = new RotaryBuffer(configuredBufSize);
+				}
+			},
+			output: output
+		});
 
 		/* lazy startup patches */
 		setTimeout(() => void this.refresh(), 500);
-	}
-
-	private activeInterval:   NodeJS.Timeout | undefined;
-	private activeDisposable: vscode.Disposable | undefined;
-	private updateConfig() {
-		this.output.appendLine('[Dependency View] Updating configuration!');
-		if(this.activeInterval) {
-			clearInterval(this.activeInterval);
-			this.activeInterval = undefined;
-		}
-		if(this.activeDisposable) {
-			this.activeDisposable.dispose();
-			this.activeDisposable = undefined;
-		}
-		switch(getConfig().get<string>(Settings.DependencyViewUpdateType, 'never')) {
-			case 'never': break;
-			case 'interval': {
-				this.activeInterval = setInterval(() => void this.refresh(), getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10) * 1000);
-				break;
-			}
-			case 'adaptive': {
-				const breakOff = getConfig().get<number>(Settings.DependencyViewAdaptiveBreak, 5000);
-				if(getActiveEditorCharLength() > breakOff) {
-					this.activeInterval = setInterval(() => void this.refresh(), getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10) * 1000);
-					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(() => {
-						if(getActiveEditorCharLength() <= breakOff) {
-							this.updateConfig();
-						}
-					});
-				} else {
-					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
-						if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && vscode.window.activeTextEditor?.document.languageId === 'r') {
-							if(e.document.version < (vscode.window.activeTextEditor?.document.version ?? 0)) {
-								if(isVerbose()) {
-									this.output.appendLine('Skip update because event version: ' + e.document.version + 'is less than that of the active document: ' + (vscode.window.activeTextEditor?.document.version ?? 0) + ' (there is a newer version!).');
-								}
-								return;
-							}
-							await this.refresh();
-						}
-						if(getActiveEditorCharLength() > breakOff) {
-							this.updateConfig();
-						}
-					});
-				}
-				break;
-			}
-			case 'on save':
-				this.activeDisposable = vscode.workspace.onWillSaveTextDocument(async() => await this.refresh());
-				break;
-			case 'on change':
-				this.activeDisposable = vscode.workspace.onDidChangeTextDocument(async e => {
-					if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && vscode.window.activeTextEditor?.document.languageId === 'r') {
-						if(e.document.version < (vscode.window.activeTextEditor?.document.version ?? 0)) {
-							if(isVerbose()) {
-								this.output.appendLine('Skip update because event version: ' + e.document.version + 'is less than that of the active document: ' + (vscode.window.activeTextEditor?.document.version ?? 0) + ' (there is a newer version!).');
-							}
-							return;
-						}
-						await this.refresh();
-					}
-				});
-				break;
-			default:
-				this.output.appendLine(`[Dependency View] Invalid update type: ${getConfig().get<string>(Settings.DependencyViewUpdateType)}`);
-		}
-		const configuredBufSize = getConfig().get<number>(Settings.DependencyViewCacheLimit, 3);
-		if(this.textBuffer.size() !== configuredBufSize) {
-			this.textBuffer = new RotaryBuffer(configuredBufSize);
-		}
 	}
 
 	public setTreeView(tv: vscode.TreeView<Dependency>) {
@@ -416,12 +350,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		for(const d of this.disposables) {
 			d.dispose();
 		}
-		if(this.activeInterval) {
-			clearInterval(this.activeInterval);
-		}
-		if(this.activeDisposable) {
-			this.activeDisposable.dispose();
-		}
+		this.refreher.dispose();
 	}
 }
 
