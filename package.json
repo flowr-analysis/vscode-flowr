@@ -439,6 +439,38 @@
           "type": "object",
           "default": {},
           "markdownDescription": "Custom configurations for enabled linting rules. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their configurations. Entries should use rule names as keys and configurations as vaules, for example: `{ \"naming-convention\": { \"caseing\": \"snake_case\" } }`."
+        },
+        "vscode-flowr.linter.updateType": {
+          "type": "string",
+          "default": "adaptive",
+          "enum": [
+            "on change",
+            "adaptive",
+            "interval",
+            "on save",
+            "never"
+          ],
+          "markdownEnumDescriptions": [
+            "Update the linter on every change in the active editor.",
+            "Update on every change until the source becomes too big, then switch to interval.",
+            "Update the linter every n seconds, see `vscode-flowr.linter.updateInterval`.",
+            "Update the linter only when the active editor is saved.",
+            "Never update the linter automatically."
+          ],
+          "markdownDescription": "When to update the linter."
+        },
+        "vscode-flowr.linter.updateInterval": {
+          "type": "number",
+          "default": 10,
+          "minimum": 0.5,
+          "maximum": 999,
+          "markdownDescription": "Automatically update the linter every n seconds."
+        },
+        "vscode-flowr.linter.adaptiveCharacterLimit": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 10,
+          "markdownDescription": "The number of characters in the source after which the linter switches to interval updates."
         }
       }
     },

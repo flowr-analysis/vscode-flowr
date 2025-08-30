@@ -4,6 +4,7 @@ import type { LintingRuleConfig, LintingRuleMetadata, LintingRuleNames, LintingR
 import { LintingRules } from '@eagleoutice/flowr/linter/linter-rules';
 import { Settings } from './settings';
 import type { ConfiguredLintingRule } from '@eagleoutice/flowr/linter/linter-format';
+import { ConfigurableRefresher } from './configurable-refresher';
 
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(output);
@@ -16,8 +17,20 @@ class LinterService {
 	private readonly output: vscode.OutputChannel;
 	private readonly collection = vscode.languages.createDiagnosticCollection('flowr-lint');
 
+	private readonly refresher: ConfigurableRefresher;
+
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
+		this.refresher = new ConfigurableRefresher({
+			name:                    'Lint',
+			configUpdateTypeKey:     Settings.LinterUpdateType,
+			configUpdateIntervalKey: Settings.LinterUpdateInterval,
+			configAdaptiveBreakKey:  Settings.LinterAdaptiveBreak,
+			refreshCallback:         async() => {
+				await this.runLinting();
+			},
+			output: output
+		});
 	}
 
 	async runLinting(): Promise<void> {
