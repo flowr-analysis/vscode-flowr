@@ -44,7 +44,10 @@ export enum Settings {
 
 	ErrorMessageTimer = 'errorMessage.Timer',
 
-	DebugFlowrLoglevel = 'debug.flowrLogLevel'
+	DebugFlowrLoglevel = 'debug.flowrLogLevel',
+
+	LinterEnabledRules = 'linter.enabledRules',
+	LinterRuleConfigs = 'linter.ruleConfigs'
 }
 
 export type SliceDisplay = 'text' | 'diff' | 'tokens'

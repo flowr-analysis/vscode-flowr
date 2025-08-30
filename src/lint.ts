@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
-import { getFlowrSession } from './extension';
-import type { LintingRuleNames, LintingRuleResult } from '@eagleoutice/flowr/linter/linter-rules';
+import { getConfig, getFlowrSession } from './extension';
+import type { LintingRuleConfig, LintingRuleMetadata, LintingRuleNames, LintingRuleResult } from '@eagleoutice/flowr/linter/linter-rules';
 import { LintingRules } from '@eagleoutice/flowr/linter/linter-rules';
-import { LintingPrettyPrintContext } from '@eagleoutice/flowr/linter/linter-format';
+import { Settings } from './settings';
+import type { ConfiguredLintingRule } from '@eagleoutice/flowr/linter/linter-format';
 
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(output);
@@ -30,7 +31,28 @@ class LinterService {
 		this.output.appendLine(`[Lint, Preview] Analyzing document: ${activeEditor.document.fileName}`);
 		const session = await getFlowrSession();
 
-		const lint = await session.retrieveQuery(activeEditor.document, [{ type: 'linter' }]);
+		// rules are only enabled if they're contained in the enabledRules config
+		let rules: (LintingRuleNames | ConfiguredLintingRule)[] = getConfig().get<LintingRuleNames[]>(Settings.LinterEnabledRules, []);
+		// empty array means all rules should be enabled (we do it like this so we can apply configs)
+		if(rules.length <= 0) {
+			rules = Object.keys(LintingRules) as LintingRuleNames[];
+		}
+		// now we apply the ruleConfigs to all enabled rules
+		for(const [ruleName, config] of Object.entries(getConfig().get<{[N in LintingRuleNames]?: LintingRuleConfig<N>}>(Settings.LinterRuleConfigs, {}))) {
+			const index = rules.indexOf(ruleName as LintingRuleNames);
+			if(index >= 0) {
+				rules[index] = { 
+					name:   ruleName as LintingRuleNames, 
+					config: config as LintingRuleConfig<LintingRuleNames>
+				};
+			}
+		}
+		this.output.appendLine(`[Lint] Using rules ${JSON.stringify(rules)}`);
+
+		const lint = await session.retrieveQuery(activeEditor.document, [{ 
+			type:  'linter',
+			rules: rules
+		}]);
 
 		for(const [ruleName, findings] of Object.entries(lint.result.linter.results)) {
 			const rule = LintingRules[ruleName as LintingRuleNames];
@@ -38,19 +60,23 @@ class LinterService {
 			this.output.appendLine(`[Lint] Found ${findings.results.length} issues for rule: ${ruleName}`);
 			this.output.appendLine(`[Lint] ${JSON.stringify(findings)}`);
 
-			for(const finding of findings.results) {
+			for(const result of findings.results) {
+				// not all linting results have a range
+				if(result.range === undefined) {
+					continue;
+				}
 				const range = new vscode.Range(
-					finding.range[0] - 1,
-					finding.range[1] - 1,
-					finding.range[2] - 1,
-					finding.range[3]
+					result.range[0] - 1,
+					result.range[1] - 1,
+					result.range[2] - 1,
+					result.range[3]
 				);
 				diagnostics.push(
 					new vscode.Diagnostic(
 						range,
-						ruleName + ': ' + rule.prettyPrint[LintingPrettyPrintContext.Full](
-							finding as LintingRuleResult<LintingRuleNames>,
-							findings['.meta'] as LintingRuleResult<LintingRuleNames>['.meta']
+						ruleName + ': ' + (rule.prettyPrint['full'] as (result: LintingRuleResult<LintingRuleNames>, metadata: LintingRuleMetadata<LintingRuleNames>) => string)(
+							result as LintingRuleResult<LintingRuleNames>,
+							result as LintingRuleMetadata<LintingRuleNames>
 						),
 						vscode.DiagnosticSeverity.Warning
 					)
