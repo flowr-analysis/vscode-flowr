@@ -47,7 +47,10 @@ export enum Settings {
 	DebugFlowrLoglevel = 'debug.flowrLogLevel',
 
 	LinterEnabledRules = 'linter.enabledRules',
-	LinterRuleConfigs = 'linter.ruleConfigs'
+	LinterRuleConfigs = 'linter.ruleConfigs',
+	LinterUpdateType = 'linter.updateType',
+	LinterUpdateInterval = 'linter.updateInterval',
+	LinterAdaptiveBreak = 'linter.adaptiveCharacterLimit',
 }
 
 export type SliceDisplay = 'text' | 'diff' | 'tokens'

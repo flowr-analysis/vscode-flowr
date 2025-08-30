@@ -107,8 +107,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private disposables:                   vscode.Disposable[] = [];
 	private parent:                        vscode.TreeView<Dependency> | undefined;
 	private rootElements:                  Dependency[] | undefined;
-
-	private refreher: ConfigurableRefresher;
+	private refreher:                      ConfigurableRefresher;
 
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
