@@ -40,8 +40,8 @@ suite('refresher', () => {
 
 	const output: vscode.OutputChannel = vscode.window.createOutputChannel('TestChannel');
 
-	function testRefresher(data: {type: RefreshType, interval: number, breakOff: number, timeout: number, expectedTriggerCount: number, exactCount: boolean, action?: (editor: vscode.TextEditor) => Promise<void>}) {
-		test(data.type, async() => {
+	function testRefresher(data: {name?: string, type: RefreshType, interval: number, breakOff: number, timeout: number, expectedTriggerCount: number, exactCount: boolean, action?: (editor: vscode.TextEditor) => Promise<void>}) {
+		test(data.name ? `${data.name} (${data.type})` : data.type, async() => {
 			await updateRefreshSettings(data.type, data.interval, data.breakOff);
 		
 			let triggerCount = 0;
@@ -93,6 +93,27 @@ suite('refresher', () => {
 	}); 
 
 	testRefresher({
+		name:                 'multiple changes',
+		type:                 'on change', 
+		interval:             0, 
+		breakOff:             0, 
+		timeout:              100, 
+		expectedTriggerCount: 3, 
+		exactCount:           true,
+		action:               async(editor: vscode.TextEditor) => {
+			await editor.edit((edit) => {
+				edit.insert(new vscode.Position(0, 0), ' ');
+			});
+			await editor.edit((edit) => {
+				edit.insert(new vscode.Position(0, 0), ' ');
+			});
+			await editor.edit((edit) => {
+				edit.insert(new vscode.Position(0, 0), ' ');
+			});
+		} 
+	}); 
+
+	testRefresher({
 		type:                 'on save',
 		interval:             0,  
 		breakOff:             0, 
@@ -100,6 +121,27 @@ suite('refresher', () => {
 		expectedTriggerCount: 1, 
 		exactCount:           true,
 		action:               async(editor: vscode.TextEditor) => {
+			await editor.edit((edit) => {
+				edit.insert(new vscode.Position(0, 0), ' ');
+			});
+			await editor.document.save();
+		} 
+	}); 
+
+	testRefresher({
+		name:                 'multiple changes',
+		type:                 'on save',
+		interval:             0,  
+		breakOff:             0, 
+		timeout:              100, 
+		expectedTriggerCount: 2, 
+		exactCount:           true,
+		action:               async(editor: vscode.TextEditor) => {
+			await editor.edit((edit) => {
+				edit.insert(new vscode.Position(0, 0), ' ');
+			});
+			await editor.document.save();
+
 			await editor.edit((edit) => {
 				edit.insert(new vscode.Position(0, 0), ' ');
 			});
