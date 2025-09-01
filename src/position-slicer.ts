@@ -246,7 +246,7 @@ export class PositionSlicer {
 		const session = await getFlowrSession();
 		if(this.positions.length === 0){
 			this.clearSliceDecos();
-			return '# The slice is empty';
+			return;
 		}
 
 		let code: string | undefined;
