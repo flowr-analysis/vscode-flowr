@@ -101,10 +101,12 @@ Additionally, we recommend using the [R extension](https://marketplace.visualstu
 
 ### Slicing
 
-Slicing describes the process of reducing a program to just the parts relevant to a specific variable or figure.
-With the extension loaded, select a variable you are interested in and either press <kbd>Alt</kbd>+<kbd>S</kbd> to slice for it once or <kbd>Alt</kbd>+<kbd>P</kbd> to mark the position and continuously update the slice as you edit the file.
+Slicing describes the process of reducing a program to just the parts relevant to a specific variable or figure. A backward slice includes all parts of the program that a variable or figure depends on (the *relevant code*), while a forward slice includes all parts of the program that a variable has an *influence* on.
+
+With the extension loaded, select a variable you are interested in and either press <kbd>Alt</kbd>+<kbd>S</kbd> to highlight a backward slice for it once or <kbd>Alt</kbd>+<kbd>P</kbd> to mark the position and continuously update the backward slice as you edit the file. With the command palette (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>), you can additionally highlight forward slices.
+
 The editor will gray out all code that is not part of the generated slice.
-By default, the editor will also show you a reconstruction of the slice in a separate view (this can be changed in the settings).
+By default, the editor will also show you a reconstruction of any backward slices in a separate view (this can be changed in the settings).
 
 If you want to clear the slice highlight, press <kbd>Alt</kbd>+<kbd>C</kbd> or use the icon in the upper right of your editor:
 
@@ -114,11 +116,11 @@ Note, that there are other ways to slice, for example with the [Dependency View]
 
 #### Detailed Explanation
 
-You can generate a [slice](https://github.com/flowr-analysis/flowr/wiki/Terminology#program-slice) of the currently highlighted variable in any R code by using the "Slice for Cursor Position" command. All code that is not part of the generated slice will then be grayed out.
+You can generate a [backward slice](https://github.com/flowr-analysis/flowr/wiki/Terminology#program-slice) of the currently highlighted variable in any R code by using the "Show Relevant Code for Cursor Position Once (Backward Slice)" command. All code that is not part of the generated slice will then be grayed out. To generate a forward slice, use the "Show Influence for Cursor Position Once (Forward Slice)" command.
 
-Optionally, you can also use one of the two "Toggle Continuous Slice" options, which will automatically cause the slice to be updated when code changes occur or when the cursor is moved.
+Optionally, you can also use one of the two "Toggle Slice" options, which will automatically cause the slice to be updated when code changes occur or when the cursor is moved.
 
-You can also view the reconstruction of a piece of code based on the current slice. The "Show Current Slice in Editor (Reconstruct)" command opens a view next to the current editor that will automatically update the reconstruction as you slice. By default, this should be shown to you automatically whenever you slice (but this can be changed in the settings).
+You can also view the reconstruction of a piece of code based on the current backward slice. The "Show Current Backward Slice in Editor (Reconstruct)" command opens a view next to the current editor that will automatically update the reconstruction as you slice. By default, this should be shown to you automatically whenever you create a backward slice (but this can be changed in the settings).
 
 To clear the slice highlighting, use the "Clear Current Slice Presentation" command or the trash icon in the upper right of the editor.
 
