@@ -53,7 +53,14 @@
       },
       {
         "command": "vscode-flowr.internal.slice.dependency",
-        "title": "Show Slice of Dependency",
+        "title": "Show Backward Slice of Dependency",
+        "category": "flowR",
+        "icon": "$(graph)",
+        "enablement": "sideBarFocus"
+      },
+      {
+        "command": "vscode-flowr.internal.forward-slice.dependency",
+        "title": "Show Forward Slice of Dependency",
         "category": "flowR",
         "icon": "$(graph)",
         "enablement": "sideBarFocus"
@@ -85,7 +92,13 @@
       },
       {
         "command": "vscode-flowr.slice.cursor",
-        "title": "Slice for Cursor Position",
+        "title": "Backward Slice for Cursor Position",
+        "icon": "$(search)",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.forward-slice.cursor",
+        "title": "Forward Slice for Cursor Position",
         "icon": "$(search)",
         "category": "flowR"
       },
@@ -96,7 +109,12 @@
       },
       {
         "command": "vscode-flowr.slice.follow.cursor",
-        "title": "Toggle Continuous Slice at Cursor",
+        "title": "Toggle Continuous Backward Slice at Cursor",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.forward-slice.follow.cursor",
+        "title": "Toggle Continuous Forward Slice at Cursor",
         "category": "flowR"
       },
       {
@@ -453,6 +471,10 @@
           "when": "resourceLangId == r"
         },
         {
+          "command": "vscode-flowr.forward-slice.cursor",
+          "when": "resourceLangId == r"
+        },
+        {
           "command": "vscode-flowr.slice.clear",
           "when": "resourceLangId == r"
         }
@@ -460,6 +482,11 @@
       "view/item/context": [
         {
           "command": "vscode-flowr.internal.slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "flowR"
+        },
+        {
+          "command": "vscode-flowr.internal.forward-slice.dependency",
           "when": "view == flowr-dependencies && viewItem == dependency",
           "group": "flowR"
         },

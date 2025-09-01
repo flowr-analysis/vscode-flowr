@@ -299,6 +299,7 @@ export class FlowrInternalSession implements FlowrSession {
 			const now = Date.now();
 			const slicer = createSlicePipeline(this.parser as KnownParser, {
 				criterion: criteria,
+				direction: direction,
 				request:   requestFromInput(content),
 				threshold
 			}, VSCodeFlowrConfiguration);
