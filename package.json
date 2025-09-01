@@ -53,14 +53,14 @@
       },
       {
         "command": "vscode-flowr.internal.slice.dependency",
-        "title": "Show Backward Slice of Dependency",
+        "title": "Show Relevant Code for Dependency (Backward Slice)",
         "category": "flowR",
         "icon": "$(graph)",
         "enablement": "sideBarFocus"
       },
       {
         "command": "vscode-flowr.internal.forward-slice.dependency",
-        "title": "Show Forward Slice of Dependency",
+        "title": "Show Influence of Dependency (Forward Slice)",
         "category": "flowR",
         "icon": "$(graph)",
         "enablement": "sideBarFocus"
@@ -92,39 +92,39 @@
       },
       {
         "command": "vscode-flowr.slice.cursor",
-        "title": "Backward Slice for Cursor Position",
+        "title": "Show Relevant Code for Cursor Position Once (Backward Slice)",
         "icon": "$(search)",
         "category": "flowR"
       },
       {
         "command": "vscode-flowr.forward-slice.cursor",
-        "title": "Forward Slice for Cursor Position",
+        "title": "Show Influence for Cursor Position Once (Forward Slice)",
         "icon": "$(search)",
         "category": "flowR"
       },
       {
         "command": "vscode-flowr.slice.position",
-        "title": "Toggle Continuous Backward Slice at Current Position",
+        "title": "Toggle Relevant Code Highlight at Current Position (Backward Slice)",
         "category": "flowR"
       },
       {
         "command": "vscode-flowr.forward-slice.position",
-        "title": "Toggle Continuous Forward Slice at Current Position",
+        "title": "Toggle Influence Highlight at Current Position (Forward Slice)",
         "category": "flowR"
       },
       {
         "command": "vscode-flowr.slice.follow.cursor",
-        "title": "Toggle Continuous Backward Slice at Cursor",
+        "title": "Toggle Relevant Code Highlight at Cursor (Backward Slice)",
         "category": "flowR"
       },
       {
         "command": "vscode-flowr.forward-slice.follow.cursor",
-        "title": "Toggle Continuous Forward Slice at Cursor",
+        "title": "Toggle Influence Highlight at Cursor (Forward Slice)",
         "category": "flowR"
       },
       {
         "command": "vscode-flowr.slice.show.in.editor",
-        "title": "Show Current Slice in Editor (Reconstruct)",
+        "title": "Show Current Backward Slice in Editor (Reconstruct)",
         "category": "flowR"
       },
       {
@@ -141,7 +141,7 @@
       },
       {
         "command": "vscode-flowr.dataflow-simplified",
-        "title": "Show a simplified Dataflow Graph",
+        "title": "Show Simplified Dataflow Graph",
         "icon": "$(graph)",
         "category": "flowR"
       },
@@ -166,7 +166,7 @@
       },
       {
         "command": "vscode-flowr.feedback",
-        "title": "Give feedback (Opens Browser)",
+        "title": "Give Feedback (Opens Browser)",
         "icon": "$(feedback)",
         "category": "flowR"
       }
