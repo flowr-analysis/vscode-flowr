@@ -10,43 +10,20 @@ import { getReconstructionContentProvider, makeUri } from './doc-provider';
 import type { Dependency } from './flowr/views/dependency-view';
 import { getCriteriaSlicer } from './criteria-slicer';
 import { formatRange } from '@eagleoutice/flowr/util/mermaid/dfg';
+import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 
 export function registerSliceCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
-		return await getSelectionSlicer().sliceSelectionOnce();
+		return await getSelectionSlicer().sliceSelectionOnce(SliceDirection.Backward);
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.forward-slice.cursor', async() => {
+		return await getSelectionSlicer().sliceSelectionOnce(SliceDirection.Forward);
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.slice.dependency', (dependency: Dependency) => {
-		const nodeId = dependency.getNodeId();
-		const loc = dependency.getLocation();
-		if(!nodeId) {
-			return;
-		}
-		/* hide any other active slicer in the given document to avoid fighting */
-		clearSliceOutput();
-		// got to position
-		const editor = vscode.window.activeTextEditor;
-		const slicer = getCriteriaSlicer();
-		/* always with reconstruction */
-		if(isVerbose()) {
-			output.appendLine(`[Dependency View] Slicing for id ${nodeId} (at: ${formatRange(loc)})`);
-		}
-		// we use loc slicer for uses with `::` etc.
-		const info = dependency.getAnalysisInfo();
-		setTimeout(() => {
-			void (async() => {
-				await slicer.sliceFor([`$${nodeId}`], info ? { ...info, id: nodeId } : undefined);
-				if(getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
-					setTimeout(() => {
-						void slicer.showReconstruction();
-					}, 20);
-				}
-				if(editor && loc) {
-					setTimeout(() => {
-						editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter);
-					}, 50);
-				}
-			})();
-		}, 1);
+		showDependencySlice(output, dependency, SliceDirection.Backward);
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.forward-slice.dependency', (dependency: Dependency) => {
+		showDependencySlice(output, dependency, SliceDirection.Forward);
 	}));
 	// maybe find a place for this
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {
@@ -66,7 +43,10 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 		clearSliceOutput();
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.follow.cursor', async() => {
-		await getSelectionSlicer().toggleFollowSelection();
+		await getSelectionSlicer().toggleFollowSelection(SliceDirection.Backward);
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.forward-slice.follow.cursor', async() => {
+		await getSelectionSlicer().toggleFollowSelection(SliceDirection.Forward);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.show.in.editor', async() => {
@@ -74,7 +54,10 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.position', async() => {
-		await addCurrentPositions();
+		await addCurrentPositions(SliceDirection.Backward);
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.forward-slice.position', async() => {
+		await addCurrentPositions(SliceDirection.Forward);
 	}));
 
 	vscode.workspace.onDidChangeConfiguration(e => {
@@ -93,7 +76,7 @@ async function showReconstructionInEditor(): Promise<vscode.TextEditor | undefin
 	if(positionSlicer){
 		return await positionSlicer.showReconstruction();
 	}
-	return await showSelectionSliceInEditor();
+	return await showSelectionSliceInEditor(SliceDirection.Backward);
 }
 
 function clearSliceOutput(): void {
@@ -110,6 +93,40 @@ function clearSliceOutput(): void {
 	const criteriaSlicer = getCriteriaSlicer();
 	criteriaSlicer.hasDoc = false;
 	criteriaSlicer.clearSliceDecos();
+}
+
+function showDependencySlice(output: vscode.OutputChannel, dependency: Dependency, direction: SliceDirection) {
+	const nodeId = dependency.getNodeId();
+	const loc = dependency.getLocation();
+	if(!nodeId) {
+		return;
+	}
+	/* hide any other active slicer in the given document to avoid fighting */
+	clearSliceOutput();
+	// got to position
+	const editor = vscode.window.activeTextEditor;
+	const slicer = getCriteriaSlicer();
+	/* always with reconstruction */
+	if(isVerbose()) {
+		output.appendLine(`[Dependency View] Slicing for id ${nodeId} (at: ${formatRange(loc)})`);
+	}
+	// we use loc slicer for uses with `::` etc.
+	const info = dependency.getAnalysisInfo();
+	setTimeout(() => {
+		void (async() => {
+			await slicer.sliceFor([`$${nodeId}`], direction, info ? { ...info, id: nodeId } : undefined);
+			if(direction === SliceDirection.Backward && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
+				setTimeout(() => {
+					void slicer.showReconstruction();
+				}, 20);
+			}
+			if(editor && loc) {
+				setTimeout(() => {
+					editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter);
+				}, 50);
+			}
+		})();
+	}, 1);
 }
 
 export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[], decos: DecoTypes) {
