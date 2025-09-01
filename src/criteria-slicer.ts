@@ -15,6 +15,7 @@ import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
+import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 
 
 const criteriaSlicerAuthority = 'criteria-slicer';
@@ -32,17 +33,14 @@ export function getCriteriaSlicer(): CriteriaSlicer {
 }
 
 class CriteriaSlicer {
-	hasDoc: boolean = false;
-
-	decos: DecoTypes | undefined;
-
-	decoratedEditors: vscode.TextEditor[] = [];
-
+	hasDoc:              boolean = false;
+	decos:               DecoTypes | undefined;
+	decoratedEditors:    vscode.TextEditor[] = [];
 	private disposables: vscode.Disposable[] = [];
 
 	// Slice once at the current cursor position
-	sliceFor(criteria: SlicingCriteria, info?: { id?: NodeId, dfi: DataflowInformation, ast: NormalizedAst }): Promise<string> {
-		return this.update(criteria, info);
+	sliceFor(criteria: SlicingCriteria, direction: SliceDirection, info?: { id?: NodeId, dfi: DataflowInformation, ast: NormalizedAst }): Promise<string> {
+		return this.update(criteria, direction, info);
 	}
 
 	makeUri(): vscode.Uri {
@@ -86,7 +84,7 @@ class CriteriaSlicer {
 		this.disposables = [];
 	}
 
-	protected async update(criteria: SlicingCriteria, info?: { id?: NodeId, dfi: DataflowInformation, ast: NormalizedAst }): Promise<string> {
+	protected async update(criteria: SlicingCriteria, direction: SliceDirection, info?: { id?: NodeId, dfi: DataflowInformation, ast: NormalizedAst }): Promise<string> {
 		if(info?.id) {
 			const expectNode = info.ast.idMap.get(info.id);
 			if(expectNode?.location && expectNode.lexeme) {
@@ -104,13 +102,15 @@ class CriteriaSlicer {
 			}
 		}
 
-		const ret = await getSliceFor(criteria, info);
+		const ret = await getSliceFor(criteria, direction, info);
 		if(ret === undefined){
 			return '';
 		}
-		const provider = getReconstructionContentProvider();
-		const uri = this.makeUri();
-		provider.updateContents(uri, ret.code);
+		if(direction === SliceDirection.Backward) {
+			const provider = getReconstructionContentProvider();
+			const uri = this.makeUri();
+			provider.updateContents(uri, ret.code);
+		}
 		this.hasDoc = true;
 		const clearOtherDecos = getConfig().get<boolean>(Settings.StyleOnlyHighlightActiveSelection, false);
 		for(const editor of this.decoratedEditors){
@@ -132,7 +132,7 @@ class CriteriaSlicer {
 interface CriteriaSliceReturn extends SliceReturn {
 	editor: vscode.TextEditor
 }
-async function getSliceFor(criteria: SlicingCriteria, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<CriteriaSliceReturn | undefined> {
+async function getSliceFor(criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<CriteriaSliceReturn | undefined> {
 	const editor = vscode.window.activeTextEditor;
 	if(!editor){
 		return;
@@ -141,7 +141,7 @@ async function getSliceFor(criteria: SlicingCriteria, info?: { dfi: DataflowInfo
 	if(!flowrSession){
 		return;
 	}
-	const ret = await flowrSession.retrieveSlice(criteria, editor.document, true, info);
+	const ret = await flowrSession.retrieveSlice(criteria, direction, editor.document, true, info);
 	if(!ret.sliceElements.length){
 		return {
 			code:          '# No slice',

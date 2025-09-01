@@ -10,6 +10,9 @@ import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { getSelectionSlicer } from './selection-slicer';
 import { Settings } from './settings';
+import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
+import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
+import type { SourceRange } from '@eagleoutice/flowr/util/range';
 
 const positionSlicerAuthority = 'doc-slicer';
 const positionSlicerSuffix = 'Slice';
@@ -20,13 +23,13 @@ export const positionSlicers: Map<vscode.TextDocument, PositionSlicer> = new Map
 
 
 // Add the current cursor position(s) in the active editor to the list of slice criteria
-export async function addCurrentPositions(): Promise<void> {
+export async function addCurrentPositions(direction: SliceDirection): Promise<void> {
 	const editor = vscode.window.activeTextEditor;
 	if(!editor){
 		return;
 	}
 	const positions = editor.selections.map(sel => sel.start);
-	await addPositions(positions, editor.document);
+	await addPositions(positions, direction, editor.document);
 }
 
 
@@ -53,7 +56,7 @@ export function disposeActivePositionSlicer(): boolean {
 
 
 // Add a list of positions in a document to the slice criteria
-export async function addPositions(positions: vscode.Position[], doc: vscode.TextDocument): Promise<PositionSlicer | undefined> {
+export async function addPositions(positions: vscode.Position[], direction: SliceDirection, doc: vscode.TextDocument): Promise<PositionSlicer | undefined> {
 	// Get or create a slicer for the document
 	const flowrSlicer = positionSlicers.get(doc) || new PositionSlicer(doc);
 	if(!positionSlicers.has(doc)){
@@ -61,13 +64,13 @@ export async function addPositions(positions: vscode.Position[], doc: vscode.Tex
 	}
 
 	// Try to toggle the indicated positions
-	const ret = flowrSlicer.togglePositions(positions);
+	const ret = flowrSlicer.togglePositions(positions, direction);
 	if(ret){
 		// Update the output if any positions were toggled
 		await flowrSlicer.updateOutput();
 	}
 
-	if(flowrSlicer.offsets.length === 0){
+	if(flowrSlicer.positions.length === 0){
 		// Dispose the slicer if no positions are sliced (anymore)
 		flowrSlicer.dispose();
 		positionSlicers.delete(doc);
@@ -80,18 +83,18 @@ export async function addPositions(positions: vscode.Position[], doc: vscode.Tex
 	return flowrSlicer;
 }
 
+interface Position {
+	readonly offset:    number;
+	readonly direction: SliceDirection
+}
+
 export class PositionSlicer {
-	listeners: ((e: vscode.Uri) => unknown)[] = [];
-
-	doc: vscode.TextDocument;
-
-	offsets: number[] = [];
-
-	sliceDecos: DecoTypes | undefined = undefined;
-
+	listeners:    ((e: vscode.Uri) => unknown)[] = [];
+	doc:          vscode.TextDocument;
+	positions:    Position[] = [];
+	sliceDecos:   DecoTypes | undefined = undefined;
 	positionDeco: vscode.TextEditorDecorationType;
-
-	disposables: vscode.Disposable[] = [];
+	disposables:  vscode.Disposable[] = [];
 
 	constructor(doc: vscode.TextDocument){
 		this.doc = doc;
@@ -118,10 +121,10 @@ export class PositionSlicer {
 		while(this.disposables.length > 0){
 			this.disposables.pop()?.dispose();
 		}
-		this.offsets = [];
+		this.positions = [];
 	}
 
-	togglePositions(positions: vscode.Position[]): boolean {
+	togglePositions(positions: vscode.Position[], direction: SliceDirection): boolean {
 		// convert positions to offsets
 		let offsets = positions.map(pos => this.normalizeOffset(pos));
 		offsets = offsets.filter(i => i >= 0);
@@ -134,16 +137,16 @@ export class PositionSlicer {
 		// add offsets that are not yet tracked
 		let onlyRemove = true;
 		for(const offset of offsets){
-			const idx = this.offsets.indexOf(offset);
+			const idx = this.positions.findIndex(p => p.offset === offset);
 			if(idx < 0){
-				this.offsets.push(offset);
+				this.positions.push({ offset, direction });
 				onlyRemove = false;
 			}
 		}
 
 		// if all offsets are already tracked, toggle them off
 		if(onlyRemove){
-			this.offsets = this.offsets.filter(offset => !offsets.includes(offset));
+			this.positions = this.positions.filter(p => !offsets.includes(p.offset));
 		}
 
 		return true;
@@ -160,12 +163,12 @@ export class PositionSlicer {
 			this.positionDeco.dispose();
 			this.positionDeco = makeSliceDecorationTypes().slicedPos;
 		}
-		const provider = getReconstructionContentProvider();
 		this.updateTargetDecos();
-		const code = await this.updateSlices() ?? '# The slice is empty';
+		const code = await this.updateSlices() ;
+		const provider = getReconstructionContentProvider();
 		const uri = this.makeUri();
 		provider.updateContents(uri, code);
-		if(getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
+		if(code !== undefined && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
 			void this.showReconstruction();
 		}
 		updateStatusBar();
@@ -183,8 +186,9 @@ export class PositionSlicer {
 		}
 
 		// Compute new offsets after the changes
-		const newOffsets: number[] = [];
-		for(let offset of this.offsets) {
+		const newPositions: Position[] = [];
+		for(const position of this.positions) {
+			let offset = position.offset;
 			for(const cc of e.contentChanges) {
 				offset = shiftOffset(offset, cc);
 				if(offset < 0){
@@ -192,11 +196,11 @@ export class PositionSlicer {
 				}
 			}
 			offset = this.normalizeOffset(offset);
-			if(offset >= 0 && !newOffsets.includes(offset)){
-				newOffsets.push(offset);
+			if(offset >= 0 && newPositions.findIndex(p => p.offset === offset) < 0){
+				newPositions.push({ ...position, offset });
 			}
 		}
-		this.offsets = newOffsets;
+		this.positions = newPositions;
 
 		// Update decos and editor output
 		await this.updateOutput();
@@ -220,8 +224,8 @@ export class PositionSlicer {
 	protected updateTargetDecos(): void {
 		// Update the decorations in the relevant editors
 		const ranges = [];
-		for(const offset of this.offsets){
-			const pos = this.doc.positionAt(offset);
+		for(const position of this.positions){
+			const pos = this.doc.positionAt(position.offset);
 			const range = getPositionAt(pos, this.doc);
 			if(range){
 				ranges.push(range);
@@ -240,12 +244,27 @@ export class PositionSlicer {
 	protected async updateSlices(): Promise<string | undefined> {
 		// Update the decos that show the slice results
 		const session = await getFlowrSession();
-		const positions = this.offsets.map(offset => this.doc.positionAt(offset));
-		if(positions.length === 0){
+		if(this.positions.length === 0){
 			this.clearSliceDecos();
 			return;
 		}
-		const { code, sliceElements } = await session.retrieveSlice(makeSlicingCriteria(positions, this.doc, isVerbose()), this.doc, this.showErrors);
+
+		let code: string | undefined;
+		const sliceElements: { id: NodeId, location: SourceRange }[] = [];
+
+		const positions = this.positions.map(p => ({ direction: p.direction, docPos: this.doc.positionAt(p.offset) }));
+		const { backward, forward } = Object.groupBy(positions, p => p.direction.toString());
+		if(backward && backward.length > 0) {
+			const results = await session.retrieveSlice(makeSlicingCriteria(backward.map(p => p.docPos), this.doc, isVerbose()), SliceDirection.Backward, this.doc, this.showErrors);
+			code = results.code;
+			sliceElements.push(...results.sliceElements);
+		}
+		if(forward && forward.length > 0) {
+			const results = await session.retrieveSlice(makeSlicingCriteria(forward.map(p => p.docPos), this.doc, isVerbose()), SliceDirection.Forward, this.doc, this.showErrors);
+			sliceElements.push(...results.sliceElements);
+			// we don't return code if we have at least one forward slice in our list, because forward slices don't ensure executability!
+			code = undefined;
+		}
 
 		if(sliceElements.length === 0){
 			this.clearSliceDecos();
@@ -262,6 +281,7 @@ export class PositionSlicer {
 				displaySlice(editor, sliceElements, this.sliceDecos);
 			}
 		}
+
 		return code;
 	}
 

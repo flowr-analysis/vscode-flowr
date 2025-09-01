@@ -12,6 +12,7 @@ import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
 import { Settings } from './settings';
 import { getCriteriaSlicer } from './criteria-slicer';
+import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 
 
 const selectionSlicerAuthority = 'selection-slicer';
@@ -28,10 +29,10 @@ export function getSelectionSlicer(): SelectionSlicer {
 
 // Show the selection slice in an editor
 // If nothing is sliced, slice at the current cursor position
-export async function showSelectionSliceInEditor(): Promise<vscode.TextEditor> {
+export async function showSelectionSliceInEditor(direction: SliceDirection): Promise<vscode.TextEditor> {
 	const slicer = getSelectionSlicer();
 	if(!slicer.hasDoc){
-		await slicer.sliceSelectionOnce();
+		await slicer.sliceSelectionOnce(direction);
 	}
 	const uri = slicer.makeUri();
 	return await showUri(uri);
@@ -39,33 +40,29 @@ export async function showSelectionSliceInEditor(): Promise<vscode.TextEditor> {
 
 
 class SelectionSlicer {
-	changeListeners: vscode.Disposable[] = [];
-
-	hasDoc: boolean = false;
-
-	decos: DecoTypes | undefined;
-
+	changeListeners:  vscode.Disposable[] = [];
+	hasDoc:           boolean = false;
+	decos:            DecoTypes | undefined;
 	decoratedEditors: vscode.TextEditor[] = [];
 
-
 	// Turn on/off following of the cursor
-	async startFollowSelection(): Promise<void> {
-		await this.update();
+	async startFollowSelection(direction: SliceDirection): Promise<void> {
+		await this.update(direction);
 		this.changeListeners.push(
 			vscode.window.onDidChangeTextEditorSelection(e => {
 				if(this.decoratedEditors.includes(e.textEditor)) {
-					void this.update();
+					void this.update(direction);
 				}
 			}),
-			vscode.window.onDidChangeActiveTextEditor(() => void this.update())
+			vscode.window.onDidChangeActiveTextEditor(() => void this.update(direction))
 		);
 		updateStatusBar();
 	}
-	async toggleFollowSelection(): Promise<void> {
+	async toggleFollowSelection(direction: SliceDirection): Promise<void> {
 		if(this.changeListeners.length){
 			this.stopFollowSelection();
 		} else {
-			await this.startFollowSelection();
+			await this.startFollowSelection(direction);
 		}
 	}
 	stopFollowSelection(): void {
@@ -76,8 +73,8 @@ class SelectionSlicer {
 	}
 
 	// Slice once at the current cursor position
-	async sliceSelectionOnce(): Promise<string> {
-		return await this.update();
+	async sliceSelectionOnce(direction: SliceDirection): Promise<SliceReturn | undefined> {
+		return await this.update(direction);
 	}
 
 	// Stop following the cursor and clear the selection slice output
@@ -118,15 +115,15 @@ class SelectionSlicer {
 		this.decos = undefined;
 	}
 
-	protected async update(): Promise<string> {
-		const ret = await getSelectionSlice();
+	protected async update(direction: SliceDirection): Promise<SliceReturn | undefined> {
+		const ret = await getSelectionSlice(direction);
 		if(ret === undefined){
-			return '';
+			return undefined;
 		}
 		getCriteriaSlicer().clearSliceDecos();
 		const provider = getReconstructionContentProvider();
 		const uri = this.makeUri();
-		provider.updateContents(uri, ret.code);
+		provider.updateContents(uri, direction === SliceDirection.Backward ? ret.code : '');
 		this.hasDoc = true;
 		const clearOtherDecos = getConfig().get<boolean>(Settings.StyleOnlyHighlightActiveSelection, false);
 		for(const editor of this.decoratedEditors){
@@ -140,10 +137,10 @@ class SelectionSlicer {
 		this.decos ||= makeSliceDecorationTypes();
 		displaySlice(ret.editor, ret.sliceElements, this.decos);
 		this.decoratedEditors.push(ret.editor);
-		if(getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
-			void showSelectionSliceInEditor();
+		if(direction === SliceDirection.Backward && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
+			void showSelectionSliceInEditor(direction);
 		}
-		return ret.code;
+		return ret;
 	}
 }
 
@@ -153,7 +150,7 @@ class SelectionSlicer {
 interface SelectionSliceReturn extends SliceReturn {
 	editor: vscode.TextEditor
 }
-async function getSelectionSlice(): Promise<SelectionSliceReturn | undefined> {
+async function getSelectionSlice(direction: SliceDirection): Promise<SelectionSliceReturn | undefined> {
 	const editor = vscode.window.activeTextEditor;
 	if(!editor){
 		return undefined;
@@ -173,7 +170,7 @@ async function getSelectionSlice(): Promise<SelectionSliceReturn | undefined> {
 		return undefined;
 	}
 	const flowrSession = await getFlowrSession();
-	const ret = await flowrSession.retrieveSlice(makeSlicingCriteria(positions, editor.document, isVerbose()), editor.document, false);
+	const ret = await flowrSession.retrieveSlice(makeSlicingCriteria(positions, editor.document, isVerbose()), direction, editor.document, false);
 	if(!ret.sliceElements.length){
 		return {
 			code:          '# No slice',
