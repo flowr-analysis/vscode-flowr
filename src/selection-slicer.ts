@@ -73,7 +73,7 @@ class SelectionSlicer {
 	}
 
 	// Slice once at the current cursor position
-	async sliceSelectionOnce(direction: SliceDirection): Promise<string> {
+	async sliceSelectionOnce(direction: SliceDirection): Promise<SliceReturn | undefined> {
 		return await this.update(direction);
 	}
 
@@ -115,10 +115,10 @@ class SelectionSlicer {
 		this.decos = undefined;
 	}
 
-	protected async update(direction: SliceDirection): Promise<string> {
+	protected async update(direction: SliceDirection): Promise<SliceReturn | undefined> {
 		const ret = await getSelectionSlice(direction);
 		if(ret === undefined){
-			return '';
+			return undefined;
 		}
 		getCriteriaSlicer().clearSliceDecos();
 		const provider = getReconstructionContentProvider();
@@ -140,7 +140,7 @@ class SelectionSlicer {
 		if(direction === SliceDirection.Backward && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
 			void showSelectionSliceInEditor(direction);
 		}
-		return ret.code;
+		return ret;
 	}
 }
 
