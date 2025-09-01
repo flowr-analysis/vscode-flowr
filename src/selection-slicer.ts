@@ -40,14 +40,10 @@ export async function showSelectionSliceInEditor(): Promise<vscode.TextEditor> {
 
 
 class SelectionSlicer {
-	changeListeners: vscode.Disposable[] = [];
-
-	hasDoc: boolean = false;
-
-	decos: DecoTypes | undefined;
-
+	changeListeners:  vscode.Disposable[] = [];
+	hasDoc:           boolean = false;
+	decos:            DecoTypes | undefined;
 	decoratedEditors: vscode.TextEditor[] = [];
-
 
 	// Turn on/off following of the cursor
 	async startFollowSelection(): Promise<void> {

@@ -82,17 +82,12 @@ export async function addPositions(positions: vscode.Position[], doc: vscode.Tex
 }
 
 export class PositionSlicer {
-	listeners: ((e: vscode.Uri) => unknown)[] = [];
-
-	doc: vscode.TextDocument;
-
-	offsets: number[] = [];
-
-	sliceDecos: DecoTypes | undefined = undefined;
-
+	listeners:    ((e: vscode.Uri) => unknown)[] = [];
+	doc:          vscode.TextDocument;
+	offsets:      number[] = [];
+	sliceDecos:   DecoTypes | undefined = undefined;
 	positionDeco: vscode.TextEditorDecorationType;
-
-	disposables: vscode.Disposable[] = [];
+	disposables:  vscode.Disposable[] = [];
 
 	constructor(doc: vscode.TextDocument){
 		this.doc = doc;
