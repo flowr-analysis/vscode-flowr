@@ -27,7 +27,7 @@ import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto
 import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
 import { extractSimpleCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
 import { getEngineConfig } from '@eagleoutice/flowr/config';
-import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
+import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 
 const logLevelToScore = {
@@ -217,7 +217,7 @@ export class FlowrInternalSession implements FlowrSession {
 		this.parser?.close();
 	}
 
-	async retrieveSlice(criteria: SlicingCriteria, document: vscode.TextDocument, showErrorMessage: boolean = true, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
+	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument, showErrorMessage: boolean = true, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
 		if(!this.parser) {
 			return {
 				code:          '',
@@ -225,7 +225,7 @@ export class FlowrInternalSession implements FlowrSession {
 			};
 		}
 		try {
-			return await this.workingOn(this.parser, async() => await this.extractSlice(document, criteria, info), 'slice');
+			return await this.workingOn(this.parser, async() => await this.extractSlice(document, criteria, direction, info), 'slice');
 		} catch(e) {
 			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
@@ -276,7 +276,7 @@ export class FlowrInternalSession implements FlowrSession {
 		}, 'cfg');
 	}
 
-	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
+	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
 		const content = consolidateNewlines(document.getText());
 
 		let elements: ReadonlySet<NodeId>;
@@ -287,7 +287,7 @@ export class FlowrInternalSession implements FlowrSession {
 			const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
 			this.outputChannel.appendLine(`[Slice (Internal)] Re-Slice using existing dataflow Graph and AST (threshold: ${threshold})`);
 			const now = Date.now();
-			elements = staticSlice(info.dfi, info.ast, criteria, SliceDirection.Backward, threshold).result;
+			elements = staticSlice(info.dfi, info.ast, criteria, direction, threshold).result;
 			const sliceTime = Date.now() - now;
 			sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
 			const reconstructNow = Date.now();

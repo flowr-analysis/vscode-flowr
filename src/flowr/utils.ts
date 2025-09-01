@@ -7,6 +7,7 @@ import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/fl
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
+import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
@@ -20,6 +21,7 @@ export interface FlowrSession {
 	destroy:       () => void
 	retrieveSlice: (
 		criteria: SlicingCriteria,
+		direction: SliceDirection,
 		document: vscode.TextDocument,
 		showErrorMessage?: boolean,
 		info?: { dfi: DataflowInformation, ast: NormalizedAst }

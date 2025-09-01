@@ -15,6 +15,7 @@ import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
+import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 
 
 const criteriaSlicerAuthority = 'criteria-slicer';
@@ -141,7 +142,7 @@ async function getSliceFor(criteria: SlicingCriteria, info?: { dfi: DataflowInfo
 	if(!flowrSession){
 		return;
 	}
-	const ret = await flowrSession.retrieveSlice(criteria, editor.document, true, info);
+	const ret = await flowrSession.retrieveSlice(criteria, SliceDirection.Backward, editor.document, true, info);
 	if(!ret.sliceElements.length){
 		return {
 			code:          '# No slice',

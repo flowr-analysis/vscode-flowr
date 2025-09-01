@@ -17,7 +17,6 @@ import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-hello';
 import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/repl/server/messages/message-analysis';
-import type { SliceResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-slice';
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
@@ -25,6 +24,10 @@ import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import { BiMap } from '@eagleoutice/flowr/util/collections/bimap';
 import { extractSimpleCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
+import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
+import type { QueryResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-query';
+import type { PipelineOutput } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
+import type { DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -186,7 +189,7 @@ export class FlowrServerSession implements FlowrSession {
 		return cfgToMermaid(extractSimpleCfg(normalize), normalize);
 	}
 
-	async retrieveSlice(criteria: SlicingCriteria, document: vscode.TextDocument): Promise<SliceReturn> {
+	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument): Promise<SliceReturn> {
 		const response = await this.requestFileAnalysis(document);
 		// now we want to collect all ids from response in a map again (id -> location)
 		const idToLocation = new Map<NodeId, SourceRange>();
@@ -201,20 +204,25 @@ export class FlowrServerSession implements FlowrSession {
 			}
 		});
 
-		const sliceResponse = await this.sendCommandWithResponse<SliceResponseMessage>({
-			'type':      'request-slice',
+		const sliceResponse = await this.sendCommandWithResponse<QueryResponseMessage>({
+			type:        'request-query',
 			'id':        String(this.idCounter++),
 			'filetoken': '@tmp',
-			'criterion': criteria
+			query:       [{
+				type:      'static-slice',
+				criteria:  criteria,
+				direction: direction
+			}]
 		});
+		const result = Object.values(sliceResponse.results['static-slice'].results)[0] as PipelineOutput<typeof DEFAULT_SLICING_PIPELINE>;
 
-		const sliceElements = makeSliceElements(sliceResponse.results.slice.result, id => idToLocation.get(id));
+		const sliceElements = makeSliceElements(result.slice.result, id => idToLocation.get(id));
 
 		if(isVerbose()) {
-			this.outputChannel.appendLine('[Slice (Server)] Contains Ids: ' + JSON.stringify([...sliceResponse.results.slice.result]));
+			this.outputChannel.appendLine('[Slice (Server)] Contains Ids: ' + JSON.stringify([...result.slice.result]));
 		}
 		return {
-			code: sliceResponse.results.reconstruct.code,
+			code: result.reconstruct.code,
 			sliceElements
 		};
 	}

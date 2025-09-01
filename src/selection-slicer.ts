@@ -12,6 +12,7 @@ import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
 import { Settings } from './settings';
 import { getCriteriaSlicer } from './criteria-slicer';
+import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 
 
 const selectionSlicerAuthority = 'selection-slicer';
@@ -173,7 +174,7 @@ async function getSelectionSlice(): Promise<SelectionSliceReturn | undefined> {
 		return undefined;
 	}
 	const flowrSession = await getFlowrSession();
-	const ret = await flowrSession.retrieveSlice(makeSlicingCriteria(positions, editor.document, isVerbose()), editor.document, false);
+	const ret = await flowrSession.retrieveSlice(makeSlicingCriteria(positions, editor.document, isVerbose()), SliceDirection.Backward, editor.document, false);
 	if(!ret.sliceElements.length){
 		return {
 			code:          '# No slice',

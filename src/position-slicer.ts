@@ -10,6 +10,7 @@ import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { getSelectionSlicer } from './selection-slicer';
 import { Settings } from './settings';
+import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 
 const positionSlicerAuthority = 'doc-slicer';
 const positionSlicerSuffix = 'Slice';
@@ -245,7 +246,7 @@ export class PositionSlicer {
 			this.clearSliceDecos();
 			return;
 		}
-		const { code, sliceElements } = await session.retrieveSlice(makeSlicingCriteria(positions, this.doc, isVerbose()), this.doc, this.showErrors);
+		const { code, sliceElements } = await session.retrieveSlice(makeSlicingCriteria(positions, this.doc, isVerbose()), SliceDirection.Backward, this.doc, this.showErrors);
 
 		if(sliceElements.length === 0){
 			this.clearSliceDecos();
