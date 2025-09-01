@@ -122,7 +122,7 @@ Optionally, you can also use one of the two "Toggle Slice" options, which will a
 
 You can also view the reconstruction of a piece of code based on the current backward slice. The "Show Current Backward Slice in Editor (Reconstruct)" command opens a view next to the current editor that will automatically update the reconstruction as you slice. By default, this should be shown to you automatically whenever you create a backward slice (but this can be changed in the settings).
 
-To clear the slice highlighting, use the "Clear Current Slice Presentation" command or the trash icon in the upper right of the editor.
+To clear the slice highlighting, use the "Clear Current Slice Presentation" command or the crossed out eye icon in the upper right of the editor.
 
 ![A screenshot of the extension being used to reconstruct a slice](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/reconstruct.png)
 
