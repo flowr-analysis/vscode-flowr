@@ -24,6 +24,9 @@ export class ConfigurableRefresher {
 	private disposables:      vscode.Disposable[] = [];
 	private readonly spec:    ConfigurableRefresherConstructor;
 
+	private static s_DocumentChangedDisposable: vscode.Disposable | undefined;
+	private static s_onChangeRefreshers:        ConfigurableRefresher[] = [];
+
 	constructor(c: ConfigurableRefresherConstructor) {
 		this.spec = c;
         
@@ -54,6 +57,41 @@ export class ConfigurableRefresher {
 		void this.spec.configChangedCallback?.();
 	}
 
+	// If we have to run checks on every keystroke, we don't want to repeat the checks for all refreshers!
+	private static onTextDocumentChanged(e: vscode.TextDocumentChangeEvent) {
+		if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && vscode.window.activeTextEditor?.document.languageId === 'r') {
+			if(e.document.version < (vscode.window.activeTextEditor?.document.version ?? 0)) {
+				return;
+			}
+
+			for(const refresher of ConfigurableRefresher.s_onChangeRefreshers) {
+				refresher.runRefreshCallback();
+			}
+		}
+	}
+
+	private static unregisterRefresherForOnChanged(refresher: ConfigurableRefresher) {
+		const idx = this.s_onChangeRefreshers.indexOf(refresher);
+		if(idx !== -1) {
+			this.s_onChangeRefreshers.splice(idx, 1);
+		}
+
+		if(this.s_onChangeRefreshers.length === 0) {
+			this.s_DocumentChangedDisposable?.dispose();
+			this.s_DocumentChangedDisposable = undefined;
+		}
+	}
+
+	private static registerRefresherForOnChanged(refresher: ConfigurableRefresher) {
+		if(!ConfigurableRefresher.s_DocumentChangedDisposable) {
+			ConfigurableRefresher.s_DocumentChangedDisposable = vscode.workspace.onDidChangeTextDocument((e) => {
+				ConfigurableRefresher.onTextDocumentChanged(e); 
+			});
+		}
+
+		this.s_onChangeRefreshers.push(refresher);
+	}
+
 	private update() {
 		this.spec.output.append(`${this.spec.name} Updating Configuration`);
 	
@@ -65,6 +103,9 @@ export class ConfigurableRefresher {
 			this.activeDisposable.dispose();
 			this.activeDisposable = undefined;
 		}
+
+		ConfigurableRefresher.unregisterRefresherForOnChanged(this);
+
 		switch(getConfig().get<string>(this.spec.configUpdateTypeKey, 'never')) {
 			case 'never': break;
 			case 'interval': {
@@ -102,17 +143,7 @@ export class ConfigurableRefresher {
 				this.activeDisposable = vscode.workspace.onWillSaveTextDocument(() => this.runRefreshCallback());
 				break;
 			case 'on change':
-				this.activeDisposable = vscode.workspace.onDidChangeTextDocument(e => {
-					if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && vscode.window.activeTextEditor?.document.languageId === 'r') {
-						if(e.document.version < (vscode.window.activeTextEditor?.document.version ?? 0)) {
-							if(isVerbose()) {
-								this.spec.output.appendLine('Skip update because event version: ' + e.document.version + 'is less than that of the active document: ' + (vscode.window.activeTextEditor?.document.version ?? 0) + ' (there is a newer version!).');
-							}
-							return;
-						}
-						this.runRefreshCallback();
-					}
-				});
+				ConfigurableRefresher.registerRefresherForOnChanged(this);
 				break;
 			default:
 				this.spec.output.appendLine(`[${this.spec.name}] Invalid update type: ${getConfig().get<string>(this.spec.configUpdateTypeKey)}`);
@@ -120,6 +151,7 @@ export class ConfigurableRefresher {
 	}
 
 	public dispose() {
+		ConfigurableRefresher.unregisterRefresherForOnChanged(this);
 		clearInterval(this.activeInterval);
 		this.activeDisposable?.dispose();
 
