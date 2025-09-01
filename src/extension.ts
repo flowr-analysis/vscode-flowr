@@ -175,11 +175,11 @@ export function updateStatusBar() {
 		slicingTypes.push('cursor');
 	}
 	if(positionSlicers.size) {
-		const pos = [...positionSlicers].reduce((i, [,s]) => i + s.offsets.length, 0);
+		const pos = [...positionSlicers].reduce((i, [,s]) => i + s.positions.length, 0);
 		if(pos > 0) {
 			slicingTypes.push(`${pos} position${pos === 1 ? '' : 's'}`);
 			for(const [doc,slicer] of positionSlicers) {
-				slicingFiles.push(`${vscode.workspace.asRelativePath(doc.fileName)} (${slicer.offsets.length} position${slicer.offsets.length === 1 ? '' : 's'})`);
+				slicingFiles.push(`${vscode.workspace.asRelativePath(doc.fileName)} (${slicer.positions.length} position${slicer.positions.length === 1 ? '' : 's'})`);
 			}
 		}
 	}
