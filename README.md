@@ -12,7 +12,7 @@
 This extension brings [_flowR_](https://github.com/flowr-analysis/flowr) to Visual Studio Code and Positron. See the [installation instructions](#installing) to get started!
 With this extension, you gain access to the following features (as the extension is under active development, many more features are [planned](https://github.com/flowr-analysis/vscode-flowr/issues?q=is%3Aissue%20state%3Aopen%20type%3AFeature)):
 
-1. 🍕 [**Slicing**](#slicing): Reduce the Program to just the parts relevant to a specific variable or figure.
+1. 🍕 [**Slicing**](#slicing): Reduce the Program to just the parts relevant to a specific variable or figure or see what influence a loaded dataset has on the program.
    This is useful, when you want to reuse code for a figure or statistical analysis in another context or if you just want to understand the code better.
 
    <details><summary>Slicing Example</summary>
