@@ -14,6 +14,8 @@ export interface ConfigurableRefresherConstructor {
 	output:                    vscode.OutputChannel;
 }
 
+export type RefreshType = 'never' | 'interval' | 'adaptive' | 'on save' | 'on change';
+
 /**
  * Runs a callback based on a configurable refresh policy.
  * The callback can be called based on an interval
@@ -29,17 +31,17 @@ export class ConfigurableRefresher {
 
 	constructor(c: ConfigurableRefresherConstructor) {
 		this.spec = c;
+
         
 		this.disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
 			if(!e.affectsConfiguration(Settings.Category)) {
 				return;
 			}
-            
 			this.runConfigChangedCallback();
 			this.update();
 			this.runRefreshCallback();
 		}));
-
+		
 		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(e => {
 			if(e?.document.languageId === 'r') {
 				this.runRefreshCallback();
@@ -106,7 +108,7 @@ export class ConfigurableRefresher {
 
 		ConfigurableRefresher.unregisterRefresherForOnChanged(this);
 
-		switch(getConfig().get<string>(this.spec.configUpdateTypeKey, 'never')) {
+		switch(getConfig().get<RefreshType>(this.spec.configUpdateTypeKey, 'never')) {
 			case 'never': break;
 			case 'interval': {
 				this.activeInterval = setInterval(() => this.runRefreshCallback(), getConfig().get<number>(this.spec.configUpdateIntervalKey, 10) * 1000);

@@ -1,3 +1,6 @@
 {
-    "vscode-flowr.verboseLog": true
+    "vscode-flowr.verboseLog": true,
+    "vscode-flowr.linter.updateType": "adaptive",
+    "vscode-flowr.linter.updateInterval": 10,
+    "vscode-flowr.linter.adaptiveCharacterLimit": 5000
 }
