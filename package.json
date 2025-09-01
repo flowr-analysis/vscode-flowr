@@ -104,7 +104,12 @@
       },
       {
         "command": "vscode-flowr.slice.position",
-        "title": "Toggle Continuous Slice at Current Position",
+        "title": "Toggle Continuous Backward Slice at Current Position",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.forward-slice.position",
+        "title": "Toggle Continuous Forward Slice at Current Position",
         "category": "flowR"
       },
       {
@@ -464,6 +469,10 @@
       "editor/context": [
         {
           "command": "vscode-flowr.slice.position",
+          "when": "resourceLangId == r"
+        },
+        {
+          "command": "vscode-flowr.forward-slice.position",
           "when": "resourceLangId == r"
         },
         {

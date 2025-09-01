@@ -54,7 +54,10 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.position', async() => {
-		await addCurrentPositions();
+		await addCurrentPositions(SliceDirection.Backward);
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.forward-slice.position', async() => {
+		await addCurrentPositions(SliceDirection.Forward);
 	}));
 
 	vscode.workspace.onDidChangeConfiguration(e => {
