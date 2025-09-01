@@ -9,6 +9,8 @@ const Keys = {
 	BreakOff:   Settings.LinterAdaptiveBreak
 } as const;
 
+const TestFileName = 'refresher-test.r';
+
 async function updateRefreshSettings(type: RefreshType, interval: number, breakOff: number) {
 	const config = vscode.workspace.getConfiguration(Settings.Category);
 	await config.update(Keys.UpdateType, type);
@@ -33,7 +35,7 @@ suite('refresher', () => {
 	suiteTeardown(async() => {
 		const folder = vscode.workspace.workspaceFolders?.[0];
 		assert.ok(folder);
-		const file = vscode.Uri.joinPath(folder.uri, 'test.R');
+		const file = vscode.Uri.joinPath(folder.uri, TestFileName);
 		await vscode.workspace.fs.delete(file);
 		await updateRefreshSettings(backup.UpdateType, backup.Interval, backup.BreakOff);
 	});
@@ -48,12 +50,12 @@ suite('refresher', () => {
 
 			const folder = vscode.workspace.workspaceFolders?.[0];
 			assert.ok(folder);
-			const file = vscode.Uri.joinPath(folder.uri, 'test.R');
+			const file = vscode.Uri.joinPath(folder.uri, TestFileName);
 			await vscode.workspace.fs.writeFile(file, Buffer.from('test <- 1'));
 			const doc = await vscode.workspace.openTextDocument(file);
 			const editor = await vscode.window.showTextDocument(doc);
             
-			const _ = new ConfigurableRefresher({
+			const refresher = new ConfigurableRefresher({
 				name:                    'Test',
 				configUpdateTypeKey:     Keys.UpdateType,
 				configAdaptiveBreakKey:  Keys.BreakOff,
@@ -75,6 +77,8 @@ suite('refresher', () => {
 			} else {
 				assert(triggerCount >= data.expectedTriggerCount, `Expected to trigger ${data.expectedTriggerCount} or more, but triggered ${triggerCount} times`);
 			}
+
+			refresher.dispose();
 		});
 	}
 
