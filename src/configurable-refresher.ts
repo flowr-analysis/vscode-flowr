@@ -5,13 +5,13 @@ import * as vscode from 'vscode';
 type Callback<T> = (() => Promise<T>) | (() => T)
 
 export interface ConfigurableRefresherConstructor {
-    name:                   string;
-	configUpdateTypeKey:       Settings;
-	configAdaptiveBreakKey:    Settings;
-	configUpdateIntervalKey:   Settings;
-	refreshCallback:           Callback<void>;
-    configChangedCallback?: Callback<void>;
-	output:                    vscode.OutputChannel;
+	name:                    string;
+	configUpdateTypeKey:     Settings;
+	configAdaptiveBreakKey:  Settings;
+	configUpdateIntervalKey: Settings;
+	refreshCallback:         Callback<void>;
+	configChangedCallback?:  Callback<void>;
+	output:                  vscode.OutputChannel;
 }
 
 export type RefreshType = 'never' | 'interval' | 'adaptive' | 'on save' | 'on change';
@@ -32,7 +32,7 @@ export class ConfigurableRefresher {
 	constructor(c: ConfigurableRefresherConstructor) {
 		this.spec = c;
 
-        
+
 		this.disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
 			if(!e.affectsConfiguration(Settings.Category)) {
 				return;
@@ -41,7 +41,7 @@ export class ConfigurableRefresher {
 			this.update();
 			this.runRefreshCallback();
 		}));
-		
+
 		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(e => {
 			if(e?.document.languageId === 'r') {
 				this.runRefreshCallback();
@@ -87,7 +87,7 @@ export class ConfigurableRefresher {
 	private static registerRefresherForOnChanged(refresher: ConfigurableRefresher) {
 		if(!ConfigurableRefresher.s_DocumentChangedDisposable) {
 			ConfigurableRefresher.s_DocumentChangedDisposable = vscode.workspace.onDidChangeTextDocument((e) => {
-				ConfigurableRefresher.onTextDocumentChanged(e); 
+				ConfigurableRefresher.onTextDocumentChanged(e);
 			});
 		}
 
@@ -96,7 +96,7 @@ export class ConfigurableRefresher {
 
 	private update() {
 		this.spec.output.append(`${this.spec.name} Updating Configuration`);
-	
+
 		if(this.activeInterval) {
 			clearInterval(this.activeInterval);
 			this.activeInterval = undefined;
