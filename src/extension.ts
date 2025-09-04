@@ -8,7 +8,7 @@ import type { FlowrSession } from './flowr/utils';
 import { selectionSlicer } from './selection-slicer';
 import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
-import { registerDependencyView } from './flowr/views/dependency-view';
+import { registerDependencyInternalCommands, registerDependencyView } from './flowr/views/dependency-view';
 import type { FlowrConfigOptions } from '@eagleoutice/flowr/config';
 import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfigOptions } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
@@ -31,6 +31,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerDiagramCommands(context, outputChannel);
 	registerSliceCommands(context, outputChannel);
 	registerLintCommands(context, outputChannel);
+	registerDependencyInternalCommands(context, outputChannel);
 
 	updateFlowrConfig();
 	vscode.workspace.onDidChangeConfiguration(updateFlowrConfig);
