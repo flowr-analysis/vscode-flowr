@@ -17,7 +17,7 @@
   "license": "GPL-3.0",
   "version": "0.5.16",
   "engines": {
-    "vscode": "^1.60.0"
+    "vscode": "^1.92.0"
   },
   "categories": [
     "Programming Languages",
@@ -37,6 +37,13 @@
         "title": "Go to Dependency",
         "category": "flowR",
         "icon": "$(link)",
+        "enablement": "sideBarFocus"
+      },
+      {
+        "command": "vscode-flowr.internal.enable-disable.dependency",
+        "title": "Toggle Category",
+        "category": "flowR",
+        "icon": "$(eye)",
         "enablement": "sideBarFocus"
       },
       {
@@ -450,6 +457,34 @@
           },
           "markdownDescription": "When using the dependency view, the set of additional `libraryFunctions`, `sourceFunctions`, `readFunctions` and `writeFunctions` to load. For more info on how these need to be formatted, see [the wiki](https://github.com/flowr-analysis/flowr/wiki/Query-API#dependencies-query)."
         },
+        "vscode-flowr.dependencyView.query.enabledCategories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "library",
+              "read",
+              "source",
+              "write",
+              "visualize"
+            ],
+            "enumDescriptions": [
+              "Libraries",
+              "Imported Data",
+              "Sourced Scripts",
+              "Outputs",
+              "Visualizations"
+            ]
+          },
+          "default": [
+            "library",
+            "read",
+            "source",
+            "write",
+            "visualize"
+          ],
+          "markdownDescription": "When using the dependency view, which dependency categories should be detected. Can also be toggled by right-clicking on a category in the dependency view itself."
+        },
         "vscode-flowr.linter.enabledRules": {
           "type": "array",
           "items": {
@@ -503,6 +538,11 @@
           "command": "vscode-flowr.internal.goto.dependency",
           "when": "view == flowr-dependencies && viewItem == dependency",
           "group": "flowR"
+        },
+        {
+          "command": "vscode-flowr.internal.enable-disable.dependency",
+          "when": "view == flowr-dependencies && viewItem == category",
+          "group": "inline"
         }
       ],
       "view/title": [
@@ -593,7 +633,7 @@
     "watch-web": "npm run copy-wasm-web && webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.4.7",
+    "@eagleoutice/flowr": "^2.4.8",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
@@ -615,7 +655,7 @@
     "@types/mocha": "^10.0.6",
     "@types/node": "22.x",
     "@types/semver": "^7.5.8",
-    "@types/vscode": "^1.60.0",
+    "@types/vscode": "^1.92.0",
     "@types/webpack-env": "^1.16.0",
     "@types/ws": "^8.5.10",
     "@vscode/test-cli": "^0.0.6",

@@ -3,7 +3,7 @@ import { getConfig, getFlowrSession } from './extension';
 import type { LintingRuleConfig, LintingRuleMetadata, LintingRuleNames, LintingRuleResult } from '@eagleoutice/flowr/linter/linter-rules';
 import { LintingRules } from '@eagleoutice/flowr/linter/linter-rules';
 import { Settings } from './settings';
-import type { ConfiguredLintingRule } from '@eagleoutice/flowr/linter/linter-format';
+import { type ConfiguredLintingRule } from '@eagleoutice/flowr/linter/linter-format';
 
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(output);
@@ -55,6 +55,9 @@ class LinterService {
 		}]);
 
 		for(const [ruleName, findings] of Object.entries(lint.result.linter.results)) {
+			if('error' in findings) {
+				continue;
+			}
 			const rule = LintingRules[ruleName as LintingRuleNames];
 
 			this.output.appendLine(`[Lint] Found ${findings.results.length} issues for rule: ${ruleName}`);
