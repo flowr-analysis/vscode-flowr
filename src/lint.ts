@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { getConfig, getFlowrSession } from './extension';
 import type { LintingRuleConfig, LintingRuleMetadata, LintingRuleNames, LintingRuleResult } from '@eagleoutice/flowr/linter/linter-rules';
 import { LintingRules } from '@eagleoutice/flowr/linter/linter-rules';
-import { Settings } from './settings';
+import { LinterRefresherConfigKeys, Settings } from './settings';
 import type { ConfiguredLintingRule } from '@eagleoutice/flowr/linter/linter-format';
 import { ConfigurableRefresher } from './configurable-refresher';
 
@@ -22,11 +22,9 @@ class LinterService {
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
 		this.refresher = new ConfigurableRefresher({
-			name:                    'Lint',
-			configUpdateTypeKey:     Settings.LinterUpdateType,
-			configUpdateIntervalKey: Settings.LinterUpdateInterval,
-			configAdaptiveBreakKey:  Settings.LinterAdaptiveBreak,
-			refreshCallback:         async() => {
+			name:            'Lint',
+			keys:            LinterRefresherConfigKeys,
+			refreshCallback: async() => {
 				await this.runLinting();
 			},
 			output: output

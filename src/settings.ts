@@ -1,3 +1,5 @@
+import type { RefresherConfigKeys } from './configurable-refresher';
+
 export enum Settings {
 	Category = 'vscode-flowr',
 	VerboseLog = 'verboseLog',
@@ -52,6 +54,18 @@ export enum Settings {
 	LinterUpdateInterval = 'linter.updateInterval',
 	LinterAdaptiveBreak = 'linter.adaptiveCharacterLimit',
 }
+
+export const LinterRefresherConfigKeys =  {
+	updateType:    Settings.LinterUpdateType,
+	interval:      Settings.LinterUpdateInterval,
+	adaptiveBreak: Settings.LinterAdaptiveBreak
+} satisfies RefresherConfigKeys;
+
+export const DependencyViewRefresherConfigKeys =  {
+	updateType:    Settings.DependencyViewUpdateType,
+	interval:      Settings.DependencyViewUpdateInterval,
+	adaptiveBreak: Settings.DependencyViewAdaptiveBreak
+} satisfies RefresherConfigKeys;
 
 export type SliceDisplay = 'text' | 'diff' | 'tokens'
 export type ConnectionType = 'auto' | 'websocket' | 'websocket-secure' | 'tcp'

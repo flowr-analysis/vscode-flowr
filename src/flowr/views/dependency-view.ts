@@ -5,7 +5,7 @@ import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { RotaryBuffer } from '../utils';
-import { Settings } from '../../settings';
+import { DependencyViewRefresherConfigKeys, Settings } from '../../settings';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { ConfigurableRefresher } from '../../configurable-refresher';
@@ -113,11 +113,9 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		this.output = output;
 
 		this.refreher = new ConfigurableRefresher({
-			name:                    'Dependency View',
-			configUpdateTypeKey:     Settings.DependencyViewUpdateType,
-			configUpdateIntervalKey: Settings.DependencyViewUpdateInterval,
-			configAdaptiveBreakKey:  Settings.DependencyViewAdaptiveBreak,
-			refreshCallback:         async() => {
+			name:            'Dependency View',
+			keys:            DependencyViewRefresherConfigKeys,
+			refreshCallback: async() => {
 				await this.refresh(); 
 			},
 			configChangedCallback: () => {
