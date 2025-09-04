@@ -9,7 +9,6 @@ import { RotaryBuffer } from '../utils';
 import { Settings } from '../../settings';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
-import { TreeItemCheckboxState } from 'vscode';
 
 const FlowrDependencyViewId = 'flowr-dependencies';
 /** returns disposer */
