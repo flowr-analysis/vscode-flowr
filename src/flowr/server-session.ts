@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as ws from 'ws';
 import type { FlowrMessage } from '@eagleoutice/flowr/cli/repl/server/messages/all-messages';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
-import { establishInternalSession, getConfig, isVerbose, isWeb, updateStatusBar } from '../extension';
+import { establishInternalSession, getConfig, isVerbose, isWeb, updateStatusBar, VSCodeFlowrConfiguration } from '../extension';
 import type { ConnectionType } from '../settings';
 import { Settings } from '../settings';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
@@ -22,12 +22,12 @@ import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import { BiMap } from '@eagleoutice/flowr/util/collections/bimap';
-import { extractSimpleCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import type { QueryResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-query';
 import type { PipelineOutput } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
 import type { DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
+import { extractCfg } from '@eagleoutice/flowr/control-flow/extract-cfg';
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -186,7 +186,7 @@ export class FlowrServerSession implements FlowrSession {
 			...response.results.normalize,
 			idMap: new BiMap()
 		};
-		return cfgToMermaid(extractSimpleCfg(normalize), normalize);
+		return cfgToMermaid(extractCfg(normalize, VSCodeFlowrConfiguration, response.results.dataflow.graph), normalize);
 	}
 
 	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument): Promise<SliceReturn> {

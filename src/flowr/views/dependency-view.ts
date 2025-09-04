@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getConfig, getFlowrSession, isVerbose } from '../../extension';
-import type { DependenciesQuery, DependenciesQueryResult, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
+import type { DefaultDependencyCategoryName , DependenciesQuery, DependenciesQueryResult, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
+import { Unknown } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
@@ -91,11 +92,18 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	};
 }
 
-const emptyDependencies: DependenciesQueryResult = { libraries: [], readData: [], sourcedFiles: [], writtenData: [], '.meta': { timing: -1 } };
+const emptyDependencies: DependenciesQueryResult = { library: [], source: [], read: [], write: [], visualize: [], '.meta': { timing: -1 } } as unknown as DependenciesQueryResult;
 const emptyLocationMap: LocationMapQueryResult = { map: {
 	files: [],
 	ids:   {}
 }, '.meta': { timing: -1 } };
+const dependencyDisplayInfo: Record<DefaultDependencyCategoryName, {name: string, verb: string, icon: string}> = {
+	'library':   { name: 'Libraries', verb: 'loads the library', icon: 'library' },
+	'read':      { name: 'Imported Data', verb: 'imports the data', icon: 'file-text' },
+	'source':    { name: 'Sourced Scripts', verb: 'sources the script', icon: 'file-code' },
+	'write':     { name: 'Outputs', verb: 'produces the output', icon: 'new-file' },
+	'visualize': { name: 'Visualizations', verb: 'visualizes the data', icon: 'graph' }
+};
 type Update = Dependency | undefined | null
 class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private readonly output:               vscode.OutputChannel;
@@ -356,32 +364,30 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	private makeRootElements(dfi?: DataflowInformation, ast?: NormalizedAst) {
-		this.rootElements = [
-			this.makeDependency('Libraries', 'loads the library', this.activeDependencies.libraries, new vscode.ThemeIcon('library'), e => e.libraryName, dfi, ast),
-			this.makeDependency('Imported Data', 'imports the data', this.activeDependencies.readData, new vscode.ThemeIcon('file-text'), e => e.source, dfi, ast),
-			this.makeDependency('Sourced Scripts', 'sources the script', this.activeDependencies.sourcedFiles, new vscode.ThemeIcon('file-code'), e => e.file, dfi, ast),
-			this.makeDependency('Outputs', 'produces the output', this.activeDependencies.writtenData, new vscode.ThemeIcon('new-file'), e => e.destination, dfi, ast)
-		];
+		this.rootElements = Object.entries(dependencyDisplayInfo).map(([d, i]) => {
+			const result = this.activeDependencies[d] as DependencyInfo[];
+			return this.makeDependency(i.name, i.verb, result, new vscode.ThemeIcon(i.icon), dfi, ast);
+		});
 	}
 
-	private makeDependency<E extends DependencyInfo>(label: string, verb: string, elements: E[], themeIcon: vscode.ThemeIcon, getName: (e: E) => string, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency {
-		const parent = new Dependency({ label, icon: themeIcon, root: true, verb, children: this.makeChildren(getName, elements, verb, dfi, ast), ast, dfi });
+	private makeDependency(label: string, verb: string, elements: DependencyInfo[], themeIcon: vscode.ThemeIcon, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency {
+		const parent = new Dependency({ label, icon: themeIcon, root: true, verb, children: this.makeChildren(elements, verb, dfi, ast), ast, dfi });
 		parent.children?.forEach(c => c.setParent(parent));
 		return parent;
 	}
 
-	private makeChildren<E extends DependencyInfo>(getName: (e: E) => string, elements: E[], verb: string, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency[] {
-		const unknownGuardedName = (e: E) => {
-			const name = getName(e);
-			if(name === 'unknown' && e.lexemeOfArgument) {
-				return name + ': ' + e.lexemeOfArgument;
+	private makeChildren(elements: DependencyInfo[], verb: string, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency[] {
+		const unknownGuardedName = (e: DependencyInfo): string => {
+			const value = e.value ?? Unknown;
+			if(value === Unknown && e.lexemeOfArgument) {
+				return `${value}: ${e.lexemeOfArgument}`;
 			}
-			return name;
+			return value;
 		};
 		/* first group by name */
-		const grouped = new Map<string, E[]>();
+		const grouped = new Map<string, DependencyInfo[]>();
 		for(const e of elements) {
-			const name = getName(e) + ' (' + e.functionName + ')';
+			const name = `${unknownGuardedName(e)} (${e.functionName})`;
 			if(!grouped.has(name)) {
 				grouped.set(name, []);
 			}
