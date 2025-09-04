@@ -43,7 +43,7 @@
         "command": "vscode-flowr.internal.enable-disable.dependency",
         "title": "Toggle Category",
         "category": "flowR",
-        "icon": "$(pencil)",
+        "icon": "$(eye)",
         "enablement": "sideBarFocus"
       },
       {
@@ -542,7 +542,7 @@
         {
           "command": "vscode-flowr.internal.enable-disable.dependency",
           "when": "view == flowr-dependencies && viewItem == category",
-          "group": "flowR"
+          "group": "inline"
         }
       ],
       "view/title": [

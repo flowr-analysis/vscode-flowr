@@ -1,8 +1,10 @@
 {
     "vscode-flowr.verboseLog": true,
     "vscode-flowr.dependencyView.query.enabledCategories": [
-        "library",
         "visualize",
-        "write"
+        "write",
+        "source",
+        "library",
+        "read"
     ]
 }

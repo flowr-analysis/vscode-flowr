@@ -567,6 +567,9 @@ export class Dependency extends vscode.TreeItem {
 		}
 		if(root){
 			this.contextValue = 'category';
+			if(getConfig().get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, []).findIndex(c => this.category === c) < 0) {
+				this.description = 'Disabled';
+			}		
 		} else if(info) {
 			this.contextValue = 'dependency';
 		}
