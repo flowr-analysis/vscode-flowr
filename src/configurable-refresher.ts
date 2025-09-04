@@ -46,7 +46,12 @@ export class ConfigurableRefresher {
 
 	constructor(c: ConfigurableRefresherConstructor) {
 		this.spec = c;
+<<<<<<< HEAD
         
+=======
+
+
+>>>>>>> origin/linter-auto-refresh-300
 		this.disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
 			if(!e.affectsConfiguration(Settings.Category)) {
 				return;
@@ -55,7 +60,7 @@ export class ConfigurableRefresher {
 			this.update();
 			this.runRefreshCallback();
 		}));
-		
+
 		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(e => {
 			if(isRTypeLanguage(e?.document)) {
 				this.runRefreshCallback();
@@ -99,9 +104,15 @@ export class ConfigurableRefresher {
 	}
 
 	private static registerRefresherForOnChanged(refresher: ConfigurableRefresher) {
+<<<<<<< HEAD
 		if(!ConfigurableRefresher.documentChangedDisposable) {
 			ConfigurableRefresher.documentChangedDisposable = vscode.workspace.onDidChangeTextDocument((e) => {
 				ConfigurableRefresher.onTextDocumentChanged(e); 
+=======
+		if(!ConfigurableRefresher.s_DocumentChangedDisposable) {
+			ConfigurableRefresher.s_DocumentChangedDisposable = vscode.workspace.onDidChangeTextDocument((e) => {
+				ConfigurableRefresher.onTextDocumentChanged(e);
+>>>>>>> origin/linter-auto-refresh-300
 			});
 		}
 
@@ -109,8 +120,13 @@ export class ConfigurableRefresher {
 	}
 
 	private update() {
+<<<<<<< HEAD
 		this.spec.output.append(`[${this.spec.name}] Updating Configuration`);
 	
+=======
+		this.spec.output.append(`${this.spec.name} Updating Configuration`);
+
+>>>>>>> origin/linter-auto-refresh-300
 		if(this.activeInterval) {
 			clearInterval(this.activeInterval);
 			this.activeInterval = undefined;

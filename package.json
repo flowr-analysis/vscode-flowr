@@ -641,7 +641,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@eagleoutice/eslint-config-flowr": "^1.0.17",
+    "@eagleoutice/eslint-config-flowr": "^1.0.19",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.20.0",
     "@types/mocha": "^10.0.6",
