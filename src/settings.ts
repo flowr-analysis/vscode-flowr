@@ -27,6 +27,7 @@ export enum Settings {
 	DependencyViewCacheLimit = 'dependencyView.cacheLimit',
 	DependenciesQueryIgnoreDefaults = 'dependencyView.query.ignoreDefaults',
 	DependenciesQueryOverrides = 'dependencyView.query.overrides',
+	DependenciesQueryEnabledCategories = 'dependencyView.query.enabledCategories',
 
 	Rengine = 'r.engine',
 	Rexecutable = 'r.executable',
