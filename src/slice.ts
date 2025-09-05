@@ -25,20 +25,6 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.forward-slice.dependency', (dependency: Dependency) => {
 		showDependencySlice(output, dependency, SliceDirection.Forward);
 	}));
-	// maybe find a place for this
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {
-		const node = dependency.getNodeId();
-		const loc = dependency.getLocation();
-		if(node) {
-			// got to position
-			const editor = vscode.window.activeTextEditor;
-			if(editor && loc) {
-				setTimeout(() => {
-					editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter);
-				}, 50);
-			}
-		}
-	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
 		clearSliceOutput();
 	}));

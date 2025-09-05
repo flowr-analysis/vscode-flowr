@@ -6,3 +6,7 @@ data %>%
    dplyr::do(anova(lm(value ~ treatment, data = .))) -> anova_results
 
 write.csv(anova_results, "anova_results.csv")
+
+library(ggplot2)
+ggplot(mpg, aes(displ, hwy, colour = class)) +
+  geom_point()

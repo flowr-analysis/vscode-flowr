@@ -4,6 +4,7 @@ import * as readline from 'readline';
 import { Stream } from 'stream';
 import { replCompleter } from '@eagleoutice/flowr/cli/repl/core';
 import { ansiFormatter } from '@eagleoutice/flowr/util/text/ansi';
+import { VSCodeFlowrConfiguration } from '../../extension';
 
 export function showRepl(context: vscode.ExtensionContext, session: FlowrSession) {
 	// check if we have a terminal already
@@ -50,7 +51,7 @@ export function showRepl(context: vscode.ExtensionContext, session: FlowrSession
 						terminal:                true,
 						history:                 [],
 						removeHistoryDuplicates: true,
-						completer:               replCompleter
+						completer:               (c: string) => replCompleter(c, VSCodeFlowrConfiguration)
 					} satisfies readline.ReadLineOptions)
 				}).catch(e => {
 					console.error(e);

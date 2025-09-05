@@ -6,7 +6,7 @@ import * as path from 'path';
 import type { FlowrInternalSession } from '../flowr/internal-session';
 
 export async function activateExtension(): Promise<void> {
-	const ext = vscode.extensions.getExtension('code-Inspect.vscode-flowr');
+	const ext = vscode.extensions.getExtension('code-inspect.vscode-flowr');
 
 	assert.notEqual(ext, undefined, 'extension not found');
 

@@ -66,6 +66,9 @@ class LinterService {
 		}]);
 
 		for(const [ruleName, findings] of Object.entries(lint.result.linter.results)) {
+			if('error' in findings) {
+				continue;
+			}
 			const rule = LintingRules[ruleName as LintingRuleNames];
 
 			this.output.appendLine(`[Lint] Found ${findings.results.length} issues for rule: ${ruleName}`);
