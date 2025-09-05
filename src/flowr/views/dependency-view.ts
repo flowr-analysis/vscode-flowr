@@ -410,7 +410,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 
 	private makeChildren(elements: DependencyInfo[], verb: string, category: DependencyCategoryName, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency[] {
 		const unknownGuardedName = (e: DependencyInfo): string => {
-			const value = e.value ?? Unknown;
+			const value = e.value ?? `fn ${e.functionName}`;
 			if(value === Unknown && e.lexemeOfArgument) {
 				return `${value}: ${e.lexemeOfArgument}`;
 			}
@@ -513,8 +513,9 @@ export class Dependency extends vscode.TreeItem {
 
 		if(info) {
 			this.loc = locationMap?.map.ids[info.nodeId]?.[1];
-			this.description = `by ${info.functionName} in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
-			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
+			// if the value is undefined, we already display the function name as the label (see unknownGuardedName)
+			this.description = `${info.value ? `by ${info.functionName} ` : ''}in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
+			this.tooltip = `${verb} "${info.value ?? Unknown}" with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
 			this.id = (parent?.id ?? '') + label + info.nodeId + JSON.stringify(this.loc) + info.functionName + this.linkedIds();
 			if(this.loc && vscode.window.activeTextEditor) {
 				const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
@@ -552,7 +553,7 @@ export class Dependency extends vscode.TreeItem {
 					return new Dependency({ label: `Linked to unknown location ${i}`, verb: 'is linked to', category });
 				}
 				return new Dependency({
-					label:       'unknown',
+					label:       tok ?? Unknown,
 					verb:        'is linked to',
 					locationMap: this.locationMap,
 					info:        { nodeId: i, functionName: tok },

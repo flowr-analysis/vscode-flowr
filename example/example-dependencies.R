@@ -10,3 +10,6 @@ write.csv(anova_results, "anova_results.csv")
 library(ggplot2)
 ggplot(mpg, aes(displ, hwy, colour = class)) +
   geom_point()
+
+sink("./test.txt")
+cat("Hello")
