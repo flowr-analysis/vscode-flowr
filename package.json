@@ -542,6 +542,11 @@
         {
           "command": "vscode-flowr.internal.enable-disable.dependency",
           "when": "view == flowr-dependencies && viewItem == category",
+          "group": "flowR"
+        },
+        {
+          "command": "vscode-flowr.internal.enable-disable.dependency",
+          "when": "view == flowr-dependencies && viewItem == category",
           "group": "inline"
         }
       ],
