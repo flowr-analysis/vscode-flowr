@@ -522,7 +522,7 @@ export class Dependency extends vscode.TreeItem {
 					this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 				}
 			} else if(info.linkedIds){
-				this.children = info.linkedIds.map(i => {
+				this.children = info.linkedIds.toSorted((a,b) => compareByLocation(locationMap, a, b)).map(i => {
 					const loc = locationMap.map.ids[i]?.[1];
 					const tok = loc ? activeEditor?.document.getText(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3])) : undefined;
 
@@ -585,7 +585,7 @@ function unknownGuardedName(e: DependencyInfo): string {
 function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow: DependencyInfo[], allInfos: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency[] {
 	/* first group by name */
 	const grouped = new Map<string, DependencyInfo[]>();
-	for(const e of elementsToShow) {
+	for(const e of elementsToShow.toSorted((a,b) => compareByLocation(locationMap, a.nodeId, b.nodeId))) {
 		const name = unknownGuardedName(e) + (e.value && e.value !== Unknown ? ` (${e.functionName})` : '');
 		if(!grouped.has(name)) {
 			grouped.set(name, []);
@@ -600,7 +600,7 @@ function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow
 			label:    name,
 			verb,
 			icon:     vscode.ThemeIcon.Folder,
-			children: group.map(e => new Dependency({
+			children: group.toSorted((a,b) => compareByLocation(locationMap, a.nodeId, b.nodeId)).map(e => new Dependency({
 				verb,
 				label: unknownGuardedName(e),
 				info:  e,
@@ -611,4 +611,15 @@ function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow
 		res.children?.forEach(c => c.setParent(res));
 		return res;
 	});
+}
+
+function compareByLocation(locationMap: LocationMapQueryResult, aNode: NodeId, bNode: NodeId): number {
+	const a = locationMap?.map.ids[aNode]?.[1];
+	const b = locationMap?.map.ids[bNode]?.[1];
+	if(a && b) {
+		return a[0] - b[0] || a[1] - b[1];
+	} else if(a) {
+		return -1;
+	}
+	return b ? 1 : 0;
 }
