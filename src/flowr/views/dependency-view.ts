@@ -600,7 +600,7 @@ function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow
 			label:    name,
 			verb,
 			icon:     vscode.ThemeIcon.Folder,
-			children: group.toSorted((a,b) => compareByLocation(locationMap, a.nodeId, b.nodeId)).map(e => new Dependency({
+			children: group.map(e => new Dependency({
 				verb,
 				label: unknownGuardedName(e),
 				info:  e,
