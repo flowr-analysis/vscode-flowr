@@ -518,6 +518,7 @@ export class Dependency extends vscode.TreeItem {
 				const dependents = allInfos.filter(i => i !== info && i.linkedIds && i.linkedIds.indexOf(info.nodeId) >= 0);
 				if(dependents.length > 0){
 					this.children = makeGroupedElements(locationMap, dependents, allInfos, verb, category, categoryInfo, dfi, ast);
+					this.children.flatMap(c => [c, ...c.children ?? []]).forEach(c => c.iconPath ??= new vscode.ThemeIcon('indent'));
 					this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 				}
 			} else if(info.linkedIds){
