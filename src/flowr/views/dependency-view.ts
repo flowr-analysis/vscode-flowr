@@ -586,7 +586,7 @@ function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow
 	/* first group by name */
 	const grouped = new Map<string, DependencyInfo[]>();
 	for(const e of elementsToShow) {
-		const name = `${unknownGuardedName(e)} (${e.functionName})`;
+		const name = unknownGuardedName(e) + (e.value && e.value !== Unknown ? ` (${e.functionName})` : '');
 		if(!grouped.has(name)) {
 			grouped.set(name, []);
 		}
