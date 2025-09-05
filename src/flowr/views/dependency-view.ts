@@ -412,7 +412,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		const unknownGuardedName = (e: DependencyInfo): string => {
 			let value = e.value ?? Unknown;
 			if(value === Unknown){
-				value = `fn ${e.functionName}`;
+				value = `function "${e.functionName}"`;
 				if(e.lexemeOfArgument) {
 					value = `${value}: ${e.lexemeOfArgument}`;
 				}
@@ -517,7 +517,7 @@ export class Dependency extends vscode.TreeItem {
 		if(info) {
 			this.loc = locationMap?.map.ids[info.nodeId]?.[1];
 			// if the value is undefined or unknown, we already display the function name as the label (see unknownGuardedName)
-			this.description = `${info.value && info.value !== Unknown ? `by ${info.functionName} ` : ''}in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
+			this.description = `${info.value && info.value !== Unknown ? `by "${info.functionName}" ` : ''}in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
 			this.tooltip = `${verb} "${info.value ?? Unknown}" with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
 			this.id = (parent?.id ?? '') + label + info.nodeId + JSON.stringify(this.loc) + info.functionName + this.linkedIds();
 			if(this.loc && vscode.window.activeTextEditor) {
