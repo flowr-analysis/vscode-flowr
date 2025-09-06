@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { BEST_R_MAJOR, MINIMUM_R_MAJOR, VSCodeFlowrConfiguration, getConfig, getWasmRootPath, isVerbose, isWeb, updateStatusBar } from '../extension';
-import { Settings } from '../settings';
+import { BEST_R_MAJOR, MINIMUM_R_MAJOR, VSCodeFlowrConfiguration, getWasmRootPath, isWeb, updateStatusBar } from '../extension';
+import { Settings , getConfig, isVerbose } from '../settings';
 import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import type { FlowrSession, SliceReturn } from './utils';
 import { consolidateNewlines, makeSliceElements } from './utils';
@@ -29,6 +29,7 @@ import { getEngineConfig } from '@eagleoutice/flowr/config';
 import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { extractCfgQuick } from '@eagleoutice/flowr/control-flow/extract-cfg';
+
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,

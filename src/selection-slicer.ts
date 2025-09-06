@@ -4,15 +4,16 @@
 // (either per command or updating as the cursor moves)
 
 import * as vscode from 'vscode';
-import { getConfig, getFlowrSession, isVerbose, updateStatusBar } from './extension';
+import { getFlowrSession, updateStatusBar } from './extension';
 import { flowrScheme, makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
 import { makeSlicingCriteria, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
-import { Settings } from './settings';
+import { Settings , getConfig, isVerbose } from './settings';
 import { getCriteriaSlicer } from './criteria-slicer';
 import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
+
 
 
 const selectionSlicerAuthority = 'selection-slicer';

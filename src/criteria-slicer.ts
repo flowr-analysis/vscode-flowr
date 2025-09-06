@@ -4,13 +4,13 @@
 // (either per command or updating as the cursor moves)
 
 import * as vscode from 'vscode';
-import { getConfig, getFlowrSession } from './extension';
+import { getFlowrSession } from './extension';
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
 import type { SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
-import { Settings } from './settings';
+import { Settings , getConfig } from './settings';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';

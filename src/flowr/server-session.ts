@@ -3,9 +3,8 @@ import * as vscode from 'vscode';
 import * as ws from 'ws';
 import type { FlowrMessage } from '@eagleoutice/flowr/cli/repl/server/messages/all-messages';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
-import { establishInternalSession, getConfig, isVerbose, isWeb, updateStatusBar } from '../extension';
+import { establishInternalSession, isWeb, updateStatusBar } from '../extension';
 import type { ConnectionType } from '../settings';
-import { Settings } from '../settings';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { FlowrSession, SliceReturn } from './utils';
@@ -28,6 +27,7 @@ import type { QueryResponseMessage } from '@eagleoutice/flowr/cli/repl/server/me
 import type { PipelineOutput } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
 import type { DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
 import { extractCfgQuick } from '@eagleoutice/flowr/control-flow/extract-cfg';
+import { getConfig, isVerbose, Settings } from '../settings';
 
 export class FlowrServerSession implements FlowrSession {
 
