@@ -141,12 +141,13 @@ const emptyLocationMap: LocationMapQueryResult = { map: {
 	files: [],
 	ids:   {}
 }, '.meta': { timing: -1 } };
-const dependencyDisplayInfo: Record<DefaultDependencyCategoryName, {name: string, verb: string, icon: string}> = {
+interface DependencyCategoryInfo {name: string, verb: string, icon: string, useReverseLinks?: boolean};
+const dependencyDisplayInfo: Record<DefaultDependencyCategoryName, DependencyCategoryInfo> = {
 	'library':   { name: 'Libraries', verb: 'loads the library', icon: 'library' },
 	'read':      { name: 'Imported Data', verb: 'imports the data', icon: 'file-text' },
 	'source':    { name: 'Sourced Scripts', verb: 'sources the script', icon: 'file-code' },
 	'write':     { name: 'Outputs', verb: 'produces the output', icon: 'new-file' },
-	'visualize': { name: 'Visualizations', verb: 'visualizes the data', icon: 'graph' }
+	'visualize': { name: 'Visualizations', verb: 'visualizes the data', icon: 'graph', useReverseLinks: true }
 };
 type Update = Dependency | undefined | null
 class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
@@ -341,54 +342,20 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private makeRootElements(dfi?: DataflowInformation, ast?: NormalizedAst) {
 		this.rootElements = Object.entries(dependencyDisplayInfo).map(([d, i]) => {
 			const result = this.activeDependencies[d] as DependencyInfo[];
-			return this.makeDependency(i.name, i.verb, result, new vscode.ThemeIcon(i.icon), d, dfi, ast);
+			return this.makeDependency(i.name, i.verb, result, new vscode.ThemeIcon(i.icon), d, i, dfi, ast);
 		});
 	}
 
-	private makeDependency(label: string, verb: string, elements: DependencyInfo[], themeIcon: vscode.ThemeIcon, category: DependencyCategoryName, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency {
-		const parent = new Dependency({ label, category, icon: themeIcon, root: true, verb, children: this.makeChildren(elements, verb, category, dfi, ast), ast, dfi });
+	private makeDependency(label: string, verb: string, elements: DependencyInfo[], themeIcon: vscode.ThemeIcon, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency {
+		const parent = new Dependency({ label, category, categoryInfo, icon: themeIcon, root: true, verb, children: this.makeChildren(elements, verb, category, categoryInfo, dfi, ast), ast, dfi, allInfos: elements });
 		parent.children?.forEach(c => c.setParent(parent));
 		return parent;
 	}
 
-	private makeChildren(elements: DependencyInfo[], verb: string, category: DependencyCategoryName, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency[] {
-		const unknownGuardedName = (e: DependencyInfo): string => {
-			const value = e.value ?? Unknown;
-			if(value === Unknown && e.lexemeOfArgument) {
-				return `${value}: ${e.lexemeOfArgument}`;
-			}
-			return value;
-		};
-		/* first group by name */
-		const grouped = new Map<string, DependencyInfo[]>();
-		for(const e of elements) {
-			const name = `${unknownGuardedName(e)} (${e.functionName})`;
-			if(!grouped.has(name)) {
-				grouped.set(name, []);
-			}
-			grouped.get(name)?.push(e);
-		}
-		return Array.from(grouped.entries()).map(([name, elements]) => {
-			if(elements.length === 1) {
-				return new Dependency({ label: unknownGuardedName(elements[0]), info: elements[0], locationMap: this.locationMap, verb, dfi, ast, category });
-			}
-			const res = new Dependency({
-				label:       name,
-				locationMap: this.locationMap,
-				verb,
-				icon:        vscode.ThemeIcon.Folder,
-				children:    elements.map(e => new Dependency({
-					verb,
-					label:       unknownGuardedName(e),
-					info:        e,
-					locationMap: this.locationMap,
-					dfi, ast, category
-				})),
-				dfi, ast, category
-			});
-			res.children?.forEach(c => c.setParent(res));
-			return res;
-		});
+	private makeChildren(elements: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency[] {
+		// we exclude dependency infos that are already displayed through the useReverseLinks setting
+		const elementsToShow = categoryInfo.useReverseLinks ? elements.filter(i => !i.linkedIds) : elements;
+		return makeGroupedElements(this.locationMap, elementsToShow, elements, verb, category, categoryInfo, dfi, ast);
 	}
 
 	public dispose() {
@@ -406,12 +373,14 @@ interface DependenciesParams {
 	readonly root?:             boolean;
 	readonly children?:         Dependency[];
 	readonly info?:             DependencyInfo;
+	readonly allInfos:          DependencyInfo[];
 	readonly collapsibleState?: vscode.TreeItemCollapsibleState;
 	readonly icon?:             vscode.ThemeIcon;
 	readonly locationMap?:      LocationMapQueryResult;
 	readonly dfi?:              DataflowInformation;
 	readonly ast?:              NormalizedAst;
 	readonly category:          DependencyCategoryName;
+	readonly categoryInfo:      DependencyCategoryInfo;
 }
 
 export class Dependency extends vscode.TreeItem {
@@ -437,7 +406,7 @@ export class Dependency extends vscode.TreeItem {
 	}
 
 	constructor(
-		{ label, root = false, children = [], info, icon, locationMap, collapsibleState, parent, verb, dfi, ast, category }: DependenciesParams
+		{ label, root = false, children = [], info, icon, locationMap, collapsibleState, parent, verb, dfi, ast, category, categoryInfo, allInfos }: DependenciesParams
 	) {
 		collapsibleState ??= children.length === 0 ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Collapsed;
 		super(label, collapsibleState);
@@ -448,11 +417,13 @@ export class Dependency extends vscode.TreeItem {
 		this.parent = parent;
 		this.locationMap = locationMap;
 		this.category = category;
+		this.iconPath = icon;
 
 		if(info) {
 			this.loc = locationMap?.map.ids[info.nodeId]?.[1];
-			this.description = `by ${info.functionName} in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
-			this.tooltip = `${verb} ${JSON.stringify(this.label)} with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
+			// if the value is undefined or unknown, we already display the function name as the label (see unknownGuardedName)
+			this.description = `${info.value && info.value !== Unknown ? `by "${info.functionName}" ` : ''}in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
+			this.tooltip = `${verb} "${info.value ?? Unknown}" with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
 			this.id = (parent?.id ?? '') + label + info.nodeId + JSON.stringify(this.loc) + info.functionName + this.linkedIds();
 			if(this.loc && vscode.window.activeTextEditor) {
 				const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
@@ -478,31 +449,39 @@ export class Dependency extends vscode.TreeItem {
 			this.id = label;
 		}
 
-		if(this.children.length === 0 && locationMap && this.info?.linkedIds) {
+		if(this.children.length === 0 && locationMap && info) {
 			/* in the future we should be able to do better when flowR tells us the locations */
-
 			const activeEditor = vscode.window.activeTextEditor;
-			this.children = this.info.linkedIds.map(i => {
-				const loc = locationMap.map.ids[i]?.[1];
-				const tok = loc ? activeEditor?.document.getText(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3])) : undefined;
-
-				if(!tok) {
-					return new Dependency({ label: `Linked to unknown location ${i}`, verb: 'is linked to', category });
+			if(categoryInfo.useReverseLinks) {
+				const dependents = allInfos.filter(i => i !== info && i.linkedIds && i.linkedIds.indexOf(info.nodeId) >= 0);
+				if(dependents.length > 0){
+					this.children = makeGroupedElements(locationMap, dependents, allInfos, verb, category, categoryInfo, dfi, ast);
+					this.children.flatMap(c => [c, ...c.children ?? []]).forEach(c => c.iconPath ??= new vscode.ThemeIcon('indent'));
+					this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 				}
-				return new Dependency({
-					label:       'unknown',
-					verb:        'is linked to',
-					locationMap: this.locationMap,
-					info:        { nodeId: i, functionName: tok },
-					parent:      this,
-					icon:        new vscode.ThemeIcon('link'),
-					category
+			} else if(info.linkedIds){
+				this.children = info.linkedIds.toSorted((a,b) => compareByLocation(locationMap, a, b)).map(i => {
+					const loc = locationMap.map.ids[i]?.[1];
+					const tok = loc ? activeEditor?.document.getText(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3])) : undefined;
+
+					if(!tok) {
+						return new Dependency({ label: `Linked to unknown location ${i}`, verb: 'is linked to', category, categoryInfo, allInfos });
+					}
+					return new Dependency({
+						label:       tok ?? Unknown,
+						verb:        'is linked to',
+						locationMap: this.locationMap,
+						info:        { nodeId: i, functionName: tok },
+						parent:      this,
+						icon:        new vscode.ThemeIcon('link'),
+						category, categoryInfo, allInfos
+					});
 				});
-			});
-			this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-		} else if(icon) {
-			this.iconPath = icon;
+				this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+				this.iconPath = undefined;
+			}
 		}
+
 		if(root){
 			this.contextValue = 'category';
 			if(getConfig().get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories).findIndex(c => this.category === c) < 0) {
@@ -530,3 +509,55 @@ function getActiveEditorCharLength() {
 	return vscode.window.activeTextEditor?.document.getText().length ?? 0;
 }
 
+function unknownGuardedName(e: DependencyInfo): string {
+	let value = e.value ?? Unknown;
+	if(value === Unknown){
+		value = `function "${e.functionName}"`;
+		if(e.lexemeOfArgument) {
+			value = `${value}: ${e.lexemeOfArgument}`;
+		}
+	}
+	return value;
+};
+
+function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow: DependencyInfo[], allInfos: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency[] {
+	/* first group by name */
+	const grouped = new Map<string, DependencyInfo[]>();
+	for(const e of elementsToShow.toSorted((a,b) => compareByLocation(locationMap, a.nodeId, b.nodeId))) {
+		const name = unknownGuardedName(e) + (e.value && e.value !== Unknown ? ` (${e.functionName})` : '');
+		if(!grouped.has(name)) {
+			grouped.set(name, []);
+		}
+		grouped.get(name)?.push(e);
+	}
+	return Array.from(grouped.entries()).map(([name, group]) => {
+		if(group.length === 1) {
+			return new Dependency({ label: unknownGuardedName(group[0]), info: group[0], locationMap, verb, dfi, ast, category, categoryInfo, allInfos });
+		}
+		const res = new Dependency({
+			label:    name,
+			verb,
+			icon:     vscode.ThemeIcon.Folder,
+			children: group.map(e => new Dependency({
+				verb,
+				label: unknownGuardedName(e),
+				info:  e,
+				dfi, ast, category, categoryInfo, allInfos, locationMap
+			})),
+			dfi, ast, category, categoryInfo, allInfos, locationMap
+		});
+		res.children?.forEach(c => c.setParent(res));
+		return res;
+	});
+}
+
+function compareByLocation(locationMap: LocationMapQueryResult, aNode: NodeId, bNode: NodeId): number {
+	const a = locationMap?.map.ids[aNode]?.[1];
+	const b = locationMap?.map.ids[bNode]?.[1];
+	if(a && b) {
+		return a[0] - b[0] || a[1] - b[1];
+	} else if(a) {
+		return -1;
+	}
+	return b ? 1 : 0;
+}
