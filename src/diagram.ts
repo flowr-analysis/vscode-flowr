@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { getConfig, getFlowrSession } from './extension';
-import { Settings } from './settings';
+import { getFlowrSession } from './extension';
+import { Settings , getConfig } from './settings';
+
 
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dataflow', async() => {

@@ -1,4 +1,6 @@
-import type { RefresherConfigKeys } from './configurable-refresher';
+import type { ValueOf } from 'ts-essentials';
+import * as vscode from 'vscode';
+
 
 export enum Settings {
 	Category = 'vscode-flowr',
@@ -60,6 +62,12 @@ export type DefaultsMaps =  {
   [K in keyof typeof Settings]?: unknown
 };
 
+export interface RefresherConfigKeys {
+	updateType:    ValueOf<typeof Settings>,
+	adaptiveBreak: ValueOf<typeof Settings>,
+	interval:      ValueOf<typeof  Settings>
+}
+
 export const LinterRefresherConfigKeys =  {
 	updateType:    Settings.LinterUpdateType,
 	interval:      Settings.LinterUpdateInterval,
@@ -74,3 +82,11 @@ export const DependencyViewRefresherConfigKeys =  {
 
 export type SliceDisplay = 'text' | 'diff' | 'tokens'
 export type ConnectionType = 'auto' | 'websocket' | 'websocket-secure' | 'tcp'
+
+export function getConfig(): vscode.WorkspaceConfiguration {
+	return vscode.workspace.getConfiguration(Settings.Category);
+}
+
+export function isVerbose(): boolean {
+	return getConfig().get<boolean>(Settings.VerboseLog, false);
+}

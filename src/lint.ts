@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { getConfig, getFlowrSession } from './extension';
+import { getFlowrSession } from './extension';
 import type { LintingRuleConfig, LintingRuleMetadata, LintingRuleNames, LintingRuleResult } from '@eagleoutice/flowr/linter/linter-rules';
 import { LintingRules } from '@eagleoutice/flowr/linter/linter-rules';
-import { LinterRefresherConfigKeys, Settings } from './settings';
+import { getConfig, LinterRefresherConfigKeys, Settings } from './settings';
 import type { ConfiguredLintingRule } from '@eagleoutice/flowr/linter/linter-format';
 import { ConfigurableRefresher } from './configurable-refresher';
 

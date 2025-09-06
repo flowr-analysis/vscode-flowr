@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getConfig, getFlowrSession, isVerbose } from '../../extension';
+import { getFlowrSession } from '../../extension';
 import type { DefaultDependencyCategoryName , DependenciesQuery, DependenciesQueryResult, DependencyCategoryName, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import { DefaultDependencyCategories, Unknown } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
@@ -7,10 +7,11 @@ import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/proc
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { RotaryBuffer } from '../utils';
 import type { DefaultsMaps } from '../../settings';
-import { DependencyViewRefresherConfigKeys, Settings } from '../../settings';
+import { DependencyViewRefresherConfigKeys, Settings , getConfig, isVerbose } from '../../settings';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { ConfigurableRefresher, RefreshType } from '../../configurable-refresher';
+
 
 const FlowrDependencyViewId = 'flowr-dependencies';
 

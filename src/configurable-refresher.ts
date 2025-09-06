@@ -1,15 +1,10 @@
-import type { AsyncOrSync, ValueOf } from 'ts-essentials';
-import { getConfig, isVerbose } from './extension';
-import { Settings } from './settings';
+import type { AsyncOrSync } from 'ts-essentials';
+import type { RefresherConfigKeys } from './settings';
+import { Settings , getConfig, isVerbose } from './settings';
 import * as vscode from 'vscode';
 
-type Callback<T> = () => AsyncOrSync<T>;
 
-export interface RefresherConfigKeys {
-	updateType:    ValueOf<typeof Settings>,
-	adaptiveBreak: ValueOf<typeof Settings>,
-	interval:      ValueOf<typeof  Settings>
-}
+type Callback<T> = () => AsyncOrSync<T>;
 
 export interface ConfigurableRefresherConstructor {
 	name:                   string;
@@ -19,7 +14,7 @@ export interface ConfigurableRefresherConstructor {
 	output:                 vscode.OutputChannel;
 }
 
-export enum RefreshType {
+export const enum RefreshType {
 	Never = 'never', 
 	Interval = 'interval',
 	Adaptive = 'adaptive',

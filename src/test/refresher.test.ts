@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
+import type { RefresherConfigKeys } from '../settings';
 import { DependencyViewRefresherConfigKeys, LinterRefresherConfigKeys, Settings } from '../settings';
-import type { RefresherConfigKeys } from '../configurable-refresher';
 import { ConfigurableRefresher, RefreshType } from '../configurable-refresher';
 import assert from 'assert';
 
