@@ -6,12 +6,24 @@ import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { RotaryBuffer } from '../utils';
+import type { DefaultsMaps } from '../../settings';
 import { DependencyViewRefresherConfigKeys, Settings } from '../../settings';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
-import { ConfigurableRefresher } from '../../configurable-refresher';
+import { ConfigurableRefresher, RefreshType } from '../../configurable-refresher';
 
 const FlowrDependencyViewId = 'flowr-dependencies';
+
+const Defaults = {
+	DependenciesQueryEnabledCategories: [],
+	DependencyViewUpdateType:           RefreshType.Adaptive,
+	DependencyViewUpdateInterval:       10,
+	DependencyViewAdaptiveBreak:        5000,
+	DependencyViewCacheLimit:           3,
+	DependencyViewKeepOnError:          true,
+	DependencyViewAutoReveal:           5,
+} satisfies DefaultsMaps;
+
 
 export function registerDependencyInternalCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {
@@ -28,7 +40,7 @@ export function registerDependencyInternalCommands(context: vscode.ExtensionCont
 		}
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.enable-disable.dependency', (dependency: Dependency) => {
-		const values = new Set<DependencyCategoryName>(getConfig().get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, []));
+		const values = new Set<DependencyCategoryName>(getConfig().get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories));
 		if(!values.size) {
 			// empty array means all are enabled, so we add them here to make the edit easier
 			values.union(new Set<DependencyCategoryName>(Object.keys(DefaultDependencyCategories)));
@@ -66,16 +78,16 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 			refreshDescDisposable.dispose();
 			refreshDescDisposable = undefined;
 		}
-		switch(getConfig().get<string>(Settings.DependencyViewUpdateType, 'adaptive')) {
+		switch(getConfig().get<string>(Settings.DependencyViewUpdateType, Defaults.DependencyViewUpdateType)) {
 			case 'interval': {
-				const secs = getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10);
+				const secs = getConfig().get<number>(Settings.DependencyViewUpdateInterval, Defaults.DependencyViewUpdateInterval);
 				message += `updates every ${secs} second${secs === 1 ? '' : 's'}`;
 				break;
 			}
 			case 'adaptive': {
-				const breakOff = getConfig().get<number>(Settings.DependencyViewAdaptiveBreak, 5000);
+				const breakOff = getConfig().get<number>(Settings.DependencyViewAdaptiveBreak, Defaults.DependencyViewAdaptiveBreak);
 				if(getActiveEditorCharLength() > breakOff) {
-					const secs = getConfig().get<number>(Settings.DependencyViewUpdateInterval, 10);
+					const secs = getConfig().get<number>(Settings.DependencyViewUpdateInterval, Defaults.DependencyViewUpdateInterval);
 					message += `updates every ${secs} second${secs === 1 ? '' : 's'} (adaptively)`;
 					refreshDescDisposable = vscode.workspace.onDidChangeTextDocument(() => {
 						if(getActiveEditorCharLength() <= breakOff) {
@@ -158,7 +170,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				await this.refresh(); 
 			},
 			configChangedCallback: () => {
-				const configuredBufSize = getConfig().get<number>(Settings.DependencyViewCacheLimit, 3);
+				const configuredBufSize = getConfig().get<number>(Settings.DependencyViewCacheLimit, Defaults.DependencyViewCacheLimit);
 				if(this.textBuffer.size() !== configuredBufSize) {
 					this.textBuffer = new RotaryBuffer(configuredBufSize);
 				}
@@ -194,7 +206,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			{
 				type:                   'dependencies',
 				ignoreDefaultFunctions: config.get<boolean>(Settings.DependenciesQueryIgnoreDefaults, false),
-				enabledCategories:      config.get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, []),
+				enabledCategories:      config.get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories),
 				...config.get<Omit<DependenciesQuery, 'type' | 'ignoreDefaultFunctions'>>(Settings.DependenciesQueryOverrides)
 			},
 			{
@@ -267,7 +279,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
 				return this.getDependenciesForActiveFile().then(res => {
 					if(res === 'error') {
-						if(getConfig().get<boolean>(Settings.DependencyViewKeepOnError, true)) {
+						if(getConfig().get<boolean>(Settings.DependencyViewKeepOnError, Defaults.DependencyViewKeepOnError)) {
 							return;
 						} else {
 							this.activeDependencies = emptyDependencies;
@@ -302,7 +314,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			return;
 		}
 		const children = await this.getChildren();
-		const autoRevealUntil = getConfig().get<number>(Settings.DependencyViewAutoReveal, 5);
+		const autoRevealUntil = getConfig().get<number>(Settings.DependencyViewAutoReveal, Defaults.DependencyViewAutoReveal);
 		for(const root of children ?? []) {
 			if(root.children?.length && root.children.length <= autoRevealUntil) {
 				this.parent?.reveal(root, { select: false, focus: false, expand: true });
@@ -493,7 +505,7 @@ export class Dependency extends vscode.TreeItem {
 		}
 		if(root){
 			this.contextValue = 'category';
-			if(getConfig().get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, []).findIndex(c => this.category === c) < 0) {
+			if(getConfig().get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories).findIndex(c => this.category === c) < 0) {
 				this.description = 'Disabled';
 			}		
 		} else if(info) {

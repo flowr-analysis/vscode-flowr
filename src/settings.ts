@@ -56,6 +56,10 @@ export enum Settings {
 	LinterAdaptiveBreak = 'linter.adaptiveCharacterLimit',
 }
 
+export type DefaultsMaps =  {
+  [K in keyof typeof Settings]?: unknown
+};
+
 export const LinterRefresherConfigKeys =  {
 	updateType:    Settings.LinterUpdateType,
 	interval:      Settings.LinterUpdateInterval,
