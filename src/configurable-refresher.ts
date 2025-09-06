@@ -1,6 +1,6 @@
 import type { AsyncOrSync } from 'ts-essentials';
 import type { RefresherConfigKeys } from './settings';
-import { Settings , getConfig, isVerbose } from './settings';
+import { Settings , getConfig } from './settings';
 import * as vscode from 'vscode';
 
 
@@ -70,14 +70,12 @@ export class ConfigurableRefresher {
 
 	// If we have to run checks on every keystroke, we don't want to repeat the checks for all refreshers!
 	private static onTextDocumentChanged(e: vscode.TextDocumentChangeEvent) {
-		if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && isRTypeLanguage(vscode.window.activeTextEditor?.document)) {
-			if(e.document.version < (vscode.window.activeTextEditor?.document.version ?? 0)) {
-				return;
-			}
+		if(!isChangeRelevant(e)) {
+			return;
+		}
 
-			for(const refresher of ConfigurableRefresher.onChangeRefreshers) {
-				refresher.runRefreshCallback();
-			}
+		for(const refresher of ConfigurableRefresher.onChangeRefreshers) {
+			refresher.runRefreshCallback();
 		}
 	}
 
@@ -133,16 +131,11 @@ export class ConfigurableRefresher {
 						}
 					});
 				} else {
-					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(e => {
-						if(e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document && isRTypeLanguage(vscode.window.activeTextEditor?.document)) {
-							if(e.document.version < (vscode.window.activeTextEditor?.document.version ?? 0)) {
-								if(isVerbose()) {
-									this.spec.output.appendLine('Skip update because event version: ' + e.document.version + 'is less than that of the active document: ' + (vscode.window.activeTextEditor?.document.version ?? 0) + ' (there is a newer version!).');
-								}
-								return;
-							}
+					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(e => {	
+						if(isChangeRelevant(e)) {
 							this.runRefreshCallback();
 						}
+						
 						if(getActiveEditorCharLength() > breakOff) {
 							this.update();
 						}
@@ -175,6 +168,14 @@ export class ConfigurableRefresher {
 function getActiveEditorCharLength() {
 	return vscode.window.activeTextEditor?.document.getText().length ?? 0;
 }
+
+function isChangeRelevant(e: vscode.TextDocumentChangeEvent): boolean {
+	return e.contentChanges.length > 0 
+		   && isRTypeLanguage(vscode.window.activeTextEditor?.document)
+		   && e.document === vscode.window.activeTextEditor?.document 
+		   && e.document.version >= (vscode.window.activeTextEditor?.document.version ?? 0);
+}
+
 
 function isRTypeLanguage(doc?: vscode.TextDocument): boolean {
 	if(!doc) {
