@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { FlowrInternalSession } from './flowr/internal-session';
 import { FlowrServerSession } from './flowr/server-session';
-import { Settings } from './settings';
+import { getConfig, Settings } from './settings';
 import { registerSliceCommands } from './slice';
 import { registerDiagramCommands } from './diagram';
 import type { FlowrSession } from './flowr/utils';
@@ -110,15 +110,6 @@ ${JSON.stringify(getConfig(), null, 2)}
 	if(getConfig().get<boolean>(Settings.ServerAutoConnect)) {
 		await establishServerSession();
 	}
-}
-
-
-export function getConfig(): vscode.WorkspaceConfiguration {
-	return vscode.workspace.getConfiguration(Settings.Category);
-}
-
-export function isVerbose(): boolean {
-	return getConfig().get<boolean>(Settings.VerboseLog, false);
 }
 
 export async function establishInternalSession() {

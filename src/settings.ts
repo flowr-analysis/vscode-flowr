@@ -1,3 +1,7 @@
+import type { ValueOf } from 'ts-essentials';
+import * as vscode from 'vscode';
+
+
 export enum Settings {
 	Category = 'vscode-flowr',
 	VerboseLog = 'verboseLog',
@@ -48,8 +52,41 @@ export enum Settings {
 	DebugFlowrLoglevel = 'debug.flowrLogLevel',
 
 	LinterEnabledRules = 'linter.enabledRules',
-	LinterRuleConfigs = 'linter.ruleConfigs'
+	LinterRuleConfigs = 'linter.ruleConfigs',
+	LinterUpdateType = 'linter.updateType',
+	LinterUpdateInterval = 'linter.updateInterval',
+	LinterAdaptiveBreak = 'linter.adaptiveCharacterLimit',
 }
+
+export type DefaultsMaps =  {
+  [K in keyof typeof Settings]?: unknown
+};
+
+export interface RefresherConfigKeys {
+	updateType:    ValueOf<typeof Settings>,
+	adaptiveBreak: ValueOf<typeof Settings>,
+	interval:      ValueOf<typeof  Settings>
+}
+
+export const LinterRefresherConfigKeys =  {
+	updateType:    Settings.LinterUpdateType,
+	interval:      Settings.LinterUpdateInterval,
+	adaptiveBreak: Settings.LinterAdaptiveBreak
+} satisfies RefresherConfigKeys;
+
+export const DependencyViewRefresherConfigKeys =  {
+	updateType:    Settings.DependencyViewUpdateType,
+	interval:      Settings.DependencyViewUpdateInterval,
+	adaptiveBreak: Settings.DependencyViewAdaptiveBreak
+} satisfies RefresherConfigKeys;
 
 export type SliceDisplay = 'text' | 'diff' | 'tokens'
 export type ConnectionType = 'auto' | 'websocket' | 'websocket-secure' | 'tcp'
+
+export function getConfig(): vscode.WorkspaceConfiguration {
+	return vscode.workspace.getConfiguration(Settings.Category);
+}
+
+export function isVerbose(): boolean {
+	return getConfig().get<boolean>(Settings.VerboseLog, false);
+}
