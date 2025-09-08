@@ -490,7 +490,16 @@
           "items": {
             "type": "string"
           },
-          "default": [],
+          "default": [
+            "deprecated-functions",
+            "file-path-validity",
+            "seeded-randomness",
+            "absolute-file-paths",
+            "unused-definitions",
+            "dataframe-access-validation",
+            "dead-code",
+            "useless-loop"
+          ],
           "markdownDescription": "The names of the linting rules that should be enabled. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their identifiers. An empty array causes all linting rules to be enabled."
         },
         "vscode-flowr.linter.ruleConfigs": {
