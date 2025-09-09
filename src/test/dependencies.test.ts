@@ -24,7 +24,8 @@ function populateExpectedDependencies(expected: DependencyDisplay[]) {
 	return expected;
 }
 
-function verifyDependencies(result: Dependency[] | undefined, expected: DependencyDisplay[]) {
+async function verifyDependencies(expected: DependencyDisplay[]) {
+	const result: Dependency[] | undefined = await vscode.commands.executeCommand('vscode-flowr.dependencyView.update');
 	assert.ok(result);
 	assert.deepEqual(simplifyDependencies(result), populateExpectedDependencies(expected));
 }
@@ -37,7 +38,7 @@ suite('dependencies', () => {
 
 	test('vapply', async() => {
 		await openTestFile('vapply-example.R');
-		verifyDependencies(await vscode.commands.executeCommand('vscode-flowr.dependencyView.update'), [
+		await verifyDependencies([
 			{ label:       'Libraries', description: '6 items', children:    [
 				{ label: 'a', description: 'by "library" in (L. 2)', children: [] },
 				{ label: 'b', description: 'by "library" in (L. 2)', children: [] },
