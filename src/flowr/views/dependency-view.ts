@@ -57,7 +57,7 @@ export function registerDependencyInternalCommands(context: vscode.ExtensionCont
 }
 
 /** returns disposer */
-export function registerDependencyView(output: vscode.OutputChannel): { dispose: () => void, update: () => void } {
+export function registerDependencyView(output: vscode.OutputChannel): { dispose: () => void, update: () => Promise<Dependency[] | undefined> } {
 	const data = new FlowrDependencyTreeView(output);
 	const tv = vscode.window.createTreeView(
 		FlowrDependencyViewId,
@@ -133,7 +133,10 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 				refreshDescDisposable.dispose();
 			}
 		},
-		update: () => void data.refresh(true)
+		update: async() =>{
+			await data.refresh(true);
+			return await data.getChildren() as Dependency[] | undefined;
+		}
 	};
 }
 

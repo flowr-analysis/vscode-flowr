@@ -100,8 +100,8 @@ ${JSON.stringify(getConfig(), null, 2)}
 
 	setTimeout(() => {
 		const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
-		context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', () => {
-			updateDependencyView();
+		context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', async() => {
+			return await updateDependencyView();
 		}));
 		context.subscriptions.push(new vscode.Disposable(() => disposeDep()));
 	}, 10);

@@ -28,3 +28,4 @@ export async function openTestFile(name: string, selection?: vscode.Selection): 
 	}
 	return editor;
 }
+
