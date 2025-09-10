@@ -85,16 +85,20 @@ class LinterService {
 					result.range[2] - 1,
 					result.range[3]
 				);
-				diagnostics.push(
-					new vscode.Diagnostic(
-						range,
-						ruleName + ': ' + (rule.prettyPrint['full'] as (result: LintingRuleResult<LintingRuleNames>, metadata: LintingRuleMetadata<LintingRuleNames>) => string)(
+				const diag = new vscode.Diagnostic(
+					range,
+					`${ruleName}: ${(rule.prettyPrint['full'] as (result: LintingRuleResult<LintingRuleNames>, metadata: LintingRuleMetadata<LintingRuleNames>) => string)(
 							result as LintingRuleResult<LintingRuleNames>,
 							result as LintingRuleMetadata<LintingRuleNames>
-						),
-						vscode.DiagnosticSeverity.Warning
-					)
+					)}`,
+					vscode.DiagnosticSeverity.Warning
 				);
+				diag.source = this.collection.name;
+				diag.code = {
+					value:  ruleName,
+					target: vscode.Uri.parse(`https://github.com/flowr-analysis/flowr/wiki/lint-${ruleName}`)
+				};
+				diagnostics.push(diag);
 			}
 		}
 
