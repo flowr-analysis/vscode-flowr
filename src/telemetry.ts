@@ -63,7 +63,8 @@ export enum TelemetryEvent {
     OpenedDocument = 'opened-document',
     ClosedDocument = 'closed-document',
     ChangedActiveEditor = 'changed-active-editor',
-    ChangedSelection = 'changed-selection'
+    ChangedSelection = 'changed-selection',
+    ChangedFile = 'changed-file'
 }
 
 export interface TelemetryEventArgs extends Record<string, unknown> {
@@ -96,18 +97,54 @@ export function registerTelemetry(context: vscode.ExtensionContext, output: vsco
 		telemetry = new NoTelemetry();
 		vscode.window.showInformationMessage('Stopped telemetry.');
 	}));
-    
-	context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, { document: d.uri.toString() })));
-	context.subscriptions.push(vscode.workspace.onDidOpenNotebookDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, { document: d.uri.toString() })));
-	context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(d => telemetry.event(TelemetryEvent.ClosedDocument, { document: d.uri.toString() })));
-	context.subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(d => telemetry.event(TelemetryEvent.ClosedDocument, { document: d.uri.toString() })));
 
-	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(e => telemetry.event(TelemetryEvent.ChangedActiveEditor, { document: e?.document.uri.toString() || null })));
-	context.subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor(e => telemetry.event(TelemetryEvent.ChangedActiveEditor, { document: e?.notebook.uri.toString() || null })));
-	context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(e => {
-		if(e.textEditor?.document.uri.scheme !== 'output') {
-			return telemetry.event(TelemetryEvent.ChangedSelection, { document: e.textEditor?.document.uri.toString(), selections: e.selections });
+	context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, { 
+		document: d.uri.toString(),
+		content:  d.getText() 
+	})));
+	context.subscriptions.push(vscode.workspace.onDidOpenNotebookDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, {
+		document: d.uri.toString() 
+	})));
+	context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(d => telemetry.event(TelemetryEvent.ClosedDocument, {
+		document: d.uri.toString(),
+		content:  d.getText()
+	})));
+	context.subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(d => telemetry.event(TelemetryEvent.ClosedDocument, {
+		document: d.uri.toString() 
+	})));
+	context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
+		if(e.document.uri.scheme !== 'output') {
+			telemetry.event(TelemetryEvent.ChangedFile, { 
+				document: e.document?.uri.toString(),
+				changes:  e.contentChanges, 
+				reason:   e.reason, 
+				ontent:   e.document.getText() 
+			});
 		}
 	}));
-	context.subscriptions.push(vscode.window.onDidChangeNotebookEditorSelection(e => telemetry.event(TelemetryEvent.ChangedSelection, { document: e.notebookEditor?.notebook.uri.toString(), selections: e.selections })));
+	context.subscriptions.push(vscode.workspace.onDidChangeNotebookDocument(e => telemetry.event(TelemetryEvent.ChangedFile, { 
+		document:    e.notebook?.uri.toString(), 
+		changes:     e.contentChanges, 
+		cellChanges: e.cellChanges
+	})));
+
+	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(e => telemetry.event(TelemetryEvent.ChangedActiveEditor, { 
+		document: e?.document.uri.toString(), 
+		content:  e?.document.getText()
+	})));
+	context.subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor(e => telemetry.event(TelemetryEvent.ChangedActiveEditor, {
+		document: e?.notebook.uri.toString()
+	})));
+	context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(e => {
+		if(e.textEditor?.document.uri.scheme === 'output') {
+			telemetry.event(TelemetryEvent.ChangedSelection, {
+				document:   e.textEditor?.document.uri.toString(),
+				selections: e.selections });
+		}
+	}));
+	context.subscriptions.push(vscode.window.onDidChangeNotebookEditorSelection(e => telemetry.event(TelemetryEvent.ChangedSelection, { 
+		document:   e.notebookEditor?.notebook.uri.toString(),
+		selections: e.selections
+	})));
+
 }
