@@ -176,6 +176,18 @@
         "title": "Give Feedback (Opens Browser)",
         "icon": "$(feedback)",
         "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.telemetry.start-local",
+        "title": "Start Local Telemetry",
+        "category": "flowR",
+        "icon": "$(bug)"
+      },
+      {
+        "command": "vscode-flowr.telemetry.stop",
+        "title": "Stop Telemetry",
+        "category": "flowR",
+        "icon": "$(bug)"
       }
     ],
     "configuration": {
