@@ -14,13 +14,10 @@ import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfig
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
-import type { Telemetry } from './telemetry';
-import { LocalTelemetry, registerTelemetryEvents, NoTelemetry } from './telemetry';
+import { registerTelemetry } from './telemetry';
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
-
-export let telemetry: Telemetry = new NoTelemetry();
 
 let extensionContext: vscode.ExtensionContext;
 let outputChannel: vscode.OutputChannel;
@@ -36,31 +33,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerSliceCommands(context, outputChannel);
 	registerLintCommands(context, outputChannel);
 	registerDependencyInternalCommands(context, outputChannel);
-
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.telemetry.start-local', async() => {
-		if(!(telemetry instanceof NoTelemetry)) {
-			vscode.window.showWarningMessage('Telemetry is already active.');
-			return;
-		}
-		const pseudonym = await vscode.window.showInputBox({ title: 'flowR Telemetry Pseudonym', prompt: 'Input the pseudonym to output telemetry data under. Telemetry is only collected locally, and only collected after a pseudonym is set. After stopping telemetry using the Stop Telemetry command, all collected data is dumped to a local JSON file.', ignoreFocusOut: true });
-		if(pseudonym?.length){
-			telemetry = new LocalTelemetry(outputChannel);
-			telemetry.start(pseudonym);
-			vscode.window.showInformationMessage(`Started telemetry with pseudonym ${pseudonym}.`);
-		} else {
-			vscode.window.showWarningMessage('No pseudonym set. Not starting telemetry.');
-		}
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.telemetry.stop', async() => {
-		if(telemetry instanceof NoTelemetry) {
-			vscode.window.showWarningMessage('Telemetry not active.');
-			return;
-		}
-		await telemetry.stop();
-		telemetry = new NoTelemetry();
-		vscode.window.showInformationMessage('Stopped telemetry.');
-	}));
-	registerTelemetryEvents(context.subscriptions);
+	registerTelemetry(context, outputChannel);
 
 	updateFlowrConfig();
 	vscode.workspace.onDidChangeConfiguration(updateFlowrConfig);

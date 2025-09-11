@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { telemetry } from './extension';
 
 export abstract class Telemetry {
 
@@ -71,18 +70,44 @@ export interface TelemetryEventArgs extends Record<string, unknown> {
     timestamp: number
 }
 
-export function registerTelemetryEvents(subscriptions: vscode.Disposable[]) {
-	subscriptions.push(vscode.workspace.onDidOpenTextDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, { document: d.uri.toString() })));
-	subscriptions.push(vscode.workspace.onDidOpenNotebookDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, { document: d.uri.toString() })));
-	subscriptions.push(vscode.workspace.onDidCloseTextDocument(d => telemetry.event(TelemetryEvent.ClosedDocument, { document: d.uri.toString() })));
-	subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(d => telemetry.event(TelemetryEvent.ClosedDocument, { document: d.uri.toString() })));
+export let telemetry: Telemetry = new NoTelemetry();
 
-	subscriptions.push(vscode.window.onDidChangeActiveTextEditor(e => telemetry.event(TelemetryEvent.ChangedActiveEditor, { document: e?.document.uri.toString() || null })));
-	subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor(e => telemetry.event(TelemetryEvent.ChangedActiveEditor, { document: e?.notebook.uri.toString() || null })));
-	subscriptions.push(vscode.window.onDidChangeTextEditorSelection(e => {
+export function registerTelemetry(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.telemetry.start-local', async() => {
+		if(!(telemetry instanceof NoTelemetry)) {
+			vscode.window.showWarningMessage('Telemetry is already active.');
+			return;
+		}
+		const pseudonym = await vscode.window.showInputBox({ title: 'flowR Telemetry Pseudonym', prompt: 'Input the pseudonym to output telemetry data under. Telemetry is only collected locally, and only collected after a pseudonym is set. After stopping telemetry using the Stop Telemetry command, all collected data is dumped to a local JSON file.', ignoreFocusOut: true });
+		if(pseudonym?.length){
+			telemetry = new LocalTelemetry(output);
+			telemetry.start(pseudonym);
+			vscode.window.showInformationMessage(`Started telemetry with pseudonym ${pseudonym}.`);
+		} else {
+			vscode.window.showWarningMessage('No pseudonym set. Not starting telemetry.');
+		}
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.telemetry.stop', async() => {
+		if(telemetry instanceof NoTelemetry) {
+			vscode.window.showWarningMessage('Telemetry not active.');
+			return;
+		}
+		await telemetry.stop();
+		telemetry = new NoTelemetry();
+		vscode.window.showInformationMessage('Stopped telemetry.');
+	}));
+    
+	context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, { document: d.uri.toString() })));
+	context.subscriptions.push(vscode.workspace.onDidOpenNotebookDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, { document: d.uri.toString() })));
+	context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(d => telemetry.event(TelemetryEvent.ClosedDocument, { document: d.uri.toString() })));
+	context.subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(d => telemetry.event(TelemetryEvent.ClosedDocument, { document: d.uri.toString() })));
+
+	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(e => telemetry.event(TelemetryEvent.ChangedActiveEditor, { document: e?.document.uri.toString() || null })));
+	context.subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor(e => telemetry.event(TelemetryEvent.ChangedActiveEditor, { document: e?.notebook.uri.toString() || null })));
+	context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(e => {
 		if(e.textEditor?.document.uri.scheme !== 'output') {
 			return telemetry.event(TelemetryEvent.ChangedSelection, { document: e.textEditor?.document.uri.toString(), selections: e.selections });
 		}
 	}));
-	subscriptions.push(vscode.window.onDidChangeNotebookEditorSelection(e => telemetry.event(TelemetryEvent.ChangedSelection, { document: e.notebookEditor?.notebook.uri.toString(), selections: e.selections })));
+	context.subscriptions.push(vscode.window.onDidChangeNotebookEditorSelection(e => telemetry.event(TelemetryEvent.ChangedSelection, { document: e.notebookEditor?.notebook.uri.toString(), selections: e.selections })));
 }
