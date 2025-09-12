@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { registerCommand } from './extension';
 
 export abstract class Telemetry {
 
@@ -8,9 +9,6 @@ export abstract class Telemetry {
 
 	abstract event(event: TelemetryEvent, args: Omit<TelemetryEventArgs, 'timestamp'>): void;
 
-	eventCommand(command: string, args: unknown[]): void {
-		this.event(TelemetryEvent.UsedCommand, { command, args });
-	}
 }
 
 export class NoTelemetry extends Telemetry {
@@ -74,7 +72,7 @@ export interface TelemetryEventArgs extends Record<string, unknown> {
 export let telemetry: Telemetry = new NoTelemetry();
 
 export function registerTelemetry(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.telemetry.start-local', async() => {
+	registerCommand(context, 'vscode-flowr.telemetry.start-local', async() => {
 		if(!(telemetry instanceof NoTelemetry)) {
 			vscode.window.showWarningMessage('Telemetry is already active.');
 			return;
@@ -87,8 +85,8 @@ export function registerTelemetry(context: vscode.ExtensionContext, output: vsco
 		} else {
 			vscode.window.showWarningMessage('No pseudonym set. Not starting telemetry.');
 		}
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.telemetry.stop', async() => {
+	});
+	registerCommand(context, 'vscode-flowr.telemetry.stop', async() => {
 		if(telemetry instanceof NoTelemetry) {
 			vscode.window.showWarningMessage('Telemetry not active.');
 			return;
@@ -96,7 +94,7 @@ export function registerTelemetry(context: vscode.ExtensionContext, output: vsco
 		await telemetry.stop();
 		telemetry = new NoTelemetry();
 		vscode.window.showInformationMessage('Stopped telemetry.');
-	}));
+	});
 
 	context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, { 
 		document: d.uri.toString(),

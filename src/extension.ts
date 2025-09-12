@@ -14,7 +14,7 @@ import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfig
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
-import { registerTelemetry } from './telemetry';
+import { registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
@@ -38,20 +38,20 @@ export async function activate(context: vscode.ExtensionContext) {
 	updateFlowrConfig();
 	vscode.workspace.onDidChangeConfiguration(updateFlowrConfig);
 
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.internal', async() => {
+	registerCommand(context, 'vscode-flowr.session.internal', async() => {
 		await establishInternalSession();
 		return flowrSession;
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.connect', async() => {
+	});
+	registerCommand(context, 'vscode-flowr.session.connect', async() => {
 		await establishServerSession();
 		return flowrSession;
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.session.disconnect', () => {
+	});
+	registerCommand(context, 'vscode-flowr.session.disconnect', () => {
 		if(flowrSession instanceof FlowrServerSession) {
 			destroySession();
 		}
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.repl', async() => {
+	});
+	registerCommand(context, 'vscode-flowr.repl', async() => {
 		try {
 			const repl = await import('./flowr/terminals/flowr-repl');
 			repl.showRepl(context, await getFlowrSession());
@@ -59,16 +59,15 @@ export async function activate(context: vscode.ExtensionContext) {
 			vscode.window.showErrorMessage('Failed to start flowR REPL');
 			console.error(e);
 		}
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.settings.open', async() => {
+	});
+	registerCommand(context, 'vscode-flowr.settings.open', async() => {
 		await vscode.commands.executeCommand('workbench.action.openSettings', Settings.Category);
-	}));
+	});
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand('vscode-flowr.feedback', () => {
-			void vscode.window.showQuickPick(['Report a Bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result: string | undefined) => {
-				if(result === 'Report a Bug') {
-					const body = encodeURIComponent(`
+	registerCommand(context, 'vscode-flowr.feedback', () => {
+		void vscode.window.showQuickPick(['Report a Bug', 'Provide Feedback'], { placeHolder: 'Report a bug or provide Feedback' }).then((result: string | undefined) => {
+			if(result === 'Report a Bug') {
+				const body = encodeURIComponent(`
 <!-- Please describe your issue, suggestion or feature request in more detail below! -->
 
 
@@ -84,15 +83,15 @@ Extension config:
 \`\`\`json
 ${JSON.stringify(getConfig(), null, 2)}
 \`\`\`
-						`.trim());
-					const url = `https://github.com/flowr-analysis/vscode-flowr/issues/new?body=${body}`;
-					void vscode.env.openExternal(vscode.Uri.parse(url));
-				} else if(result === 'Provide Feedback') {
-					const url = 'https://docs.google.com/forms/d/e/1FAIpQLScKFhgnh9LGVU7QzqLvFwZe1oiv_5jNhkIO-G-zND0ppqsMxQ/viewform?pli=1';
-					vscode.env.openExternal(vscode.Uri.parse(url));
-				}
-			});
-		}));
+				`.trim());
+				const url = `https://github.com/flowr-analysis/vscode-flowr/issues/new?body=${body}`;
+				void vscode.env.openExternal(vscode.Uri.parse(url));
+			} else if(result === 'Provide Feedback') {
+				const url = 'https://docs.google.com/forms/d/e/1FAIpQLScKFhgnh9LGVU7QzqLvFwZe1oiv_5jNhkIO-G-zND0ppqsMxQ/viewform?pli=1';
+				vscode.env.openExternal(vscode.Uri.parse(url));
+			}
+		});
+	});
 
 	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 	context.subscriptions.push(statusBarItem);
@@ -102,9 +101,9 @@ ${JSON.stringify(getConfig(), null, 2)}
 
 	setTimeout(() => {
 		const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
-		context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dependencyView.update', async() => {
+		registerCommand(context, 'vscode-flowr.dependencyView.update', async() => {
 			return await updateDependencyView();
-		}));
+		});
 		context.subscriptions.push(new vscode.Disposable(() => disposeDep()));
 	}, 10);
 	process.on('SIGINT', () => destroySession());
@@ -208,6 +207,14 @@ export function getWasmRootPath(): string {
 		// in the fake browser version of vscode, it needs to be a special scheme, so we do this check
 		return uri.scheme !== 'file' ? uri.toString() : `vscode-file://vscode-app/${uri.fsPath}`;
 	}
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function registerCommand(context: vscode.ExtensionContext, command: string, callback: (...args: any[]) => any, thisArg?: any): void {
+	context.subscriptions.push(vscode.commands.registerCommand(command, a => {
+		telemetry.event(TelemetryEvent.UsedCommand, { command, args: a });
+		callback(a);
+	}, thisArg));
 }
 
 export let VSCodeFlowrConfiguration = defaultConfigOptions;

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getFlowrSession } from '../../extension';
+import { getFlowrSession, registerCommand } from '../../extension';
 import type { DefaultDependencyCategoryName , DependenciesQuery, DependenciesQueryResult, DependencyCategoryName, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import { DefaultDependencyCategories, Unknown } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
@@ -27,7 +27,7 @@ const Defaults = {
 
 
 export function registerDependencyInternalCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {
+	registerCommand(context, 'vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {
 		const node = dependency.getNodeId();
 		const loc = dependency.getLocation();
 		if(node) {
@@ -39,8 +39,8 @@ export function registerDependencyInternalCommands(context: vscode.ExtensionCont
 				}, 50);
 			}
 		}
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.enable-disable.dependency', (dependency: Dependency) => {
+	});
+	registerCommand(context, 'vscode-flowr.internal.enable-disable.dependency', (dependency: Dependency) => {
 		const values = new Set<DependencyCategoryName>(getConfig().get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories));
 		if(!values.size) {
 			// empty array means all are enabled, so we add them here to make the edit easier
@@ -53,7 +53,7 @@ export function registerDependencyInternalCommands(context: vscode.ExtensionCont
 		}
 		output.appendLine(`Toggling dependency category ${dependency.category}, new value ${[...values].join(', ')}`);
 		getConfig().update(Settings.DependenciesQueryEnabledCategories, [...values]);
-	}));
+	});
 }
 
 /** returns disposer */
