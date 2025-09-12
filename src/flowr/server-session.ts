@@ -1,6 +1,5 @@
 import * as net from 'net';
 import * as vscode from 'vscode';
-import * as ws from 'ws';
 import type { FlowrMessage } from '@eagleoutice/flowr/cli/repl/server/messages/all-messages';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { establishInternalSession, isWeb, updateStatusBar } from '../extension';
@@ -86,7 +85,7 @@ export class FlowrServerSession implements FlowrSession {
 		const [base, suff] = splitHost(host);
 		this.outputChannel.appendLine(`Connecting to flowR server using ${typeToUse} at ${base}:${port}/${suff}/`);
 		// if the type is auto, we still start with a (secure!) websocket connection first
-		this.connection = isWeb() ? new BrowserWsConnection(typeToUse !== 'websocket') : typeToUse == 'tcp' ? new TcpConnection() : new WsConnection(typeToUse !== 'websocket');
+		this.connection = !isWeb() && typeToUse === 'tcp' ? new TcpConnection() : new WsConnection(typeToUse !== 'websocket');
 		this.connection.connect(host, port, () => {
 			this.state = 'connected';
 			updateStatusBar();
@@ -295,37 +294,8 @@ function splitHost(baseHost: string): [string, string] {
 }
 
 class WsConnection implements Connection {
-
 	public readonly secure: boolean;
-	private socket:         ws.WebSocket | undefined;
-
-	constructor(secure: boolean) {
-		this.secure = secure;
-	}
-
-	connect(host: string, port: number, connectionListener: () => void): void {
-		const [base, suff] = splitHost(host);
-		this.socket = new ws.WebSocket(`${this.secure ? 'wss' : 'ws'}://${base}:${port}/${suff}`);
-		this.socket.on('open', connectionListener);
-	}
-
-	on(event: 'data' | 'close' | 'error', listener: (...args: unknown[]) => void): void {
-		this.socket?.on(event == 'data' ? 'message' : event, listener);
-	}
-
-	write(data: string): void {
-		this.socket?.send(data);
-	}
-
-	destroy(): void {
-		this.socket?.close();
-	}
-
-}
-
-class BrowserWsConnection implements Connection {
-	private readonly secure: boolean;
-	private socket:          WebSocket | undefined;
+	private socket:         WebSocket | undefined;
 
 	constructor(secure: boolean) {
 		this.secure = secure;
