@@ -136,7 +136,7 @@ export function registerTelemetry(context: vscode.ExtensionContext, output: vsco
 		document: e?.notebook.uri.toString()
 	})));
 	context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(e => {
-		if(e.textEditor?.document.uri.scheme === 'output') {
+		if(e.textEditor?.document.uri.scheme !== 'output') {
 			telemetry.event(TelemetryEvent.ChangedSelection, {
 				document:   e.textEditor?.document.uri.toString(),
 				selections: e.selections
