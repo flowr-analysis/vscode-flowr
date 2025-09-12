@@ -201,7 +201,7 @@ export function isWeb() {
 
 export function getWasmRootPath(): string {
 	if(!isWeb()) {
-		return `${__dirname}/flowr/tree-sitter`;
+		return __dirname;
 	} else {
 		const uri = vscode.Uri.joinPath(extensionContext.extensionUri, '/dist/web');
 		// in the fake browser version of vscode, it needs to be a special scheme, so we do this check

@@ -1,11 +1,59 @@
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const path = require('path')
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-var-requires
-const webpack = require('webpack')
+const path = require('path');
+const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
-/** @typedef {import('webpack').Configuration} WebpackConfig **/
-/** @type WebpackConfig */
+const nodeExtensionConfig = {
+	mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
+	target: 'node',
+	entry: {
+		extension: './src/extension.ts',
+		// 'test/suite/index': './src/web/test/suite/index.ts' // source of the web extension test runner
+	},
+	output: {
+		filename: 'extension.js',
+		path: path.join(__dirname, './dist/node'),
+		libraryTarget: 'commonjs',
+		devtoolModuleFilenameTemplate: '../../[resource-path]'
+	},
+	plugins: [
+		new CopyWebpackPlugin({
+			patterns: [
+				{ from: path.resolve(__dirname, 'resources'), to: 'resources' }
+			]
+		})
+	],
+	externals: {
+		vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
+	},
+	resolve: {
+		// support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader
+		mainFields: ['module', 'main'],
+		extensions: ['.ts', '.js'],
+		alias: {
+			// provides alternate implementation for node module and source files
+		},
+		fallback: {
+			// Webpack 5 no longer polyfills Node.js core modules automatically.
+			// see https://webpack.js.org/configuration/resolve/#resolvefallback
+			// for the list of Node.js core module polyfills.
+		}
+	},
+	module: {
+		rules: [
+			{
+				test: /\.ts$/,
+				exclude: /node_modules/,
+				use: [
+					{
+						loader: 'ts-loader'
+					}
+				]
+			}
+		]
+	},
+	devtool: 'source-map'
+};
+
 const webExtensionConfig = {
 	mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
 	target: 'webworker', // extensions run in a webworker context
@@ -14,7 +62,7 @@ const webExtensionConfig = {
 		// 'test/suite/index': './src/web/test/suite/index.ts' // source of the web extension test runner
 	},
 	output: {
-		filename: '[name].js',
+		filename: 'extension.js',
 		path: path.join(__dirname, './dist/web'),
 		libraryTarget: 'commonjs',
 		devtoolModuleFilenameTemplate: '../../[resource-path]'
@@ -62,7 +110,6 @@ const webExtensionConfig = {
 		]
 	},
 	plugins: [
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 		new webpack.ProvidePlugin({
 			Buffer: ['buffer', 'Buffer'],
 			process: 'process/browser' // provide a shim for the global `process` variable
@@ -80,5 +127,5 @@ const webExtensionConfig = {
 		hints: false
 	},
 	devtool: 'nosources-source-map' // create a source map that points to the original source file
-}
-module.exports = [webExtensionConfig]
+};
+module.exports = [nodeExtensionConfig, webExtensionConfig];

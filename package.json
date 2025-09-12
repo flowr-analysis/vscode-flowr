@@ -28,7 +28,7 @@
     "R"
   ],
   "activationEvents": [],
-  "main": "./out/extension.js",
+  "main": "./dist/node/extension.js",
   "browser": "./dist/web/extension.js",
   "contributes": {
     "commands": [
@@ -676,16 +676,18 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile && npm run package-web",
-    "copy-wasm": "mkdir -p dist/node_modules/@eagleoutice/tree-sitter-r/ && mkdir -p dist/node_modules/web-tree-sitter && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/node_modules/@eagleoutice/tree-sitter-r/ && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/node_modules/web-tree-sitter/ && mkdir -p out/flowr/tree-sitter/ && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm node_modules/web-tree-sitter/tree-sitter.wasm out/flowr/tree-sitter/",
-    "compile": "npm run copy-wasm && tsc -p ./",
-    "watch": "npm run copy-wasm && tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
+    "vscode:prepublish": "npm run package && npm run package-web",
+    "copy-wasm-node": "mkdir -p dist/node && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/node && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/node",
+    "copy-wasm-web": "mkdir -p dist/web && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/web && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/web",
+    "compile": "npm run copy-wasm-node && webpack",
+    "package": "npm run copy-wasm-node && webpack --mode production --devtool hidden-source-map",
+    "watch": "npm run copy-wasm-node && webpack --watch",
     "lint": "npx eslint src/",
-    "test": "vscode-test",
+    "compile-tests": "npm run compile && tsc -p . --outDir out",
+    "pretest": "npm run compile-tests && npm run lint",
+    "test": "vscode-test --extensionDevelopmentPath=. .",
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse",
     "browser": "vscode-test-web --extensionDevelopmentPath=. .",
-    "copy-wasm-web": "npm run copy-wasm && mkdir -p dist/web && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/web && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/web",
     "compile-web": "npm run copy-wasm-web && webpack",
     "package-web": "npm run copy-wasm-web && webpack --mode production --devtool hidden-source-map",
     "watch-web": "npm run copy-wasm-web && webpack --watch"
