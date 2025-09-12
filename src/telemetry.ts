@@ -115,10 +115,7 @@ export function registerTelemetry(context: vscode.ExtensionContext, output: vsco
 			telemetry.event(TelemetryEvent.ChangedFile, { 
 				document: e.document?.uri.toString(),
 				changes:  e.contentChanges, 
-				reason:   e.reason, 
-				// eslint-disable-next-line no-warning-comments
-				// TODO: we shouldn't just use the document text here! instead, we should generate some sort of diff -> but how do we get the diff? it seems like the old content pre-change is not available, so maybe we have to track that ourselves? :(
-				content:  e.document.getText() 
+				reason:   e.reason
 			});
 		}
 	}));
