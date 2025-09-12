@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getFlowrSession } from './extension';
+import { getFlowrSession, registerCommand } from './extension';
 import type { LintingRuleConfig, LintingRuleMetadata, LintingRuleNames, LintingRuleResult } from '@eagleoutice/flowr/linter/linter-rules';
 import { LintingRules } from '@eagleoutice/flowr/linter/linter-rules';
 import { getConfig, LinterRefresherConfigKeys, Settings } from './settings';
@@ -8,9 +8,9 @@ import { ConfigurableRefresher } from './configurable-refresher';
 
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(output);
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.lint.run', async() => {
+	registerCommand(context, 'vscode-flowr.lint.run', async() => {
 		await linter.runLinting();
-	}));
+	});
 }
 
 class LinterService {
