@@ -7,3 +7,9 @@ src/
 tsconfig.json
 webpack.config.js
 esbuild.js
+.vscode-test.mjs
+eslint.config.mjs
+test-workspace/
+media/
+.githooks/
+.github/

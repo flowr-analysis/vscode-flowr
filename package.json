@@ -4,7 +4,7 @@
   "displayName": "R Code Analyzer (flowR)",
   "description": "Slicing and analyzing R code courtesy of flowR",
   "homepage": "https://github.com/flowr-analysis/vscode-flowr/blob/main/README.md",
-  "icon": "media/flowR.png",
+  "icon": "resources/flowR.png",
   "type": "commonjs",
   "repository": {
     "type": "git",
