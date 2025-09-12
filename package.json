@@ -687,6 +687,7 @@
     "pretest": "npm run compile-tests && npm run lint",
     "test": "vscode-test --extensionDevelopmentPath=. .",
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse",
+    "prebrowser": "npm run package-web",
     "browser": "vscode-test-web --extensionDevelopmentPath=. .",
     "compile-web": "npm run copy-wasm-web && webpack",
     "package-web": "npm run copy-wasm-web && webpack --mode production --devtool hidden-source-map",
