@@ -213,7 +213,8 @@ export function getWasmRootPath(): string {
 export function registerCommand(context: vscode.ExtensionContext, command: string, callback: (...args: any[]) => any, thisArg?: any): void {
 	context.subscriptions.push(vscode.commands.registerCommand(command, a => {
 		telemetry.event(TelemetryEvent.UsedCommand, { command, args: a });
-		callback(a);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+		return callback(a);
 	}, thisArg));
 }
 
