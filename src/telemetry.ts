@@ -75,6 +75,8 @@ export let telemetry: Telemetry = new NoTelemetry();
 
 export function registerTelemetry(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 // #if HAS_TELEMETRY
+	vscode.commands.executeCommand('setContext', 'vscode-flowr.hasTelemetry', true);
+
 	registerCommand(context, 'vscode-flowr.telemetry.start-local', async() => {
 		if(!(telemetry instanceof NoTelemetry)) {
 			vscode.window.showWarningMessage('Telemetry is already active.');

@@ -3,7 +3,7 @@ const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = env => {
-	const telemetry = env.HAS_TELEMETRY;
+	const telemetry = env.HAS_TELEMETRY ?? false;
 	console.log(`Building with telemetry ${telemetry}`);
 
 	const nodeExtensionConfig = {

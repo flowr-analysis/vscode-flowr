@@ -181,13 +181,15 @@
         "command": "vscode-flowr.telemetry.start-local",
         "title": "Start Local Telemetry",
         "category": "flowR",
-        "icon": "$(bug)"
+        "icon": "$(bug)",
+        "enablement": "vscode-flowr.hasTelemetry"
       },
       {
         "command": "vscode-flowr.telemetry.stop",
         "title": "Stop Telemetry",
         "category": "flowR",
-        "icon": "$(bug)"
+        "icon": "$(bug)",
+        "enablement": "vscode-flowr.hasTelemetry"
       }
     ],
     "configuration": {
@@ -685,6 +687,8 @@
     "package": "webpack --mode production --devtool hidden-source-map",
     "prewatch": "npm run copy-wasm-node",
     "watch": "webpack --watch",
+    "prewatch-telemetry": "npm run copy-wasm-node",
+    "watch-telemetry": "webpack --watch --env HAS_TELEMETRY",
     "lint": "npx eslint src/",
     "compile-tests": "npm run compile && tsc -p . --outDir out",
     "pretest": "npm run compile-tests && npm run lint",
