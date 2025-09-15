@@ -17,6 +17,7 @@ export class NoTelemetry extends Telemetry {
 	event(): void {}
 }
 
+// #if HAS_TELEMETRY
 export class LocalTelemetry extends Telemetry {
 
 	private readonly outputChannel: vscode.OutputChannel;
@@ -55,6 +56,7 @@ export class LocalTelemetry extends Telemetry {
 	}
 
 }
+// #endif
 
 export enum TelemetryEvent {
     UsedCommand = 'used-command',
@@ -72,6 +74,7 @@ export interface TelemetryEventArgs extends Record<string, unknown> {
 export let telemetry: Telemetry = new NoTelemetry();
 
 export function registerTelemetry(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
+// #if HAS_TELEMETRY
 	registerCommand(context, 'vscode-flowr.telemetry.start-local', async() => {
 		if(!(telemetry instanceof NoTelemetry)) {
 			vscode.window.showWarningMessage('Telemetry is already active.');
@@ -144,5 +147,5 @@ export function registerTelemetry(context: vscode.ExtensionContext, output: vsco
 		document:   e.notebookEditor?.notebook.uri.toString(),
 		selections: e.selections
 	})));
-
+// #endif
 }
