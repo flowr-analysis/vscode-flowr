@@ -14,7 +14,7 @@ import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfig
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
-import { registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
+import { NoTelemetry, registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
@@ -184,6 +184,10 @@ export function updateStatusBar() {
 		}
 	}
 
+	if(!(telemetry instanceof NoTelemetry)){
+		text.push('$(record) Telemetry active');
+	}
+	
 	if(text.length) {
 		statusBarItem.show();
 		statusBarItem.text = text.join(' ');

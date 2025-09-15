@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { registerCommand } from './extension';
+import { registerCommand, updateStatusBar } from './extension';
 
 export abstract class Telemetry {
 
@@ -86,6 +86,7 @@ export function registerTelemetry(context: vscode.ExtensionContext, output: vsco
 		if(pseudonym?.length){
 			telemetry = new LocalTelemetry(output);
 			telemetry.start(pseudonym);
+			updateStatusBar();
 			vscode.window.showInformationMessage(`Started telemetry with pseudonym ${pseudonym}.`);
 		} else {
 			vscode.window.showWarningMessage('No pseudonym set. Not starting telemetry.');
@@ -98,6 +99,7 @@ export function registerTelemetry(context: vscode.ExtensionContext, output: vsco
 		}
 		await telemetry.stop();
 		telemetry = new NoTelemetry();
+		updateStatusBar();
 		vscode.window.showInformationMessage('Stopped telemetry.');
 	});
 
