@@ -12,7 +12,9 @@
 This extension brings [_flowR_](https://github.com/flowr-analysis/flowr) to Visual Studio Code and Positron. See the [installation instructions](#installing) to get started!
 With this extension, you gain access to the following features (as the extension is under active development, many more features are [planned](https://github.com/flowr-analysis/vscode-flowr/issues?q=is%3Aissue%20state%3Aopen%20type%3AFeature)):
 
-1. 🍕 [**Slicing**](#slicing): Reduce the Program to just the parts relevant to a specific variable or figure or see what influence a loaded dataset has on the program.
+1. 🐞 [Linting](#linting): Analyze your R scripts for common issues and potential bugs and apply quick fixes for issues that can be automatically fixed.
+
+2. 🍕 [**Slicing**](#slicing): Reduce the Program to just the parts relevant to a specific variable or figure or see what influence a loaded dataset has on the program.
    This is useful, when you want to reuse code for a figure or statistical analysis in another context or if you just want to understand the code better.
 
    <details><summary>Slicing Example</summary>
@@ -21,7 +23,7 @@ With this extension, you gain access to the following features (as the extension
 
    </details>
 
-2. 📚 [**Inspect Dependencies**](#dependency-view): View the library a given script loads, the files it reads and writes, as well as the sourced scripts.
+3. 📚 [**Inspect Dependencies**](#dependency-view): View the library a given script loads, the files it reads and writes, as well as the sourced scripts.
    This helps you understanding what is required to run a script, where it reads data from, and where it writes data to.
 
    <details><summary>Example of the Dependency View</summary>
@@ -30,7 +32,7 @@ With this extension, you gain access to the following features (as the extension
 
    </details>
 
-3. 🕸️ [**Dataflow Graph**](#dataflow): Visualize the dataflow in a script.
+4. 🕸️ [**Dataflow Graph**](#dataflow): Visualize the dataflow in a script.
    This helps you understand how data is transformed in a script and where it is used.
 
    <details><summary>Example of the Dataflow Graph</summary>
@@ -39,7 +41,7 @@ With this extension, you gain access to the following features (as the extension
 
    </details>
 
-4. 🧑‍💻 [**flowR REPL Access**](#repl): Explore flowR's capabilities in a REPL (not available in the browser).
+5. 🧑‍💻 [**flowR REPL Access**](#repl): Explore flowR's capabilities in a REPL (not available in the browser).
    This allows you to interactively explore the features of flowR and understand how it can help you in your daily work.
 
    <details><summary>Example of the flowR REPL</summary>
@@ -98,6 +100,22 @@ Installing the extension is sufficient for all features!
 Yet, flowR may benefit from a local R installation (which has to be available on your `PATH`) so it can incorporate your local R setup into its analysis.
 
 Additionally, we recommend using the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) for Visual Studio Code or the [R extension](https://open-vsx.org/vscode/item/?itemName=REditorSupport.r) for Positron along with this extension. For more information on R development in Visual Studio Code, you can also check out [this helpful article](https://code.visualstudio.com/docs/languages/r). In case of migration from RStudio to Positron you can also check out [this article](https://positron.posit.co/rstudio-keybindings.html).
+
+### Linting
+
+By default, the extension ships with all linting rules that are available in *flowR*, extensive information about which can be found on the [wiki page](https://github.com/flowr-analysis/flowr/wiki/Linter). Some linters additionally ship with code actions in the form of quick fixes which, once invoked, automatically edit or remove the relevant code snippet.
+
+To manually invoke the linter, you can use the "Code Quality Analysis (Linter)" command. Additionally, you can modify under what conditions the linter automatically refreshes its results in the extension's settings.
+
+![A screenshot of a deprecated function linting result](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/lint-match.png)
+
+Linting results found in the code will be highlighted with a squiggly line underneath them, and will additionally appear in VS Code's Problems view. Hovering over a linting results also provides a link to the relevant wiki page, where you can find more information about the rule and potential fixes.
+
+![A screenshot of a set of linting results in the Problems view](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/lint-problems-view.png)
+
+For issues that have quick fixes available, you can use the lightbulb icon in your code window, hover over the ⚠️ icon in VS Code's Problems view, or use the builtin Quick Fix command.
+
+![A screenshot of a quick fix suggestion for a naming convention mismatch](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/lint-quick-fix.png)
 
 ### Slicing
 
