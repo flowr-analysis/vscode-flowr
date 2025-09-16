@@ -19,10 +19,10 @@ for (i in seq(1, length(pkgnames), by = stepsize)) {
 }
 
 # now packages appear often as they are with different days in the data, therefore we aggregate
-downloadNumbers <- aggregate(count ~ package, data=download_numbers, sum)
+download_numbers <- aggregate(count ~ package, data=download_numbers, sum)
 
 # sort download numbers
-downloadNumbers <- download_numbers[order(-download_numbers$count),]
+download_numbers <- download_numbers[order(-download_numbers$count),]
 print(download_numbers[1:N,])
 
 write.table(download_numbers[1:N,], file="top-r-downloads.txt", quote=FALSE, sep=",", row.names=FALSE, col.names=FALSE)
