@@ -7,6 +7,7 @@ import type { ConfiguredLintingRule, LintingResult, LintQuickFix } from '@eagleo
 import { ConfigurableRefresher } from './configurable-refresher';
 import type { LinterQueryResult } from '@eagleoutice/flowr/queries/catalog/linter-query/linter-query-format';
 import { rangeToVscodeRange } from './flowr/utils';
+import { rangeCompare } from '@eagleoutice/flowr/util/range';
 
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(context, output);
@@ -17,13 +18,13 @@ export function registerLintCommands(context: vscode.ExtensionContext, output: v
 
 class CodeAction extends vscode.CodeAction {
 
-	public readonly document: vscode.TextDocument;
-	public readonly quickFix: LintQuickFix;
+	public readonly document:   vscode.TextDocument;
+	public readonly quickFixes: LintQuickFix[];
 
-	constructor(document: vscode.TextDocument, quickFix: LintQuickFix) {
-		super(quickFix.description, vscode.CodeActionKind.QuickFix);
+	constructor(document: vscode.TextDocument, quickFixes: LintQuickFix[]) {
+		super([...new Set<string>(quickFixes.map(q => q.description))].join(', '), vscode.CodeActionKind.QuickFix);
 		this.document = document;
-		this.quickFix = quickFix;
+		this.quickFixes = quickFixes;
 	}
 }
 
@@ -61,10 +62,9 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 				if(!quickFixes?.length){
 					continue;
 				}
-				for(const quickFix of quickFixes) {
-					if(rangeToVscodeRange(quickFix.range).intersection(range)) {
-						ret.push(new CodeAction(document, quickFix));
-					}
+				// only add quick fixes if we overlap the relevant rnage or selection
+				if([...quickFixes.map(q => q.range), finding.range].some(r => rangeToVscodeRange(r).intersection(range))) {
+					ret.push(new CodeAction(document, quickFixes));
 				}
 			}
 		}
@@ -72,17 +72,19 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 	}
 
 	resolveCodeAction(codeAction: CodeAction, _token: vscode.CancellationToken): vscode.ProviderResult<CodeAction> {
-		const range = rangeToVscodeRange(codeAction.quickFix.range);
 		codeAction.edit = new vscode.WorkspaceEdit();
-		switch(codeAction.quickFix.type) {
-			case 'replace':
-				codeAction.edit.replace(codeAction.document.uri, range, codeAction.quickFix.replacement);
-				break;
-			case 'remove':
-				codeAction.edit.delete(codeAction.document.uri, range);
-				break;
-			default:
-				vscode.window.showWarningMessage(`The quick fix type ${(codeAction.quickFix as LintQuickFix).type} is not yet supported by this extension`);
+		for(const fix of codeAction.quickFixes.sort((f1, f2) => rangeCompare(f2.range, f1.range))) {
+			const range = rangeToVscodeRange(fix.range);
+			switch(fix.type) {
+				case 'replace':
+					codeAction.edit.replace(codeAction.document.uri, range, fix.replacement);
+					break;
+				case 'remove':
+					codeAction.edit.delete(codeAction.document.uri, range);
+					break;
+				default:
+					vscode.window.showWarningMessage(`The quick fix type ${(fix as LintQuickFix).type} is not yet supported by this extension`);
+			}	
 		}
 		return codeAction;
 	}
