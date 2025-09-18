@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { getFlowrSession } from './extension';
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
-import type { SliceReturn } from './flowr/utils';
+import { rangeToVscodeRange, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
@@ -93,7 +93,7 @@ class CriteriaSlicer {
 				const expectDoc = vscode.window.activeTextEditor?.document;
 				this.disposables.push(vscode.workspace.onDidChangeTextDocument(e => {
 					if(e.document === expectDoc) {
-						const text = e.document.getText(new vscode.Range(expectLoc[0] - 1, expectLoc[1] - 1, expectLoc[2] - 1, expectLoc[3]));
+						const text = e.document.getText(rangeToVscodeRange(expectLoc));
 						if(text.trim() !== expectLex.trim()) {
 							this.disposeCurrent();
 						}

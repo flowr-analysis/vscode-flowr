@@ -5,7 +5,7 @@ import { DefaultDependencyCategories, Unknown } from '@eagleoutice/flowr/queries
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
-import { RotaryBuffer } from '../utils';
+import { rangeToVscodeRange, RotaryBuffer } from '../utils';
 import type { DefaultsMaps } from '../../settings';
 import { DependencyViewRefresherConfigKeys, Settings , getConfig, isVerbose } from '../../settings';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
@@ -35,7 +35,7 @@ export function registerDependencyInternalCommands(context: vscode.ExtensionCont
 			const editor = vscode.window.activeTextEditor;
 			if(editor && loc) {
 				setTimeout(() => {
-					editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter);
+					editor.revealRange(rangeToVscodeRange(loc), vscode.TextEditorRevealType.InCenter);
 				}, 50);
 			}
 		}
@@ -466,7 +466,7 @@ export class Dependency extends vscode.TreeItem {
 			} else if(info.linkedIds){
 				this.children = info.linkedIds.toSorted((a,b) => compareByLocation(locationMap, a, b)).map(i => {
 					const loc = locationMap.map.ids[i]?.[1];
-					const tok = loc ? activeEditor?.document.getText(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3])) : undefined;
+					const tok = loc ? activeEditor?.document.getText(rangeToVscodeRange(loc)) : undefined;
 
 					if(!tok) {
 						return new Dependency({ label: `Linked to unknown location ${i}`, verb: 'is linked to', category, categoryInfo, allInfos });

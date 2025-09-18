@@ -1,5 +1,4 @@
-import type * as vscode from 'vscode';
-
+import * as vscode from 'vscode';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import type { SingleSlicingCriterion, SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
@@ -75,6 +74,13 @@ export function makeSliceElements(sliceResponse: ReadonlySet<NodeId>, idToLocati
 		return a.location[0] - b.location[0] || a.location[1] - b.location[1];
 	});
 	return sliceElements;
+}
+
+/**
+ * Converts a flowR {@link SourceRange} into an equivalent {@link vscode.Range}.
+ */
+export function rangeToVscodeRange(range: SourceRange): vscode.Range {
+	return new vscode.Range(range[0] - 1, range[1] - 1, range[2] - 1, range[3]);
 }
 
 export class RotaryBuffer<T> {
