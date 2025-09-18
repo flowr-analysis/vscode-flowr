@@ -76,7 +76,10 @@ export function makeSliceElements(sliceResponse: ReadonlySet<NodeId>, idToLocati
 	return sliceElements;
 }
 
-export function rangeToVscodeRange(range: SourceRange) {
+/**
+ * Converts a flowR {@link SourceRange} into an equivalent {@link vscode.Range}.
+ */
+export function rangeToVscodeRange(range: SourceRange): vscode.Range {
 	return new vscode.Range(range[0] - 1, range[1] - 1, range[2] - 1, range[3]);
 }
 

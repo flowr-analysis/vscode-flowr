@@ -11,7 +11,7 @@ import { rangeToVscodeRange } from './flowr/utils';
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(context, output);
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.lint.run', async() => {
-		await linter.createDiagnostics();
+		await linter.updateDiagnostics();
 	}));
 }
 
@@ -42,7 +42,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 			name:            'Lint',
 			keys:            LinterRefresherConfigKeys,
 			refreshCallback: async() => {
-				await this.createDiagnostics();
+				await this.updateDiagnostics();
 			},
 			output: output
 		});
@@ -52,7 +52,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 	async provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, _context: vscode.CodeActionContext, _token: vscode.CancellationToken): Promise<(CodeAction | vscode.Command)[]> {
 		const ret: CodeAction[] = [];
 		const results = await this.lintFile(document);
-		for(const [_ruleName, findings] of Object.entries(results.results)) {
+		for(const findings of Object.values(results.results)) {
 			if('error' in findings) {
 				continue;
 			}
@@ -71,7 +71,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 		return ret;
 	}
 
-	resolveCodeAction?(codeAction: CodeAction, _token: vscode.CancellationToken): vscode.ProviderResult<CodeAction> {
+	resolveCodeAction(codeAction: CodeAction, _token: vscode.CancellationToken): vscode.ProviderResult<CodeAction> {
 		const range = rangeToVscodeRange(codeAction.quickFix.range);
 		codeAction.edit = new vscode.WorkspaceEdit();
 		switch(codeAction.quickFix.type) {
@@ -126,7 +126,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 		return lint.result.linter;
 	}
 
-	async createDiagnostics(): Promise<void> {
+	async updateDiagnostics(): Promise<void> {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(!activeEditor) {
 			return;
