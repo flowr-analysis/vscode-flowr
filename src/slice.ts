@@ -11,40 +11,41 @@ import { getCriteriaSlicer } from './criteria-slicer';
 import { formatRange } from '@eagleoutice/flowr/util/mermaid/dfg';
 import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import { rangeToVscodeRange } from './flowr/utils';
+import { registerCommand } from './extension';
 
 export function registerSliceCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.cursor', async() => {
+	registerCommand(context, 'vscode-flowr.slice.cursor', async() => {
 		return await getSelectionSlicer().sliceSelectionOnce(SliceDirection.Backward);
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.forward-slice.cursor', async() => {
+	});
+	registerCommand(context, 'vscode-flowr.forward-slice.cursor', async() => {
 		return await getSelectionSlicer().sliceSelectionOnce(SliceDirection.Forward);
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.slice.dependency', (dependency: Dependency) => {
+	});
+	registerCommand(context, 'vscode-flowr.internal.slice.dependency', (dependency: Dependency) => {
 		showDependencySlice(output, dependency, SliceDirection.Backward);
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.internal.forward-slice.dependency', (dependency: Dependency) => {
+	});
+	registerCommand(context, 'vscode-flowr.internal.forward-slice.dependency', (dependency: Dependency) => {
 		showDependencySlice(output, dependency, SliceDirection.Forward);
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.clear', () => {
+	});
+	registerCommand(context, 'vscode-flowr.slice.clear', () => {
 		clearSliceOutput();
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.follow.cursor', async() => {
+	});
+	registerCommand(context, 'vscode-flowr.slice.follow.cursor', async() => {
 		await getSelectionSlicer().toggleFollowSelection(SliceDirection.Backward);
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.forward-slice.follow.cursor', async() => {
+	});
+	registerCommand(context, 'vscode-flowr.forward-slice.follow.cursor', async() => {
 		await getSelectionSlicer().toggleFollowSelection(SliceDirection.Forward);
-	}));
+	});
 
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.show.in.editor', async() => {
+	registerCommand(context, 'vscode-flowr.slice.show.in.editor', async() => {
 		return await showReconstructionInEditor();
-	}));
+	});
 
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.slice.position', async() => {
+	registerCommand(context, 'vscode-flowr.slice.position', async() => {
 		await addCurrentPositions(SliceDirection.Backward);
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.forward-slice.position', async() => {
+	});
+	registerCommand(context, 'vscode-flowr.forward-slice.position', async() => {
 		await addCurrentPositions(SliceDirection.Forward);
-	}));
+	});
 
 	vscode.workspace.onDidChangeConfiguration(e => {
 		if(e.affectsConfiguration(`${Settings.Category}`)) {

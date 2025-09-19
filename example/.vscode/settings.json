@@ -6,5 +6,6 @@
         "source",
         "library",
         "read"
-    ]
+    ],
+    "vscode-flowr.r.engine": "r-shell"
 }

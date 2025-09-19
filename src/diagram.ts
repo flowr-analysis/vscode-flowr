@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
-import { getFlowrSession } from './extension';
+import { getFlowrSession, registerCommand } from './extension';
 import { Settings , getConfig } from './settings';
 
 
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dataflow', async() => {
+	registerCommand(context, 'vscode-flowr.dataflow', async() => {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(activeEditor) {
 			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document);
@@ -12,8 +12,8 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 				return { mermaid, webview: createWebview('flowr-dataflow', 'Dataflow Graph', mermaid, output) };
 			}
 		}
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.dataflow-simplified', async() => {
+	});
+	registerCommand(context, 'vscode-flowr.dataflow-simplified', async() => {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(activeEditor) {
 			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document, true);
@@ -21,8 +21,8 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 				return { mermaid, webview: createWebview('flowr-dataflow', 'Dataflow Graph', mermaid, output) };
 			}
 		}
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.ast', async() => {
+	});
+	registerCommand(context, 'vscode-flowr.ast', async() => {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(activeEditor) {
 			const ast = await (await getFlowrSession()).retrieveAstMermaid(activeEditor.document);
@@ -30,8 +30,8 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 				createWebview('flowr-ast', 'AST', ast, output);
 			}
 		}
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('vscode-flowr.cfg', async() => {
+	});
+	registerCommand(context, 'vscode-flowr.cfg', async() => {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(activeEditor) {
 			const cfg = await (await getFlowrSession()).retrieveCfgMermaid(activeEditor.document);
@@ -39,7 +39,7 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 				createWebview('flowr-cfg', 'Control Flow Graph', cfg, output);
 			}
 		}
-	}));
+	});
 }
 
 function createWebview(id: string, name: string, mermaid: string, output: vscode.OutputChannel): vscode.WebviewPanel | undefined {
