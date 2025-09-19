@@ -10,6 +10,7 @@ import type { Dependency } from './flowr/views/dependency-view';
 import { getCriteriaSlicer } from './criteria-slicer';
 import { formatRange } from '@eagleoutice/flowr/util/mermaid/dfg';
 import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
+import { rangeToVscodeRange } from './flowr/utils';
 import { registerCommand } from './extension';
 
 export function registerSliceCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
@@ -108,7 +109,7 @@ function showDependencySlice(output: vscode.OutputChannel, dependency: Dependenc
 			}
 			if(editor && loc) {
 				setTimeout(() => {
-					editor.revealRange(new vscode.Range(loc[0] - 1, loc[1] - 1, loc[2] - 1, loc[3]), vscode.TextEditorRevealType.InCenter);
+					editor.revealRange(rangeToVscodeRange(loc), vscode.TextEditorRevealType.InCenter);
 				}, 50);
 			}
 		})();
@@ -121,8 +122,7 @@ export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: Nod
 		case 'tokens': {
 			const ranges = [];
 			for(const el of sliceElements){
-				const range = new vscode.Range(el.location[0] - 1, el.location[1] - 1, el.location[2] - 1, el.location[3]);
-				ranges.push(range);
+				ranges.push(rangeToVscodeRange(el.location));
 			}
 			editor.setDecorations(decos.tokenSlice, ranges);
 			break;

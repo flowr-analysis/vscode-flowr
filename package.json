@@ -55,7 +55,7 @@
       {
         "command": "vscode-flowr.lint.run",
         "icon": "$(bug)",
-        "title": "Code Quality Analysis (Linter, Preview)",
+        "title": "Code Quality Analysis (Linter)",
         "category": "flowR"
       },
       {
