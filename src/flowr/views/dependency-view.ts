@@ -10,7 +10,7 @@ import type { DefaultsMaps } from '../../settings';
 import { DependencyViewRefresherConfigKeys, Settings , getConfig, isVerbose } from '../../settings';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
-import { ConfigurableRefresher, RefreshType } from '../../configurable-refresher';
+import { ConfigurableRefresher, isRTypeLanguage, RefreshType } from '../../configurable-refresher';
 
 
 const FlowrDependencyViewId = 'flowr-dependencies';
@@ -70,7 +70,7 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 
 	function refreshDesc() {
 		let message: string;
-		if(vscode.window.activeTextEditor?.document.languageId !== 'r') {
+		if(!isRTypeLanguage(vscode.window.activeTextEditor?.document)) {
 			message = 'In an R script, this view ';
 		} else {
 			message = 'This view ';
@@ -245,7 +245,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		if(this.working && force) {
 			this.working = false;
 		}
-		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working || (!force && vscode.window.activeTextEditor?.document.languageId !== 'r')) {
+		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working || (!force && !isRTypeLanguage(vscode.window.activeTextEditor?.document))) {
 			if(force) {
 				this.output.appendLine('[Dependency View] Do not force refresh (visible: ' + this.parent?.visible + ', working: ' + this.working + ', language: ' + vscode.window.activeTextEditor?.document.languageId + ')');
 			} else if(isVerbose()) {

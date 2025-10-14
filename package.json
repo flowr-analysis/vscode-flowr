@@ -25,7 +25,8 @@
   ],
   "keywords": [
     "flowR",
-    "R"
+    "R",
+    "R Markdown"
   ],
   "activationEvents": [],
   "main": "./dist/node/extension.js",
@@ -704,7 +705,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.4.8",
+    "@eagleoutice/flowr": "^2.6.0",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
