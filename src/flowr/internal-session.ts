@@ -7,7 +7,6 @@ import { consolidateNewlines, makeSliceElements } from './utils';
 import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { RShell, RShellReviveOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { createDataflowPipeline, createNormalizePipeline, createSlicePipeline } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
-import { requestFromInput } from '@eagleoutice/flowr/r-bridge/retriever';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { KnownParser, KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
@@ -249,7 +248,7 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 		return await this.workingOn(this.parser, async s => {
 			const result = await createDataflowPipeline(s, {
-				request: requestFromInput(consolidateNewlines(document.getText()))
+				request: requestFromDocument(document)
 			}, VSCodeFlowrConfiguration).allRemainingSteps();
 			return graphToMermaid({ graph: result.dataflow.graph, simplified, includeEnvironments: false }).string;
 		}, 'dfg');
@@ -262,7 +261,7 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 		return await this.workingOn(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
-				request: requestFromInput(consolidateNewlines(document.getText()))
+				request: requestFromDocument(document)
 			}, VSCodeFlowrConfiguration).allRemainingSteps();
 			return normalizedAstToMermaid(result.normalize.ast);
 		}, 'ast');
@@ -274,15 +273,13 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 		return await this.workingOn(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
-				request: requestFromInput(consolidateNewlines(document.getText()))
+				request: requestFromDocument(document)
 			}, VSCodeFlowrConfiguration).allRemainingSteps();
 			return cfgToMermaid(extractCfgQuick(result.normalize), result.normalize);
 		}, 'cfg');
 	}
 
 	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
-		const content = consolidateNewlines(document.getText());
-
 		let elements: ReadonlySet<NodeId>;
 		let sliceElements: { id: NodeId, location: SourceRange }[];
 		let code: string;
@@ -304,7 +301,7 @@ export class FlowrInternalSession implements FlowrSession {
 			const slicer = createSlicePipeline(this.parser as KnownParser, {
 				criterion: criteria,
 				direction: direction,
-				request:   requestFromInput(content),
+				request:   requestFromDocument(document),
 				threshold
 			}, VSCodeFlowrConfiguration);
 			const result = await slicer.allRemainingSteps();
@@ -328,9 +325,8 @@ export class FlowrInternalSession implements FlowrSession {
 			throw new Error('No parser available');
 		}
 
-		const req = requestFromText(consolidateNewlines(document.getText()), languageIdToFormat(document.languageId));
 		const analyzer = await new FlowrAnalyzerBuilder()
-			.addRequest(req)
+			.addRequest(requestFromDocument(document))
 			.setParser(this.parser)
 			.setConfig(VSCodeFlowrConfiguration)
 			.build();
@@ -370,4 +366,8 @@ function languageIdToFormat(id: string): SupportedFormats {
 		case 'rmd': return 'Rmd';
 		default: return 'R';
 	};
+}
+
+function requestFromDocument(document: vscode.TextDocument) {
+	return requestFromText(consolidateNewlines(document.getText()), languageIdToFormat(document.languageId));
 }
