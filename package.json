@@ -32,6 +32,29 @@
   "main": "./dist/node/extension.js",
   "browser": "./dist/web/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "r",
+        "aliases": [
+          "R"
+        ],
+        "extensions": [
+          ".r",
+          ".R"
+        ]
+      },
+      {
+        "id": "rmd",
+        "aliases": [
+          "R Markdown",
+          "rmd"
+        ],
+        "extensions": [
+          ".Rmd",
+          ".rmd"
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "vscode-flowr.internal.goto.dependency",
