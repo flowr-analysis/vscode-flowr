@@ -1,0 +1,16 @@
+
+
+```{R}
+x <- 42
+cat("Hello World")
+repeat {
+    break
+}
+```
+
+
+
+```{R}
+x <- x + 1
+cat(x)
+```

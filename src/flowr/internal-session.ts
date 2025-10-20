@@ -7,12 +7,11 @@ import { consolidateNewlines, makeSliceElements } from './utils';
 import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { RShell, RShellReviveOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { createDataflowPipeline, createNormalizePipeline, createSlicePipeline } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
-import { requestFromInput } from '@eagleoutice/flowr/r-bridge/retriever';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { KnownParser, KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
 import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/tree-sitter-executor';
-import { executeQueries, type Queries, type QueryResults, type SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
+import { type Queries, type QueryResults, type SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { SemVer } from 'semver';
 import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
@@ -29,7 +28,10 @@ import { getEngineConfig } from '@eagleoutice/flowr/config';
 import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { extractCfgQuick } from '@eagleoutice/flowr/control-flow/extract-cfg';
-
+import { requestFromText } from '@eagleoutice/flowr/util/formats/adapter';
+import type { SupportedFormats } from '@eagleoutice/flowr/util/formats/adapter-format';
+import { FlowrAnalyzerBuilder } from '@eagleoutice/flowr/project/flowr-analyzer-builder';
+import type { PipelinePerStepMetaInformation } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -246,7 +248,7 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 		return await this.workingOn(this.parser, async s => {
 			const result = await createDataflowPipeline(s, {
-				request: requestFromInput(consolidateNewlines(document.getText()))
+				request: requestFromDocument(document)
 			}, VSCodeFlowrConfiguration).allRemainingSteps();
 			return graphToMermaid({ graph: result.dataflow.graph, simplified, includeEnvironments: false }).string;
 		}, 'dfg');
@@ -259,7 +261,7 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 		return await this.workingOn(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
-				request: requestFromInput(consolidateNewlines(document.getText()))
+				request: requestFromDocument(document)
 			}, VSCodeFlowrConfiguration).allRemainingSteps();
 			return normalizedAstToMermaid(result.normalize.ast);
 		}, 'ast');
@@ -271,15 +273,13 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 		return await this.workingOn(this.parser, async s => {
 			const result = await createNormalizePipeline(s, {
-				request: requestFromInput(consolidateNewlines(document.getText()))
+				request: requestFromDocument(document)
 			}, VSCodeFlowrConfiguration).allRemainingSteps();
 			return cfgToMermaid(extractCfgQuick(result.normalize), result.normalize);
 		}, 'cfg');
 	}
 
 	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
-		const content = consolidateNewlines(document.getText());
-
 		let elements: ReadonlySet<NodeId>;
 		let sliceElements: { id: NodeId, location: SourceRange }[];
 		let code: string;
@@ -301,7 +301,7 @@ export class FlowrInternalSession implements FlowrSession {
 			const slicer = createSlicePipeline(this.parser as KnownParser, {
 				criterion: criteria,
 				direction: direction,
-				request:   requestFromInput(content),
+				request:   requestFromDocument(document),
 				threshold
 			}, VSCodeFlowrConfiguration);
 			const result = await slicer.allRemainingSteps();
@@ -324,17 +324,25 @@ export class FlowrInternalSession implements FlowrSession {
 		if(!this.parser) {
 			throw new Error('No parser available');
 		}
-		const result = await createDataflowPipeline(this.parser, {
-			request: requestFromInput(consolidateNewlines(document.getText()))
-		}, VSCodeFlowrConfiguration).allRemainingSteps();
-		if(result.normalize.hasError && (result.normalize.ast.children as unknown[])?.length === 0) {
-			return { result: {} as QueryResults<T>, hasError: true, dfi: result.dataflow, ast: result.normalize };
+
+		const analyzer = await new FlowrAnalyzerBuilder()
+			.addRequest(requestFromDocument(document))
+			.setParser(this.parser)
+			.setConfig(VSCodeFlowrConfiguration)
+			.build();
+
+		const dataflow = await analyzer.dataflow() as DataflowInformation & PipelinePerStepMetaInformation;
+		const normalize = await analyzer.normalize() as NormalizedAst & PipelinePerStepMetaInformation;
+
+		if(normalize.hasError && (normalize.ast.children as unknown[])?.length === 0) {
+			return { result: {} as QueryResults<T>, hasError: true, dfi: dataflow, ast: normalize };
 		}
+
 		return {
-			result:   executeQueries({ ast: result.normalize, dataflow: result.dataflow, config: VSCodeFlowrConfiguration }, query),
-			hasError: result.normalize.hasError ?? false,
-			dfi:      result.dataflow,
-			ast:      result.normalize
+			result:   await analyzer.query(query),
+			hasError: normalize.hasError ?? false,
+			dfi:      dataflow,
+			ast:      normalize
 		};
 	}
 
@@ -349,4 +357,17 @@ export class FlowrInternalSession implements FlowrSession {
 	public static getEngineToUse(): KnownParserName {
 		return isWeb() ? 'tree-sitter' : getConfig().get<KnownParserName>(Settings.Rengine, 'tree-sitter');
 	}
+}
+
+
+function languageIdToFormat(id: string): SupportedFormats {
+	switch(id) {
+		case 'r': return 'R';
+		case 'rmd': return 'Rmd';
+		default: return 'R';
+	};
+}
+
+function requestFromDocument(document: vscode.TextDocument) {
+	return requestFromText(consolidateNewlines(document.getText()), languageIdToFormat(document.languageId));
 }

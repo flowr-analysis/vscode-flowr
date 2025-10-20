@@ -25,7 +25,7 @@ export const enum RefreshType {
 /**
  * Document Language ids that the refresher will trigger on
  */
-const TriggerOnLanguageIds = ['r'];
+const TriggerOnLanguageIds = ['r', 'rmd'];
 
 /**
  * Runs a callback based on a configurable refresh policy.
@@ -177,7 +177,7 @@ function isChangeRelevant(e: vscode.TextDocumentChangeEvent): boolean {
 }
 
 
-function isRTypeLanguage(doc?: vscode.TextDocument): boolean {
+export function isRTypeLanguage(doc?: vscode.TextDocument): boolean {
 	if(!doc) {
 		return false;
 	}

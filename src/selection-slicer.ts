@@ -13,6 +13,7 @@ import { positionSlicers } from './position-slicer';
 import { Settings , getConfig, isVerbose } from './settings';
 import { getCriteriaSlicer } from './criteria-slicer';
 import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
+import { isRTypeLanguage } from './configurable-refresher';
 
 
 
@@ -159,7 +160,7 @@ async function getSelectionSlice(direction: SliceDirection): Promise<SelectionSl
 	if(editor.document.uri.scheme === flowrScheme){
 		return undefined;
 	}
-	if(editor.document.languageId.toLowerCase() !== 'r'){
+	if(!isRTypeLanguage(editor.document)){
 		return undefined;
 	}
 	if(positionSlicers.has(editor.document)){
