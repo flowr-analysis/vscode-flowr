@@ -72,6 +72,35 @@ suite('refresher', () => {
 		});
 	}
 
+	test('do not refresh on non-R file', async() => {
+		await updateRefreshSettings(Keys, RefreshType.OnChange, 0, 0);
+
+		const folder = vscode.workspace.workspaceFolders?.[0];
+		assert.ok(folder);
+		const rFile = vscode.Uri.joinPath(folder.uri,'example.R');
+		const nonRFile = vscode.Uri.joinPath(folder.uri,'unrelated.ts');
+
+		let triggerCount = 0;
+
+		const refresher = new ConfigurableRefresher({
+			name:            'Test',
+			keys:            Keys,
+			refreshCallback: () => {
+				triggerCount++;
+			},
+			output: output
+		});
+
+		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(rFile));
+		await new Promise(r => setTimeout(r, 100));
+		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(nonRFile));
+		await new Promise(r => setTimeout(r, 100));
+
+		assert.equal(triggerCount, 1);
+
+		refresher.dispose();
+	});
+
 	testRefresher({
 		type:                 RefreshType.OnChange, 
 		interval:             0, 

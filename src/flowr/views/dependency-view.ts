@@ -172,13 +172,24 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			name:            'Dependency View',
 			keys:            DependencyViewRefresherConfigKeys,
 			refreshCallback: async() => {
+				/* Gets called when the analysis should be refreshed */
 				await this.refresh(); 
 			},
 			configChangedCallback: () => {
+				/* Gets called when config changes, or update behaviour changes */
 				const configuredBufSize = getConfig().get<number>(Settings.DependencyViewCacheLimit, Defaults.DependencyViewCacheLimit);
 				if(this.textBuffer.size() !== configuredBufSize) {
 					this.textBuffer = new RotaryBuffer(configuredBufSize);
 				}
+			},
+			clearCallback: () => {
+				/* Gets called when a non R file is opened */
+				this.activeDependencies = emptyDependencies;
+				this.locationMap = emptyLocationMap;
+				this.rootElements = [];
+				this.lastFile = '';
+				this.lastText = '';
+				this._onDidChangeTreeData.fire(undefined);
 			},
 			output: output
 		});
