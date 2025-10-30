@@ -11,6 +11,7 @@ export interface ConfigurableRefresherConstructor {
 	keys:                   RefresherConfigKeys
 	refreshCallback:        Callback<void>;
 	configChangedCallback?: Callback<void>;
+	clearCallback?:         Callback<void>;
 	output:                 vscode.OutputChannel;
 }
 
@@ -51,17 +52,19 @@ export class ConfigurableRefresher {
 			this.runRefreshCallback();
 		}));
 
-		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(e => {
-			if(isRTypeLanguage(e?.document)) {
-				this.runRefreshCallback();
-			}
+		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(_ => {
+			this.runRefreshCallback();
 		}));
 
 		this.update();
 	}
 
 	private runRefreshCallback() {
-		void this.spec.refreshCallback();
+		if(isRTypeLanguage(vscode.window.activeTextEditor?.document)) {
+			void this.spec.refreshCallback();
+		} else {
+			void this.spec.clearCallback?.();
+		}
 	}
 
 	private runConfigChangedCallback() {
