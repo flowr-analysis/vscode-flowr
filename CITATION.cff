@@ -2,7 +2,7 @@
 # Visit https://bit.ly/cffinit to generate yours today!
 
 cff-version: 1.2.0
-title: 'flowR: A Static Program Slicer for R'
+title: "flowR: A Static Program Slicer for R"
 message: >-
   If you use this software, please cite it using the
   metadata from this file.
@@ -12,8 +12,8 @@ authors:
     family-names: Sihler
     email: florian.sihler@uni-ulm.de
     affiliation: Ulm University
-    orcid: 'https://orcid.org/0000-0001-7195-7801'
-  - orcid: 'https://orcid.org/0000-0002-9067-3748'
+    orcid: "https://orcid.org/0000-0001-7195-7801"
+  - orcid: "https://orcid.org/0000-0002-9067-3748"
     affiliation: Ulm Universitz
     email: matthias.tichy@uni-ulm.de
     given-names: Matthias
@@ -28,8 +28,8 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.15648788
     description: Presentation at HiRSE
-repository-code: 'https://github.com/flowr-analysis/vscode-flowr'
-repository: 'https://github.com/flowr-analysis/flowr'
+repository-code: "https://github.com/flowr-analysis/vscode-flowr"
+repository: "https://github.com/flowr-analysis/flowr"
 abstract: >-
   flowR is a sophisticated, static dataflow analyzer for the
   R programming language, offering support for program
@@ -38,3 +38,15 @@ keywords:
   - static program analysis
   - r
 license: GPL-3.0
+preferred-citation:
+  type: article
+  authors:
+    - given-names: Florian
+      family-names: Sihler
+    - given-names: Matthias
+      family-names: Tichy
+  doi: "10.1145/3691620.3695359"
+  journal: "Proceedings of the 39th {IEEE/ACM} International Conference on Automated Software Engineering, {ASE} 2024, Sacramento, CA, USA, October 27 - November 1, 2024"
+  title: "flowR: A Static Program Slicer for R"
+  issue: ASE '24
+  year: 2024

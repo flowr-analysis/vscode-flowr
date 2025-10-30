@@ -89,6 +89,8 @@ So far, the extension appeared in the following publications:
 
    </details>
 
+For general publications on flowR, please check the [main flowR Repository](https://github.com/flowr-analysis/flowr?tab=readme-ov-file#-publications-on-flowr).
+
 
 ## Use
 
