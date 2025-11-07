@@ -37,8 +37,10 @@ export class ConfigurableRefresher {
 	private activeDisposable:                 vscode.Disposable | undefined;
 	private disposables:                      vscode.Disposable[] = [];
 	private readonly spec:                    ConfigurableRefresherConstructor;
+	private lastDocumentVersion?:             number;
 	private static documentChangedDisposable: vscode.Disposable | undefined;
 	private static onChangeRefreshers:        ConfigurableRefresher[] = [];
+
 
 	constructor(c: ConfigurableRefresherConstructor) {
 		this.spec = c;
@@ -61,8 +63,12 @@ export class ConfigurableRefresher {
 
 	private runRefreshCallback() {
 		if(isRTypeLanguage(vscode.window.activeTextEditor?.document)) {
-			void this.spec.refreshCallback();
+			if(this.lastDocumentVersion == undefined || vscode.window.activeTextEditor.document.version > this.lastDocumentVersion) {
+				void this.spec.refreshCallback();
+				this.lastDocumentVersion = vscode.window.activeTextEditor.document.version;
+			}
 		} else {
+			this.lastDocumentVersion = undefined;
 			void this.spec.clearCallback?.();
 		}
 	}
@@ -180,9 +186,6 @@ function isChangeRelevant(e: vscode.TextDocumentChangeEvent): boolean {
 }
 
 
-export function isRTypeLanguage(doc?: vscode.TextDocument): boolean {
-	if(!doc) {
-		return false;
-	}
-	return TriggerOnLanguageIds.indexOf(doc.languageId) !== -1;
+export function isRTypeLanguage(doc?: vscode.TextDocument): doc is vscode.TextDocument {
+	return !!doc && TriggerOnLanguageIds.indexOf(doc.languageId) !== -1;
 }

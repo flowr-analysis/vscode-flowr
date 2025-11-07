@@ -184,7 +184,7 @@ suite('refresher', () => {
 		interval:             0.01,  
 		breakOff:             0, 
 		timeout:              100, 
-		expectedTriggerCount: 5, 
+		expectedTriggerCount: 1, 
 		exactCount:           false
 	});
 
