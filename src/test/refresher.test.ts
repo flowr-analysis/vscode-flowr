@@ -29,7 +29,7 @@ suite('refresher', () => {
 
 	const output: vscode.OutputChannel = vscode.window.createOutputChannel('TestChannel');
 
-	function testRefresher(data: {name?: string, type: RefreshType, interval: number, breakOff: number, timeout: number, expectedTriggerCount: number, exactCount: boolean, action?: (editor: vscode.TextEditor) => Promise<void>}) {
+	function testRefresher(data: {name?: string, type: RefreshType, interval: number, breakOff: number, timeout: number, expectedTriggerCount: number, action?: (editor: vscode.TextEditor) => Promise<void>}) {
 		const testName = data.name ? `${data.name} (${data.type})` : data.type;
 		const testFileName = data.name ? `${TestFileNameBase}-${data.name}-${data.type}.R` : `${TestFileNameBase}-${data.type}.R`;
 
@@ -62,11 +62,7 @@ suite('refresher', () => {
 
 			await vscode.workspace.fs.delete(file);
 
-			if(data.exactCount) {
-				assert.equal(triggerCount, data.expectedTriggerCount);
-			} else {
-				assert(triggerCount >= data.expectedTriggerCount, `Expected to trigger ${data.expectedTriggerCount} or more, but triggered ${triggerCount} times`);
-			}
+			assert.equal(triggerCount, data.expectedTriggerCount);	
 
 			refresher.dispose();
 		});
@@ -114,7 +110,6 @@ suite('refresher', () => {
 		breakOff:             0, 
 		timeout:              100, 
 		expectedTriggerCount: 1, 
-		exactCount:           true,
 		action:               async(editor: vscode.TextEditor) => {
 			await editor.edit((edit) => {
 				edit.insert(new vscode.Position(0, 0), ' ');
@@ -129,7 +124,6 @@ suite('refresher', () => {
 		breakOff:             0, 
 		timeout:              100, 
 		expectedTriggerCount: 3, 
-		exactCount:           true,
 		action:               async(editor: vscode.TextEditor) => {
 			await editor.edit((edit) => {
 				edit.insert(new vscode.Position(0, 0), ' ');
@@ -149,7 +143,6 @@ suite('refresher', () => {
 		breakOff:             0, 
 		timeout:              100, 
 		expectedTriggerCount: 1, 
-		exactCount:           true,
 		action:               async(editor: vscode.TextEditor) => {
 			await editor.edit((edit) => {
 				edit.insert(new vscode.Position(0, 0), ' ');
@@ -165,7 +158,6 @@ suite('refresher', () => {
 		breakOff:             0, 
 		timeout:              100, 
 		expectedTriggerCount: 2, 
-		exactCount:           true,
 		action:               async(editor: vscode.TextEditor) => {
 			await editor.edit((edit) => {
 				edit.insert(new vscode.Position(0, 0), ' ');
@@ -184,8 +176,34 @@ suite('refresher', () => {
 		interval:             0.01,  
 		breakOff:             0, 
 		timeout:              100, 
+		expectedTriggerCount: 5, 
+		action:               async(editor: vscode.TextEditor) => {
+			for(let i = 0; i < 5; i++) {
+				await editor.edit((edit) => {
+					edit.insert(new vscode.Position(0, 0), ' ');
+				});
+				await editor.document.save();
+				await new Promise(r => setTimeout(r, 10));
+			}
+		} 
+	});
+
+	testRefresher({
+		name:                 'multiple changes long interval',
+		type:                 RefreshType.Interval,
+		interval:             0.1,  // =10ms
+		breakOff:             0, 
+		timeout:              100, 
 		expectedTriggerCount: 1, 
-		exactCount:           false
+		action:               async(editor: vscode.TextEditor) => {
+			for(let i = 0; i < 5; i++) {
+				await editor.edit((edit) => {
+					edit.insert(new vscode.Position(0, 0), ' ');
+				});
+				await editor.document.save();
+				await new Promise(r => setTimeout(r, 1));
+			}
+		} 
 	});
 
 	testRefresher({
@@ -194,7 +212,6 @@ suite('refresher', () => {
 		breakOff:             0, 
 		timeout:              100, 
 		expectedTriggerCount: 0, 
-		exactCount:           true,
 		action:               async(editor: vscode.TextEditor) => {
 			await editor.edit((edit) => {
 				edit.insert(new vscode.Position(0, 0), ' ');
