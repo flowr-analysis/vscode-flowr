@@ -7,11 +7,36 @@ import * as vscode from 'vscode';
 type Callback<T> = () => AsyncOrSync<T>;
 
 export interface ConfigurableRefresherConstructor {
+	/**
+	 * The name of the refresher instance (will show up in console output)
+	 */
 	name:                   string;
+	/**
+	 * The keys that are used to configure the refresher by the user
+	 */
 	keys:                   RefresherConfigKeys
+	/**
+	 * The function that should be called, when the content should be updated 
+	 * according to the policy configured by the config
+	 */
 	refreshCallback:        Callback<void>;
+	/**
+	 * (optional) The function that should be called, when the config changes
+	 */
 	configChangedCallback?: Callback<void>;
+	/**
+	 * (optional) The function that should be called, when the user opens a non supported file
+	 * (i.e. not an R file), and the content should be cleared 
+	 */
 	clearCallback?:         Callback<void>;
+	/**
+	 * (optional) The refresher will call this function before running the actual refreshCallback.
+	 * If this function returns true, the refreshCallback will be executed.
+	 */
+	shouldUpdateHook?:      (doc: vscode.TextDocument) => boolean;
+	/**
+	 * Logging output channel
+	 */
 	output:                 vscode.OutputChannel;
 }
 
@@ -37,8 +62,10 @@ export class ConfigurableRefresher {
 	private activeDisposable:                 vscode.Disposable | undefined;
 	private disposables:                      vscode.Disposable[] = [];
 	private readonly spec:                    ConfigurableRefresherConstructor;
+	private lastDocumentVersion?:             number;
 	private static documentChangedDisposable: vscode.Disposable | undefined;
 	private static onChangeRefreshers:        ConfigurableRefresher[] = [];
+
 
 	constructor(c: ConfigurableRefresherConstructor) {
 		this.spec = c;
@@ -59,11 +86,48 @@ export class ConfigurableRefresher {
 		this.update();
 	}
 
+	public forceRefresh() {
+		void this.spec.refreshCallback();
+	}
+
+	public dispose() {
+		ConfigurableRefresher.unregisterRefresherForOnChanged(this);
+		clearInterval(this.activeInterval);
+		this.activeDisposable?.dispose();
+
+		for(const d of this.disposables) {
+			d.dispose();
+		}
+	}
+
+	/**
+	 * Gets called immediatly before running the refreshCallback to avoid unnecessary updates.
+	 * Can be overriden by @see ConfigurableRefresherConstructor.shouldUpdateHook
+	 */
+	private shouldUpdate(): boolean {
+		if(!vscode.window.activeTextEditor) {
+			return false;
+		}
+
+		// optionaly, run specified hook instead of default behaviour
+		if(this.spec.shouldUpdateHook) {
+			return this.spec.shouldUpdateHook(vscode.window.activeTextEditor.document);
+		}
+
+		const update = this.lastDocumentVersion == undefined || vscode.window.activeTextEditor.document.version > this.lastDocumentVersion;
+		this.lastDocumentVersion = vscode.window.activeTextEditor.document.version;
+		return update;
+	}
+
 	private runRefreshCallback() {
-		if(isRTypeLanguage(vscode.window.activeTextEditor?.document)) {
-			void this.spec.refreshCallback();
-		} else {
+		if(!isRTypeLanguage(vscode.window.activeTextEditor?.document)) {
+			this.lastDocumentVersion = undefined;
 			void this.spec.clearCallback?.();
+			return false;
+		}
+
+		if(this.shouldUpdate()) {
+			void this.spec.refreshCallback();
 		}
 	}
 
@@ -156,16 +220,6 @@ export class ConfigurableRefresher {
 				this.spec.output.appendLine(`[${this.spec.name}] Invalid update type: ${getConfig().get<string>(this.spec.keys.updateType)}`);
 		}
 	}
-
-	public dispose() {
-		ConfigurableRefresher.unregisterRefresherForOnChanged(this);
-		clearInterval(this.activeInterval);
-		this.activeDisposable?.dispose();
-
-		for(const d of this.disposables) {
-			d.dispose();
-		}
-	}
 }
 
 function getActiveEditorCharLength() {
@@ -180,9 +234,6 @@ function isChangeRelevant(e: vscode.TextDocumentChangeEvent): boolean {
 }
 
 
-export function isRTypeLanguage(doc?: vscode.TextDocument): boolean {
-	if(!doc) {
-		return false;
-	}
-	return TriggerOnLanguageIds.indexOf(doc.languageId) !== -1;
+export function isRTypeLanguage(doc?: vscode.TextDocument): doc is vscode.TextDocument {
+	return !!doc && TriggerOnLanguageIds.indexOf(doc.languageId) !== -1;
 }
