@@ -29,7 +29,7 @@ suite('refresher', () => {
 
 	const output: vscode.OutputChannel = vscode.window.createOutputChannel('TestChannel');
 
-	function testRefresher(data: {name?: string, type: RefreshType, interval: number, breakOff: number, timeout: number, expectedTriggerCount: number, exactCount: boolean, action?: (editor: vscode.TextEditor) => Promise<void>}) {
+	function testRefresher(data: {name?: string, type: RefreshType, interval: number, breakOff: number, timeout: number, expectedTriggerCount: number, exactCount: boolean, action?: (editor: vscode.TextEditor) => Promise<void>, updateHook?: (doc: vscode.TextDocument) => boolean}) {
 		const testName = data.name ? `${data.name} (${data.type})` : data.type;
 		const testFileName = data.name ? `${TestFileNameBase}-${data.name}-${data.type}.R` : `${TestFileNameBase}-${data.type}.R`;
 
@@ -51,7 +51,8 @@ suite('refresher', () => {
 				refreshCallback: () => {
 					triggerCount++;
 				},
-				output: output
+				output:           output,
+				shouldUpdateHook: data.updateHook
 			});
 
 			if(data.action) {
@@ -229,6 +230,20 @@ suite('refresher', () => {
 				edit.insert(new vscode.Position(0, 0), ' ');
 			});
 			await editor.document.save();
+		} 
+	});
+
+
+	testRefresher({
+		name:                 'never refresh because of hook',
+		type:                 RefreshType.Interval,
+		interval:             0.01,  
+		breakOff:             0, 
+		timeout:              100, 
+		expectedTriggerCount: 0, 
+		exactCount:           true,
+		updateHook:           () => {
+			return false;
 		} 
 	});
 });
