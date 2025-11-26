@@ -48,7 +48,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 	});
 
 	vscode.workspace.onDidChangeConfiguration(e => {
-		if(e.affectsConfiguration(`${Settings.Category}`)) {
+		if(e.affectsConfiguration(Settings.Category)) {
 			const selSlicer = getSelectionSlicer();
 			selSlicer.clearSliceDecos();
 			for(const [, positionSlicer] of positionSlicers){

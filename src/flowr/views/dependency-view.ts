@@ -115,8 +115,10 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	}
 
 	refreshDesc();
-	const disposeChange = vscode.workspace.onDidChangeConfiguration(() => {
-		refreshDesc();
+	const disposeChange = vscode.workspace.onDidChangeConfiguration(e => {
+		if(e.affectsConfiguration(Settings.Category)) {
+			refreshDesc();
+		}
 	});
 	const disposeChangeActive = vscode.window.onDidChangeActiveTextEditor(() => {
 		refreshDesc();
