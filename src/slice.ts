@@ -48,7 +48,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 	});
 
 	vscode.workspace.onDidChangeConfiguration(e => {
-		if(e.affectsConfiguration(`${Settings.Category}`)) {
+		if(e.affectsConfiguration(Settings.Category)) {
 			const selSlicer = getSelectionSlicer();
 			selSlicer.clearSliceDecos();
 			for(const [, positionSlicer] of positionSlicers){
@@ -150,8 +150,11 @@ export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: Nod
 
 			const uri = makeUri('slice-diff-view', 'Slice Diff View');
 			getReconstructionContentProvider().updateContents(uri, sliceContent.join('\n'));
-			void vscode.commands.executeCommand('vscode.diff', uri, editor.document.uri, 'Slice Diff View',
+			// only ever open one diff view to avoid "stuttering" between multiple or between the reconstruct
+			if(!vscode.workspace.textDocuments.find(e => e.uri.authority === uri.authority)){
+				void vscode.commands.executeCommand('vscode.diff', uri, editor.document.uri, 'Slice Diff View',
 				{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true } as vscode.TextDocumentShowOptions);
+			}
 			break;
 		}
 	}

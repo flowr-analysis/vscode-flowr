@@ -36,7 +36,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerTelemetry(context, outputChannel);
 
 	updateFlowrConfig();
-	vscode.workspace.onDidChangeConfiguration(updateFlowrConfig);
+	vscode.workspace.onDidChangeConfiguration(e => {
+		if(e.affectsConfiguration(Settings.Category)) {
+			updateFlowrConfig();
+		}
+	});
 
 	registerCommand(context, 'vscode-flowr.session.internal', async() => {
 		await establishInternalSession();
