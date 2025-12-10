@@ -192,7 +192,8 @@ export class FlowrServerSession implements FlowrSession {
 		const response = await this.requestFileAnalysis(document);
 		// now we want to collect all ids from response in a map again (id -> location)
 		const idToLocation = new Map<NodeId, SourceRange>();
-		visitAst(response.results.normalize.ast, n => {
+		const nodes = response.results.normalize.ast.files.map(f => f.root);
+		visitAst(nodes, n => {
 			// backwards compat for server versions before 2.0.2, which used a "flavor" rather than a "named" boolean
 			if(n.flavor === 'named') {
 				n['name' + 'd'] = true;
@@ -221,7 +222,7 @@ export class FlowrServerSession implements FlowrSession {
 			this.outputChannel.appendLine('[Slice (Server)] Contains Ids: ' + JSON.stringify([...result.slice.result]));
 		}
 		return {
-			code: result.reconstruct.code,
+			code: typeof result.reconstruct.code === 'string' ? result.reconstruct.code : result.reconstruct.code.join('\n'),
 			sliceElements
 		};
 	}
