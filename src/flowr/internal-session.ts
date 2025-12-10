@@ -3,10 +3,9 @@ import { BEST_R_MAJOR, MINIMUM_R_MAJOR, VSCodeFlowrConfiguration, getWasmRootPat
 import { Settings , getConfig, isVerbose } from '../settings';
 import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import type { FlowrSession, SliceReturn } from './utils';
-import { consolidateNewlines, makeSliceElements } from './utils';
+import { makeSliceElements } from './utils';
 import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { RShell, RShellReviveOptions } from '@eagleoutice/flowr/r-bridge/shell';
-import { createDataflowPipeline, createNormalizePipeline, createSlicePipeline } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { KnownParser, KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
@@ -19,8 +18,6 @@ import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
 import { LogLevel, log } from '@eagleoutice/flowr/util/log';
 import { staticSlice } from '@eagleoutice/flowr/slicing/static/static-slicer';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
-import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
-import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { reconstructToCode } from '@eagleoutice/flowr/reconstruct/reconstruct';
 import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto-select-defaults';
 import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
@@ -28,10 +25,10 @@ import { getEngineConfig } from '@eagleoutice/flowr/config';
 import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { extractCfgQuick } from '@eagleoutice/flowr/control-flow/extract-cfg';
-import { requestFromText } from '@eagleoutice/flowr/util/formats/adapter';
-import type { SupportedFormats } from '@eagleoutice/flowr/util/formats/adapter-format';
 import { FlowrAnalyzerBuilder } from '@eagleoutice/flowr/project/flowr-analyzer-builder';
 import type { PipelinePerStepMetaInformation } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
+import { FlowrInlineTextFile } from '@eagleoutice/flowr/project/context/flowr-file';
+import type { FlowrAnalyzer } from '@eagleoutice/flowr/project/flowr-analyzer';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -102,8 +99,13 @@ export class FlowrInternalSession implements FlowrSession {
 		updateStatusBar();
 	}
 
-	private async workingOn<T = void>(shell: KnownParser, fun: (shell: KnownParser) => Promise<T>, action: string): Promise<T> {
-		this.setWorking(true);
+	private async workingOn<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer) => Promise<T>, action: string, showErrorMessage: boolean, defaultOnErr = {} as T): Promise<T> {
+		if(!this.parser) {
+			return defaultOnErr;
+		}
+		
+		const analyzer = await analyzerFromDocument(document, this.parser);		
+
 		// update the vscode ui
 		return vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
@@ -120,10 +122,13 @@ export class FlowrInternalSession implements FlowrSession {
 		},
 		() => {
 			this.setWorking(true);
-			return fun(shell).catch(e => {
+			return actionFn(analyzer).catch(e => {
 				this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 				(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
-				return {} as T;
+				if(showErrorMessage) {
+					void vscode.window.showErrorMessage(`There was an error: ${(e as Error)?.message}. See the flowR output for more information.`);
+				}
+				return defaultOnErr;
 			}).finally(() => {
 				this.setWorking(false);
 			});
@@ -227,93 +232,68 @@ export class FlowrInternalSession implements FlowrSession {
 				sliceElements: []
 			};
 		}
-		try {
-			return await this.workingOn(this.parser, async() => await this.extractSlice(document, criteria, direction, info), 'slice');
-		} catch(e) {
-			this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
-			(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
-			if(showErrorMessage){
-				void vscode.window.showErrorMessage(`There was an error while extracting a slice: ${(e as Error)?.message}. See the flowR output for more information.`);
-			}
-			return {
-				code:          '',
-				sliceElements: []
-			};
-		}
+		return await this.workingOn(document, async() => await this.extractSlice(document, criteria, direction, info), 'slice', showErrorMessage, { code: '', sliceElements: [] });
 	}
 
 	async retrieveDataflowMermaid(document: vscode.TextDocument, simplified = false): Promise<string> {
 		if(!this.parser) {
 			return '';
 		}
-		return await this.workingOn(this.parser, async s => {
-			const result = await createDataflowPipeline(s, {
-				request: requestFromDocument(document)
-			}, VSCodeFlowrConfiguration).allRemainingSteps();
-			return graphToMermaid({ graph: result.dataflow.graph, simplified, includeEnvironments: false }).string;
-		}, 'dfg');
 
+		return await this.workingOn(document, async(analyzer) => {
+			const result = await analyzer.dataflow();
+			return graphToMermaid({ graph: result.graph, simplified, includeEnvironments: false }).string;
+		}, 'dfg', true);
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
-		if(!this.parser) {
-			return '';
-		}
-		return await this.workingOn(this.parser, async s => {
-			const result = await createNormalizePipeline(s, {
-				request: requestFromDocument(document)
-			}, VSCodeFlowrConfiguration).allRemainingSteps();
-			return normalizedAstToMermaid(result.normalize.ast);
-		}, 'ast');
+		return await this.workingOn(document, async(analyzer) => {
+			const result = await analyzer.normalize();
+			return normalizedAstToMermaid(result.ast);
+		}, 'ast', true);
 	}
 
 	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
-		if(!this.parser) {
-			return '';
-		}
-		return await this.workingOn(this.parser, async s => {
-			const result = await createNormalizePipeline(s, {
-				request: requestFromDocument(document)
-			}, VSCodeFlowrConfiguration).allRemainingSteps();
-			return cfgToMermaid(extractCfgQuick(result.normalize), result.normalize);
-		}, 'cfg');
+		return await this.workingOn(document, async(analyzer) => {
+			const result = await analyzer.normalize();
+			return cfgToMermaid(extractCfgQuick(result), result);
+		}, 'cfg', true);
 	}
 
 	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
-		let elements: ReadonlySet<NodeId>;
-		let sliceElements: { id: NodeId, location: SourceRange }[];
-		let code: string;
-
-		if(info)  {
-			const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
-			this.outputChannel.appendLine(`[Slice (Internal)] Re-Slice using existing dataflow Graph and AST (threshold: ${threshold})`);
-			const now = Date.now();
-			elements = staticSlice(info.dfi, info.ast, criteria, direction, threshold).result;
-			const sliceTime = Date.now() - now;
-			sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
-			const reconstructNow = Date.now();
-			code = reconstructToCode(info.ast, elements, makeMagicCommentHandler(doNotAutoSelect)).code;
-			this.outputChannel.appendLine('[Slice (Internal)] Re-Slice took ' + (Date.now() - now) + 'ms (slice: ' + sliceTime + 'ms, reconstruct: ' + (Date.now() - reconstructNow) + 'ms)');
-		} else {
-			const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
-			this.outputChannel.appendLine(`[Slice (Internal)] Slicing using pipeline (threshold: ${threshold})`);
-			const now = Date.now();
-			const slicer = createSlicePipeline(this.parser as KnownParser, {
-				criterion: criteria,
-				direction: direction,
-				request:   requestFromDocument(document),
-				threshold
-			}, VSCodeFlowrConfiguration);
-			const result = await slicer.allRemainingSteps();
-
-			sliceElements = makeSliceElements(result.slice.result, id => result.normalize.idMap.get(id)?.location);
-			elements = result.slice.result;
-			code = result.reconstruct.code;
-			this.outputChannel.appendLine('[Slice (Internal)] Slicing took ' + (Date.now() - now) + 'ms');
+		if(!this.parser) {
+			return {
+				code:          '',
+				sliceElements: []
+			};
 		}
+
+		const analyzer = await analyzerFromDocument(document, this.parser);
+		const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
+		if(!info) {
+			this.outputChannel.appendLine(`[Slice (Internal)] Slicing using pipeline (threshold: ${threshold})`);
+			const dataflow = await analyzer.dataflow();
+			const ast = await analyzer.normalize();
+			info = {
+				dfi: dataflow,
+				ast: ast
+			};
+		} else {
+			this.outputChannel.appendLine(`[Slice (Internal)] Re-Slice using existing dataflow Graph and AST (threshold: ${threshold})`);
+		}
+
+		const now = Date.now();
+		const elements = staticSlice(analyzer.inspectContext(), info.dfi, info.ast, criteria, direction, threshold).result;
+		const sliceTime = Date.now() - now;
+		const sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
+		const reconstructNow = Date.now();
+		const code = reconstructToCode(info.ast, { nodes: new Set(elements) }, makeMagicCommentHandler(doNotAutoSelect)).code;
+		this.outputChannel.appendLine('[Slice (Internal)] Slice took ' + (Date.now() - now) + 'ms (slice: ' + sliceTime + 'ms, reconstruct: ' + (Date.now() - reconstructNow) + 'ms)');
+		
 		if(isVerbose()) {
 			this.outputChannel.appendLine('[Slice (Internal)] Contains Ids: ' + JSON.stringify([...elements]));
 		}
+
 		return {
 			code,
 			sliceElements
@@ -325,16 +305,11 @@ export class FlowrInternalSession implements FlowrSession {
 			throw new Error('No parser available');
 		}
 
-		const analyzer = await new FlowrAnalyzerBuilder()
-			.addRequest(requestFromDocument(document))
-			.setParser(this.parser)
-			.setConfig(VSCodeFlowrConfiguration)
-			.build();
-
+		const analyzer = await analyzerFromDocument(document, this.parser);
 		const dataflow = await analyzer.dataflow() as DataflowInformation & PipelinePerStepMetaInformation;
-		const normalize = await analyzer.normalize() as NormalizedAst & PipelinePerStepMetaInformation;
-
-		if(normalize.hasError && (normalize.ast.children as unknown[])?.length === 0) {
+		const normalize = await analyzer.normalize();
+		
+		if(normalize.hasError && (normalize.ast.files as unknown[])?.length === 0) {
 			return { result: {} as QueryResults<T>, hasError: true, dfi: dataflow, ast: normalize };
 		}
 
@@ -350,8 +325,12 @@ export class FlowrInternalSession implements FlowrSession {
 		if(!this.parser) {
 			return;
 		}
+		const analyzer = await new FlowrAnalyzerBuilder()
+			.setParser(this.parser)
+			.setConfig(VSCodeFlowrConfiguration)
+			.build();
 		(config.output as { stdout: (s: string) => void}).stdout(await versionReplString(this.parser));
-		await repl(VSCodeFlowrConfiguration, { ...config, parser: this.parser });
+		await repl({ analyzer: analyzer });
 	}
 
 	public static getEngineToUse(): KnownParserName {
@@ -359,15 +338,16 @@ export class FlowrInternalSession implements FlowrSession {
 	}
 }
 
+async function analyzerFromDocument(document: vscode.TextDocument, parser: KnownParser): Promise<FlowrAnalyzer> {
+	const analyzer = await new FlowrAnalyzerBuilder()
+		.setParser(parser)
+		.setConfig(VSCodeFlowrConfiguration)
+		.build();
 
-function languageIdToFormat(id: string): SupportedFormats {
-	switch(id) {
-		case 'r': return 'R';
-		case 'rmd': return 'Rmd';
-		default: return 'R';
-	};
-}
+	const file = new FlowrInlineTextFile(document.fileName, document.getText());
+	analyzer.reset();
+	analyzer.addFile(file);
+	analyzer.addRequest(`file://${document.fileName}`);
 
-function requestFromDocument(document: vscode.TextDocument) {
-	return requestFromText(consolidateNewlines(document.getText()), languageIdToFormat(document.languageId));
+	return analyzer;
 }
