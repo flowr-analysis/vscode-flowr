@@ -245,7 +245,7 @@ export class FlowrInternalSession implements FlowrSession {
 				graph:               df.graph, 
 				simplified, 
 				includeEnvironments: false, 
-				includeOnlyIds:      selections.length === 0 ? undefined : selectionsToNodeIds(ast.ast.files.map(f => f.root), selections) 
+				includeOnlyIds:      (selections.length === 0 || selections[0].isEmpty) ? undefined : selectionsToNodeIds(ast.ast.files.map(f => f.root), selections) 
 			}).string;
 		}, 'dfg', true, '');
 	}
