@@ -241,9 +241,12 @@ export class FlowrInternalSession implements FlowrSession {
 		return await this.startWorkWithProgressBar(document, async(analyzer) => {
 			const ast = await analyzer.normalize();
 			const df = await analyzer.dataflow();
-			const includeIds = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
-			this.outputChannel.appendLine(`Only considering [${includeIds.values().toArray().join(', ')}]`);
-			return graphToMermaid({ graph: df.graph, simplified, includeEnvironments: false, includeOnlyIds: includeIds }).string;
+			return graphToMermaid({ 
+				graph:               df.graph, 
+				simplified, 
+				includeEnvironments: false, 
+				includeOnlyIds:      selections.length === 0 ? undefined : selectionsToNodeIds(ast.ast.files.map(f => f.root), selections) 
+			}).string;
 		}, 'dfg', true, '');
 	}
 
