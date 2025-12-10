@@ -32,11 +32,6 @@ export interface FlowrSession {
 	runRepl:                 (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }
 
-
-// export function selectionRangeToIds(range: vscode.Range) {
-
-// }
-
 export function getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {
 	const re = /([a-zA-Z0-9._:])+/;
 	const wordRange = document.getWordRangeAtPosition(position, re);

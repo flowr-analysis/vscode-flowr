@@ -99,11 +99,12 @@ export class FlowrInternalSession implements FlowrSession {
 		updateStatusBar();
 	}
 
-	private async workingOn<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer) => Promise<T>, action: string, showErrorMessage: boolean, defaultOnErr = {} as T): Promise<T> {
+	private async startWorkWithProgressBar<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer) => Promise<T>, action: string, showErrorMessage: boolean, defaultOnErr = {} as T): Promise<T> {
 		if(!this.parser) {
 			return defaultOnErr;
 		}
-		
+
+		this.setWorking(true);
 		const analyzer = await analyzerFromDocument(document, this.parser);		
 
 		// update the vscode ui
@@ -120,18 +121,19 @@ export class FlowrInternalSession implements FlowrSession {
 			})(),
 			cancellable: false
 		},
-		() => {
-			this.setWorking(true);
-			return actionFn(analyzer).catch(e => {
+		async() => {
+			try {
+				return await actionFn(analyzer);
+			} catch(e) {
 				this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 				(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
 				if(showErrorMessage) {
 					void vscode.window.showErrorMessage(`There was an error: ${(e as Error)?.message}. See the flowR output for more information.`);
 				}
 				return defaultOnErr;
-			}).finally(() => {
+			} finally {
 				this.setWorking(false);
-			});
+			}
 		});
 	}
 
@@ -232,7 +234,7 @@ export class FlowrInternalSession implements FlowrSession {
 				sliceElements: []
 			};
 		}
-		return await this.workingOn(document, async() => await this.extractSlice(document, criteria, direction, info), 'slice', showErrorMessage, { code: '', sliceElements: [] });
+		return await this.startWorkWithProgressBar(document, async() => await this.extractSlice(document, criteria, direction, info), 'slice', showErrorMessage, { code: '', sliceElements: [] });
 	}
 
 	async retrieveDataflowMermaid(document: vscode.TextDocument, simplified = false): Promise<string> {
@@ -240,24 +242,24 @@ export class FlowrInternalSession implements FlowrSession {
 			return '';
 		}
 
-		return await this.workingOn(document, async(analyzer) => {
+		return await this.startWorkWithProgressBar(document, async(analyzer) => {
 			const result = await analyzer.dataflow();
 			return graphToMermaid({ graph: result.graph, simplified, includeEnvironments: false }).string;
-		}, 'dfg', true);
+		}, 'dfg', true, '');
 	}
 
 	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
-		return await this.workingOn(document, async(analyzer) => {
+		return await this.startWorkWithProgressBar(document, async(analyzer) => {
 			const result = await analyzer.normalize();
 			return normalizedAstToMermaid(result.ast);
-		}, 'ast', true);
+		}, 'ast', true, '');
 	}
 
 	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
-		return await this.workingOn(document, async(analyzer) => {
+		return await this.startWorkWithProgressBar(document, async(analyzer) => {
 			const result = await analyzer.normalize();
 			return cfgToMermaid(extractCfgQuick(result), result);
-		}, 'cfg', true);
+		}, 'cfg', true, '');
 	}
 
 	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
