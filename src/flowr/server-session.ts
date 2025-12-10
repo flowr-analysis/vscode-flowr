@@ -165,7 +165,7 @@ export class FlowrServerSession implements FlowrSession {
 		});
 	}
 
-	async retrieveDataflowMermaid(document: vscode.TextDocument, simplified = false): Promise<string> {
+	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], simplified = false): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
 		return graphToMermaid({
 			graph:               DataflowGraph.fromJson(response.results.dataflow.graph as unknown as DataflowGraphJson),

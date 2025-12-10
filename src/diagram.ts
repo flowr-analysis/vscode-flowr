@@ -7,7 +7,7 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 	registerCommand(context, 'vscode-flowr.dataflow', async() => {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(activeEditor) {
-			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document);
+			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document, activeEditor.selections);
 			if(mermaid) {
 				return { mermaid, webview: createWebview('flowr-dataflow', 'Dataflow Graph', mermaid, output) };
 			}
@@ -16,7 +16,7 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 	registerCommand(context, 'vscode-flowr.dataflow-simplified', async() => {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(activeEditor) {
-			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document, true);
+			const mermaid = await (await getFlowrSession()).retrieveDataflowMermaid(activeEditor.document, activeEditor.selections,  true);
 			if(mermaid) {
 				return { mermaid, webview: createWebview('flowr-dataflow', 'Dataflow Graph', mermaid, output) };
 			}

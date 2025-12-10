@@ -3,7 +3,7 @@ import { BEST_R_MAJOR, MINIMUM_R_MAJOR, VSCodeFlowrConfiguration, getWasmRootPat
 import { Settings , getConfig, isVerbose } from '../settings';
 import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import type { FlowrSession, SliceReturn } from './utils';
-import { makeSliceElements } from './utils';
+import { makeSliceElements, selectionsToNodeIds } from './utils';
 import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { RShell, RShellReviveOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
@@ -237,14 +237,13 @@ export class FlowrInternalSession implements FlowrSession {
 		return await this.startWorkWithProgressBar(document, async() => await this.extractSlice(document, criteria, direction, info), 'slice', showErrorMessage, { code: '', sliceElements: [] });
 	}
 
-	async retrieveDataflowMermaid(document: vscode.TextDocument, simplified = false): Promise<string> {
-		if(!this.parser) {
-			return '';
-		}
-
+	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], simplified = false): Promise<string> {
 		return await this.startWorkWithProgressBar(document, async(analyzer) => {
-			const result = await analyzer.dataflow();
-			return graphToMermaid({ graph: result.graph, simplified, includeEnvironments: false }).string;
+			const ast = await analyzer.normalize();
+			const df = await analyzer.dataflow();
+			const includeIds = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
+			this.outputChannel.appendLine(`Only considering [${includeIds.values().toArray().join(', ')}]`);
+			return graphToMermaid({ graph: df.graph, simplified, includeEnvironments: false, includeOnlyIds: includeIds }).string;
 		}, 'dfg', true, '');
 	}
 
