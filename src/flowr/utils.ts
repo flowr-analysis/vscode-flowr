@@ -94,7 +94,7 @@ export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<Pare
 		}
 
 		const range = rangeToVscodeRange(node.info.fullRange);
-		if(selections.length === 0 || selections.some(sel => sel.intersection(range) !== undefined)) {
+		if(selections.some(sel => sel.intersection(range) !== undefined)) {
 			result.add(node.info.id);
 		}
 	});
