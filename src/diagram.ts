@@ -4,6 +4,9 @@ import { Settings , getConfig } from './settings';
 import path from 'path';
 import assert from 'assert';
 
+// odo: Checkbox + Dropdown + Command
+// odo: Ast + Cfg  
+
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const coordinator = new DiagramUpdateCoordinator(output);
 
@@ -206,8 +209,9 @@ function createDocument(mermaid: string) {
 		${mermaid}
 	</div>
 	<script>
+		let panZoom; 
 		mermaid.run().then(() => {
-			const panZoom = svgPanZoom('.mermaid svg', { controlIconsEnabled: true })
+			panZoom = svgPanZoom('.mermaid svg', { controlIconsEnabled: true })
 			addEventListener("resize", () => panZoom.resize())
 		});
 
@@ -219,6 +223,7 @@ function createDocument(mermaid: string) {
 					const { svg, bindFunctions } = await mermaid.render('flowr-diagram', msg.content);
 					el.innerHTML = svg;
 					bindFunctions?.(el);
+					panZoom = svgPanZoom('.mermaid svg', { controlIconsEnabled: true })
 					break;
 			}
 		});
