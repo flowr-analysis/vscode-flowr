@@ -29,6 +29,7 @@ import { FlowrAnalyzerBuilder } from '@eagleoutice/flowr/project/flowr-analyzer-
 import type { PipelinePerStepMetaInformation } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
 import { FlowrInlineTextFile } from '@eagleoutice/flowr/project/context/flowr-file';
 import type { FlowrAnalyzer } from '@eagleoutice/flowr/project/flowr-analyzer';
+import type { DiagramSelectionMode } from '../diagram';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -237,15 +238,19 @@ export class FlowrInternalSession implements FlowrSession {
 		return await this.startWorkWithProgressBar(document, async() => await this.extractSlice(document, criteria, direction, info), 'slice', showErrorMessage, { code: '', sliceElements: [] });
 	}
 
-	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], simplified = false): Promise<string> {
+	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
 		return await this.startWorkWithProgressBar(document, async(analyzer) => {
 			const ast = await analyzer.normalize();
 			const df = await analyzer.dataflow();
+			const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
+
 			return graphToMermaid({ 
 				graph:               df.graph, 
 				simplified, 
 				includeEnvironments: false, 
-				includeOnlyIds:      (selections.length === 0 || selections[0].isEmpty) ? undefined : selectionsToNodeIds(ast.ast.files.map(f => f.root), selections) 
+				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
+				mark:                selectionMode === 'highlight' ? selectionNodes : undefined, 
+				markStyle:           { vertex: 'stroke:teal,stroke-width:7px,stroke-opacity:.8;', edge: 'stroke:teal,stroke-width:4.2px,stroke-opacity:.8' }
 			}).string;
 		}, 'dfg', true, '');
 	}

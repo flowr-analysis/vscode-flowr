@@ -41,18 +41,42 @@ enum FlowrDiagramType {
 	Ast = 'flowr-ast'
 }
 
-interface DiagramPanelInformation {
-	type:     FlowrDiagramType,
-	panel:    vscode.WebviewPanel,
-	simplify: boolean
+export type DiagramSelectionMode = 'highlight' | 'hide';
+
+interface DiagramPanelConfiguration {
+	/** How to display slected nodes */
+	mode: DiagramSelectionMode;
+
+	/** When true, diagram is updated when selection changes */
+	sync: boolean; 
 }
 
+interface DiagramPanelInformation {
+	type:     FlowrDiagramType;
+	panel:    vscode.WebviewPanel;
+	simplify: boolean;
+	config:   DiagramPanelConfiguration;
+}
 
 interface ContentUpdateMessage {
 	type:    'content_update',
 	content: string
 }
 
+interface SetSyncModeMessage {
+	type: 'set_sync_mode',
+	sync: boolean
+}
+
+interface SetSelectionMode {
+	type: 'set_selection_mode',
+	mode: DiagramSelectionMode
+}
+
+/**
+ * Messages that can be recieved from the webview
+ */
+type WebviewMessageTypes = SetSyncModeMessage | SetSelectionMode;
 
 /**
  * Manages Webview Panels created through flowr commands (like Show Dataflow Graph)
@@ -75,19 +99,37 @@ class DiagramUpdateCoordinator {
 		}
  
 		// Initialize webview 
+		const config = {
+			mode: getConfig().get<DiagramSelectionMode>(Settings.DiagramDefaultMode, 'highlight'),
+			sync: getConfig().get<boolean>(Settings.DiagramDefaultSync, true),
+		};
+
 		const title = `${nameFromDiagramType(type)} (${path.basename(editor.document.fileName)})`;
-		const mermaid = await diagramFromTypeAndEditor(type, editor, simplify);
-		const panel = createWebview(type as string, title, mermaid, this.output);
+		const mermaid = await diagramFromTypeAndEditor(type, editor, simplify, config.mode);
+		const panel = createWebview(type as string, title, mermaid, this.output, config);
 
 		if(!panel) {
 			return undefined;
 		}
 
-		const info = { type, panel, simplify } satisfies DiagramPanelInformation;
+		const info = { type, panel, simplify, config } satisfies DiagramPanelInformation;
 
 		// Stop tracking panel when user closes it
 		panel.onDidDispose(() => {
 			this.editorToDiagramPanel.get(editor)?.delete(info);
+		});
+
+		// Handle messages from panel
+		panel.webview.onDidReceiveMessage((msg: WebviewMessageTypes) => {
+			switch(msg.type) {
+				case 'set_selection_mode':
+					config.mode = msg.mode;
+					break;
+				case 'set_sync_mode':
+					config.sync = msg.sync;
+					break;
+			}
+			void this.updateWebviewPanel(info, editor);
 		});
 
 		// Add panel to map for tracking selection updates
@@ -119,13 +161,15 @@ class DiagramUpdateCoordinator {
 			}
 			
 			for(const panel of panelsToUpdate.values()) {
-				void this.updateWebviewPanel(panel, e);
+				if(panel.config.sync) {
+					void this.updateWebviewPanel(panel, e.textEditor);
+				}
 			}
 		}, this.debounceTime);
 	}
 
-	public async updateWebviewPanel(info: DiagramPanelInformation, e: vscode.TextEditorSelectionChangeEvent) {
-		const mermaid = await diagramFromTypeAndEditor(info.type, e.textEditor, info.simplify);
+	public async updateWebviewPanel(info: DiagramPanelInformation, textEditor: vscode.TextEditor) {
+		const mermaid = await diagramFromTypeAndEditor(info.type, textEditor, info.simplify, info.config.mode);
 	
 		info.panel.webview.postMessage({
 			type:    'content_update',
@@ -143,17 +187,17 @@ function nameFromDiagramType(type: FlowrDiagramType): string {
 	}
 }
 
-async function diagramFromTypeAndEditor(type: FlowrDiagramType, editor: vscode.TextEditor, simplified: boolean): Promise<string> {
+async function diagramFromTypeAndEditor(type: FlowrDiagramType, editor: vscode.TextEditor, simplified: boolean, selectionMode: DiagramSelectionMode): Promise<string> {
 	const session = await getFlowrSession();
 	switch(type) {
-		case FlowrDiagramType.Dataflow: return await session.retrieveDataflowMermaid(editor.document, editor.selections, simplified);
+		case FlowrDiagramType.Dataflow: return await session.retrieveDataflowMermaid(editor.document, editor.selections, selectionMode, simplified);
 		case FlowrDiagramType.Controlflow: return await session.retrieveCfgMermaid(editor.document);
 		case FlowrDiagramType.Ast: return await session.retrieveAstMermaid(editor.document);
 		default: assert(false);
 	}
 }
 
-function createWebview(id: string, name: string, mermaid: string, output: vscode.OutputChannel): vscode.WebviewPanel | undefined {
+function createWebview(id: string, name: string, mermaid: string, output: vscode.OutputChannel, config: DiagramPanelConfiguration): vscode.WebviewPanel | undefined {
 	// https://github.com/mermaid-js/mermaid/blob/47601ac311f7ad7aedfaf280d319d75434680622/packages/mermaid/src/mermaidAPI.ts#L315-L317
 	if(mermaid.length > mermaidMaxTextLength()){
 		void vscode.window.showErrorMessage('The diagram is too large to be displayed by Mermaid. You can find its code in the flowR output panel instead. Additionally, you can change the maximum diagram length in the extension settings.');
@@ -164,11 +208,11 @@ function createWebview(id: string, name: string, mermaid: string, output: vscode
 	const panel = vscode.window.createWebviewPanel(id, name, vscode.ViewColumn.Beside, {
 		enableScripts: true
 	});
-	panel.webview.html = createDocument(mermaid);
+	panel.webview.html = createDocument(mermaid, config);
 	return panel;
 }
 
-function createDocument(mermaid: string) {
+function createDocument(mermaid: string, config: DiagramPanelConfiguration) {
 	const theme = vscode.window.activeColorTheme.kind == vscode.ColorThemeKind.Light ? 'default' : 'dark';
 	// Use 'leet-html' extension for VS Code to get intellisense for the following string:
 	return ` 
@@ -193,28 +237,60 @@ function createDocument(mermaid: string) {
 	</script>
 
 	<style>
+		:root { --footer-height: 40px; }
 		.mermaid svg {
 			position: absolute;
 			max-width: 100% !important;
 			max-height: 100% !important;
 			width: 100%;
-			height: 100%;
+			height: calc(100% - var(--footer-height));
 			top: 0;
 			left: 0;
 		}
+
+		.footer {
+			position: fixed;
+			left: 0; right:0; bottom: 0;
+			height: var(--footer-height);
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-left: 10px;
+		}
+
+		.footer select, .footer input[type="checkbox"] {
+     		color: inherit;
+      		background: var(--vscode-input-background);
+      		border: 1px solid var(--vscode-input-border);
+    	}
+		.footer label { display: inline-flex; align-items: center; gap: 4px; }
 	</style>
 </head>
 <body>
 	<div class="mermaid" id="diagram">
 		${mermaid}
 	</div>
+	<div class="footer">
+		<select id="selectionModeInput">
+			<option value="highlight" ${config.mode === 'highlight' ? 'selected="selected"' : ''}>Highlight selection</option>
+			<option value="hide"      ${config.mode === 'hide'      ? 'selected="selected"' : ''}>Only show selection</option>
+		</select>
+		<label>
+			<input id="syncInput" type="checkbox" ${config.sync ? 'checked' : ''}>
+			Sync with selection
+		</label>
+	</div>
 	<script>
+		const vscode = acquireVsCodeApi();
+		
+		/* Mermaid Rendering */
 		let panZoom; 
 		mermaid.run().then(() => {
 			panZoom = svgPanZoom('.mermaid svg', { controlIconsEnabled: true })
 			addEventListener("resize", () => panZoom.resize())
 		});
 
+		/* Communication with extension */
 		window.addEventListener('message', async event => {
 			const msg = event.data;
 			switch(msg.type) {
@@ -226,6 +302,23 @@ function createDocument(mermaid: string) {
 					panZoom = svgPanZoom('.mermaid svg', { controlIconsEnabled: true })
 					break;
 			}
+		});
+
+		/* Update config value for sync when checkbox changes */
+		document.getElementById('syncInput').addEventListener('change', (e) => {
+			vscode.postMessage({
+				type: 'set_sync_mode',
+				sync: event.currentTarget.checked
+			});
+		});
+
+		/* Update config value for mode when dropdown changes */
+		const selectionModeInput = document.getElementById('selectionModeInput');
+		selectionModeInput.addEventListener('change', (e) => {
+			vscode.postMessage({
+				type: 'set_selection_mode',
+				mode: selectionModeInput.options[e.currentTarget.selectedIndex].value
+			});
 		});
 	</script>
 </body>
