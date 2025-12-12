@@ -56,6 +56,9 @@ export enum Settings {
 	LinterUpdateType = 'linter.updateType',
 	LinterUpdateInterval = 'linter.updateInterval',
 	LinterAdaptiveBreak = 'linter.adaptiveCharacterLimit',
+
+	DiagramDefaultSync = 'diagram.defaultSync',
+	DiagramDefaultMode = 'diagram.defaultMode'
 }
 
 export type DefaultsMaps =  {

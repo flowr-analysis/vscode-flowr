@@ -27,6 +27,7 @@ import type { PipelineOutput } from '@eagleoutice/flowr/core/steps/pipeline/pipe
 import type { DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
 import { extractCfgQuick } from '@eagleoutice/flowr/control-flow/extract-cfg';
 import { getConfig, isVerbose, Settings } from '../settings';
+import type { DiagramSelectionMode } from '../diagram';
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -165,7 +166,7 @@ export class FlowrServerSession implements FlowrSession {
 		});
 	}
 
-	async retrieveDataflowMermaid(document: vscode.TextDocument, simplified = false): Promise<string> {
+	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
 		return graphToMermaid({
 			graph:               DataflowGraph.fromJson(response.results.dataflow.graph as unknown as DataflowGraphJson),
@@ -192,7 +193,8 @@ export class FlowrServerSession implements FlowrSession {
 		const response = await this.requestFileAnalysis(document);
 		// now we want to collect all ids from response in a map again (id -> location)
 		const idToLocation = new Map<NodeId, SourceRange>();
-		visitAst(response.results.normalize.ast, n => {
+		const nodes = response.results.normalize.ast.files.map(f => f.root);
+		visitAst(nodes, n => {
 			// backwards compat for server versions before 2.0.2, which used a "flavor" rather than a "named" boolean
 			if(n.flavor === 'named') {
 				n['name' + 'd'] = true;
@@ -221,7 +223,7 @@ export class FlowrServerSession implements FlowrSession {
 			this.outputChannel.appendLine('[Slice (Server)] Contains Ids: ' + JSON.stringify([...result.slice.result]));
 		}
 		return {
-			code: result.reconstruct.code,
+			code: typeof result.reconstruct.code === 'string' ? result.reconstruct.code : result.reconstruct.code.join('\n'),
 			sliceElements
 		};
 	}
