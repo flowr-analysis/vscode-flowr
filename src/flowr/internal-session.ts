@@ -249,7 +249,7 @@ export class FlowrInternalSession implements FlowrSession {
 				simplified, 
 				includeEnvironments: false, 
 				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
-				mark:                selectionMode === 'highlight' ? selectionNodes : undefined, 
+				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined, 
 				markStyle:           { vertex: 'stroke:teal,stroke-width:7px,stroke-opacity:.8;', edge: 'stroke:teal,stroke-width:4.2px,stroke-opacity:.8' }
 			}).string;
 		}, 'dfg', true, '');

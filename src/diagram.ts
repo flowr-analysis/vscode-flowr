@@ -170,7 +170,6 @@ class DiagramUpdateCoordinator {
 
 	public async updateWebviewPanel(info: DiagramPanelInformation, textEditor: vscode.TextEditor) {
 		const mermaid = await diagramFromTypeAndEditor(info.type, textEditor, info.simplify, info.config.mode);
-	
 		info.panel.webview.postMessage({
 			type:    'content_update',
 			content: mermaid
