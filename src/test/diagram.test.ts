@@ -13,7 +13,7 @@ suite('diagram', () => {
 		const result: {webview: vscode.WebviewPanel, mermaid: string} | undefined =
 			await vscode.commands.executeCommand('vscode-flowr.dataflow');
 		assert.ok(result);
-		assert.equal(result.webview.title, 'Dataflow Graph');
+		assert.equal(result.webview.title, 'Dataflow Graph (simple-example.R)');
 		assert.ok(result.mermaid.startsWith('flowchart'));
 	});
 });

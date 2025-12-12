@@ -101,11 +101,13 @@ class DiagramUpdateCoordinator {
 	}
 
 	public onSelectionChanged(e: vscode.TextEditorSelectionChangeEvent) {
+		// Debounce to avoid lots of updates when chaning selection quickly
 		if(this.debounceTimeout) {
 			clearTimeout(this.debounceTimeout);
 			this.debounceTimeout = undefined;
 		}
 
+		// Update when the last debounce timeout runs out
 		this.debounceTimeout = setTimeout(() => {
 			const panelsToUpdate = this.editorToDiagramPanel.get(e.textEditor);
 			
