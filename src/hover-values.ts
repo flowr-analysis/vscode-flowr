@@ -10,14 +10,15 @@ import { getConfig, Settings } from './settings';
 import { ConfigurableRefresher, RefreshType } from './configurable-refresher';
 import type { Queries } from '@eagleoutice/flowr/queries/query';
 import type { Writable } from 'ts-essentials';
+import { builtInEnvJsonReplacer } from '@eagleoutice/flowr/dataflow/environments/environment';
 
 export function registerHoverOverValues(output: vscode.OutputChannel): vscode.Disposable[] {
 	const provider = new FlowrHoverProvider(output);
 	return [vscode.languages.registerHoverProvider(
-		{ scheme: 'file', language: 'r' },
+		{ language: 'r' },
 		provider
 	), vscode.languages.registerHoverProvider(
-		{ scheme: 'file', language: 'rmd' },
+		{ language: 'rmd' },
 		provider
 	)];
 }
@@ -76,9 +77,12 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 			return undefined;
 		}
 		
+		this.output.appendLine(`[Hover Values] Resolving value at ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1}`);
+		
 		const [criteria] = makeSlicingCriteria([pos], document);
 		const cached = this.cache.get(criteria);
 		if(cached) { 
+			this.output.appendLine(`    [Hover Values] Using cached value for ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1} (${JSON.stringify(cached.map(c => c.value), builtInEnvJsonReplacer)})`);
 			return valueToHint(cached);
 		}
 		const query: Writable<Queries<'resolve-value' | 'df-shape'>> = [];
@@ -118,6 +122,7 @@ Known Columns: ${setString(shape.colnames.value)}
 				}
 			}
 		}
+		this.cache.set(criteria, values);
 		return valueToHint(values);
 	}
 }
