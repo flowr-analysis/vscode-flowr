@@ -4,9 +4,12 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import type { SingleSlicingCriterion, SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
-import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
+import type { NormalizedAst, ParentInformation } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
+import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/visitor';
+import type { RNode } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/model';
+import type { DiagramSelectionMode } from '../diagram';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
@@ -25,9 +28,9 @@ export interface FlowrSession {
 		showErrorMessage?: boolean,
 		info?: { dfi: DataflowInformation, ast: NormalizedAst }
 	) => Promise<SliceReturn>
-	retrieveDataflowMermaid: (document: vscode.TextDocument, simplified?: boolean) => Promise<string>
-	retrieveAstMermaid:      (document: vscode.TextDocument) => Promise<string>
-	retrieveCfgMermaid:      (document: vscode.TextDocument) => Promise<string>
+	retrieveDataflowMermaid: (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified?: boolean) => Promise<string>
+	retrieveAstMermaid:      (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode) => Promise<string>
+	retrieveCfgMermaid:      (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode) => Promise<string>
 	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<{ result: QueryResults<T>, hasError: boolean, dfi?: DataflowInformation, ast?: NormalizedAst }>
 	runRepl:                 (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }
@@ -81,6 +84,27 @@ export function makeSliceElements(sliceResponse: ReadonlySet<NodeId>, idToLocati
  */
 export function rangeToVscodeRange(range: SourceRange): vscode.Range {
 	return new vscode.Range(range[0] - 1, range[1] - 1, range[2] - 1, range[3]);
+}
+
+export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<ParentInformation>[]), selections: readonly vscode.Selection[]): ReadonlySet<NodeId> | undefined {
+	if(selections.length === 0 || selections[0].isEmpty) {
+		return undefined;
+	}
+	
+	const result = new Set<NodeId>();
+	
+	visitAst(root, node => {
+		if(!node.info.fullRange) {
+			return;
+		}
+
+		const range = rangeToVscodeRange(node.info.fullRange);
+		if(selections.some(sel => sel.intersection(range) !== undefined)) {
+			result.add(node.info.id);
+		}
+	});
+
+	return result;
 }
 
 export class RotaryBuffer<T> {

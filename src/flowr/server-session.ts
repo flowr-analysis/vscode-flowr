@@ -7,7 +7,7 @@ import type { ConnectionType } from '../settings';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { FlowrSession, SliceReturn } from './utils';
-import { consolidateNewlines, makeSliceElements } from './utils';
+import { consolidateNewlines, makeSliceElements, selectionsToNodeIds } from './utils';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/visitor';
 import type { DataflowGraphJson } from '@eagleoutice/flowr/dataflow/graph/graph';
@@ -27,6 +27,7 @@ import type { PipelineOutput } from '@eagleoutice/flowr/core/steps/pipeline/pipe
 import type { DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
 import { extractCfgQuick } from '@eagleoutice/flowr/control-flow/extract-cfg';
 import { getConfig, isVerbose, Settings } from '../settings';
+import type { DiagramSelectionMode } from '../diagram';
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -165,34 +166,49 @@ export class FlowrServerSession implements FlowrSession {
 		});
 	}
 
-	async retrieveDataflowMermaid(document: vscode.TextDocument, simplified = false): Promise<string> {
+	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
+		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
+		
 		return graphToMermaid({
 			graph:               DataflowGraph.fromJson(response.results.dataflow.graph as unknown as DataflowGraphJson),
 			simplified,
-			includeEnvironments: false
+			includeEnvironments: false,
+			includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
+			mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
 		}).string;
 	}
 
-	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
+	async retrieveAstMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
-		return normalizedAstToMermaid(response.results.normalize.ast);
+		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
+		
+		return normalizedAstToMermaid(response.results.normalize.ast, {
+			includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
+			mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+		});
 	}
 
-	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
+	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
+		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
+		
 		const normalize: NormalizedAst = {
 			...response.results.normalize,
 			idMap: new BiMap()
 		};
-		return cfgToMermaid(extractCfgQuick(normalize), normalize);
+		return cfgToMermaid(extractCfgQuick(normalize), normalize, {
+			includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
+			mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+		});
 	}
 
 	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument): Promise<SliceReturn> {
 		const response = await this.requestFileAnalysis(document);
 		// now we want to collect all ids from response in a map again (id -> location)
 		const idToLocation = new Map<NodeId, SourceRange>();
-		visitAst(response.results.normalize.ast, n => {
+		const nodes = response.results.normalize.ast.files.map(f => f.root);
+		visitAst(nodes, n => {
 			// backwards compat for server versions before 2.0.2, which used a "flavor" rather than a "named" boolean
 			if(n.flavor === 'named') {
 				n['name' + 'd'] = true;
@@ -221,7 +237,7 @@ export class FlowrServerSession implements FlowrSession {
 			this.outputChannel.appendLine('[Slice (Server)] Contains Ids: ' + JSON.stringify([...result.slice.result]));
 		}
 		return {
-			code: result.reconstruct.code,
+			code: typeof result.reconstruct.code === 'string' ? result.reconstruct.code : result.reconstruct.code.join('\n'),
 			sliceElements
 		};
 	}

@@ -576,6 +576,23 @@
           "default": 5000,
           "minimum": 10,
           "markdownDescription": "The number of characters in the source after which the linter switches to interval updates."
+        },
+        "vscode-flowr.diagram.defaultSync": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "If set to true, mermaid diagrams are automatically synced to the selected lines of code in the respective editor by default"
+        },
+        "vscode-flowr.diagram.defaultMode": {
+          "type": "string",
+          "default": "hide",
+          "enum": [
+            "highlight",
+            "hide"
+          ],
+          "markdownEnumDescriptions": [
+            "Selected lines are highlighted in the diagram",
+            "Only selected lines are shown in the diagram"
+          ]
         }
       }
     },
@@ -728,7 +745,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.6.0",
+    "@eagleoutice/flowr": "^2.7.2",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
