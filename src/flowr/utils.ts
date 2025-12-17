@@ -49,6 +49,8 @@ function toSlicingCriterion(pos: vscode.Position): SingleSlicingCriterion {
 	return `${pos.line + 1}:${pos.character + 1}`;
 }
 
+export function makeSlicingCriteria(positions: [vscode.Position], doc: vscode.TextDocument, verbose?: boolean): [SingleSlicingCriterion];
+export function makeSlicingCriteria(positions: vscode.Position[], doc: vscode.TextDocument, verbose?: boolean): SlicingCriteria;
 export function makeSlicingCriteria(positions: vscode.Position[], doc: vscode.TextDocument, verbose: boolean = true): SlicingCriteria {
 	positions = positions.map(pos => {
 		const range = getPositionAt(pos, doc);

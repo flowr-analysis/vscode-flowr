@@ -56,6 +56,8 @@ export enum Settings {
 	LinterUpdateType = 'linter.updateType',
 	LinterUpdateInterval = 'linter.updateInterval',
 	LinterAdaptiveBreak = 'linter.adaptiveCharacterLimit',
+	
+	ValuesOnHover = 'values.onHover',
 
 	DiagramDefaultSync = 'diagram.defaultSync',
 	DiagramDefaultMode = 'diagram.defaultMode'
@@ -87,7 +89,7 @@ export type SliceDisplay = 'text' | 'diff' | 'tokens'
 export type ConnectionType = 'auto' | 'websocket' | 'websocket-secure' | 'tcp'
 
 export function getConfig(): vscode.WorkspaceConfiguration {
-	return vscode.workspace.getConfiguration(Settings.Category);
+	return vscode.workspace.getConfiguration(Settings.Category)the;
 }
 
 export function isVerbose(): boolean {

@@ -15,6 +15,7 @@ import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environment
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
 import { NoTelemetry, registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
+import { registerHoverOverValues } from './hover-values';
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
@@ -102,7 +103,8 @@ ${JSON.stringify(getConfig(), null, 2)}
 	updateStatusBar();
 
 	context.subscriptions.push(new vscode.Disposable(() => destroySession()));
-
+	context.subscriptions.push(registerHoverOverValues(outputChannel));
+	
 	setTimeout(() => {
 		const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
 		registerCommand(context, 'vscode-flowr.dependencyView.update', async() => {

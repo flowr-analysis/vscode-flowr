@@ -375,6 +375,11 @@
           "default": true,
           "markdownDescription": "Should the dependency view freeze when the code contains errors? If so, it will automatically retry on the next update (see `vscode-flowr.dependencyView.updateType`)."
         },
+        "vscode-flowr.values.hover": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Whether to show the resolved values (by flowR's domains) of variables when hovering over them in R files."
+        },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,
