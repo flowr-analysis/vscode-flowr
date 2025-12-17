@@ -32,7 +32,15 @@ With this extension, you gain access to the following features (as the extension
 
    </details>
 
-4. 🕸️ [**Dataflow Graph**](#dataflow): Visualize the dataflow in a script.
+4. 🕸️ [**Resolve Values**](#dataflow): Get information on the values inferred by flowR.
+
+   <details><summary>Example of the inferred values</summary>
+
+      ![Inferring Values with flowR](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/gif/value-info.gif)
+
+   </details>
+
+5. 🕸️ [**Dataflow Graph**](#dataflow): Visualize the dataflow in a script.
    This helps you understand how data is transformed in a script and where it is used.
 
    <details><summary>Example of the Dataflow Graph</summary>
@@ -41,7 +49,7 @@ With this extension, you gain access to the following features (as the extension
 
    </details>
 
-5. 🧑‍💻 [**flowR REPL Access**](#repl): Explore flowR's capabilities in a REPL (not available in the browser).
+6. 🧑‍💻 [**flowR REPL Access**](#repl): Explore flowR's capabilities in a REPL (not available in the browser).
    This allows you to interactively explore the features of flowR and understand how it can help you in your daily work.
 
    <details><summary>Example of the flowR REPL</summary>
@@ -151,6 +159,10 @@ To clear the slice highlighting, use the "Clear Current Slice Presentation" comm
 ![A screenshot of a dependency diagram for a piece of code](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/dependencies.png)
 
 Using the extension, the sidebar should contain a flowR icon which holds more information on the current file, listing the libraries loaded, the files read and written, and the sourced scripts. If you expand the respective sections, clicking on the found entries should open them in the editor. The context menu (available with a right click) allows you to [slice](#slicing) for the selected entry.
+
+### Value Resolution
+
+You can get information on the values inferred by flowR by hovering over variables in R source files. This will show you a summary of the inferred values, including types and possible values.
 
 ### Dataflow
 
