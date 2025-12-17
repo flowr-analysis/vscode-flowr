@@ -165,12 +165,12 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private disposables:                   vscode.Disposable[] = [];
 	private parent:                        vscode.TreeView<Dependency> | undefined;
 	private rootElements:                  Dependency[] | undefined;
-	private refreher:                      ConfigurableRefresher;
+	private refresher:                     ConfigurableRefresher;
 
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
 
-		this.refreher = new ConfigurableRefresher({
+		this.refresher = new ConfigurableRefresher({
 			name:            'Dependency View',
 			keys:            DependencyViewRefresherConfigKeys,
 			refreshCallback: async() => {
@@ -379,7 +379,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		for(const d of this.disposables) {
 			d.dispose();
 		}
-		this.refreher.dispose();
+		this.refresher.dispose();
 	}
 }
 

@@ -362,10 +362,18 @@ async function analyzerFromDocument(document: vscode.TextDocument, parser: Known
 		.setConfig(VSCodeFlowrConfiguration)
 		.build();
 
-	const file = new FlowrInlineTextFile(document.fileName, document.getText());
-	analyzer.reset();
-	analyzer.addFile(file);
-	analyzer.addRequest(`file://${document.fileName}`);
+	if(document.uri.scheme === 'file') {
+		const file = new FlowrInlineTextFile(document.fileName, document.getText());
+		analyzer.reset();
+		analyzer.addFile(file);
+		analyzer.addRequest(`file://${document.fileName}`);
+	} else {
+		analyzer.reset();
+		analyzer.addRequest({
+			request: 'text',
+			content: document.getText()
+		});
+	}
 
 	return analyzer;
 }

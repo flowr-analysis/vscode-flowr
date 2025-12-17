@@ -56,6 +56,10 @@ export enum Settings {
 	LinterUpdateType = 'linter.updateType',
 	LinterUpdateInterval = 'linter.updateInterval',
 	LinterAdaptiveBreak = 'linter.adaptiveCharacterLimit',
+	
+	ValuesOnHover = 'values.hover',
+	ValuesHoverResolve = 'values.hover.resolve',
+	ValuesHoverDataFrames = 'values.hover.dataFrames',
 
 	DiagramDefaultSync = 'diagram.defaultSync',
 	DiagramDefaultMode = 'diagram.defaultMode'

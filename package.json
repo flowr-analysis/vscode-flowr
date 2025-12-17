@@ -338,7 +338,7 @@
           "markdownEnumDescriptions": [
             "Update the dependency view on every change in the active editor.",
             "Update on every change until the source becomes too big, then switch to interval.",
-            "Update the dependency every n seconds, see `vscode-flowr.dependencyView.updateInterval`.",
+            "Update the dependency view every n seconds, see `vscode-flowr.dependencyView.updateInterval`.",
             "Update the dependency view only when the active editor is saved.",
             "Never update the dependency view automatically."
           ],
@@ -374,6 +374,21 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Should the dependency view freeze when the code contains errors? If so, it will automatically retry on the next update (see `vscode-flowr.dependencyView.updateType`)."
+        },
+        "vscode-flowr.values.hover": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Whether to show the resolved values (by flowR's domains) of variables when hovering over them in R files."
+        },
+        "vscode-flowr.values.hover.resolve": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Whether to use flowR's basic value resolve when hovering over variables."
+        },
+        "vscode-flowr.values.hover.dataFrames": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Whether to use flowR's more advanced data frame shape inference."
         },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
