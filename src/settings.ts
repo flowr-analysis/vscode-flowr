@@ -91,7 +91,7 @@ export type SliceDisplay = 'text' | 'diff' | 'tokens'
 export type ConnectionType = 'auto' | 'websocket' | 'websocket-secure' | 'tcp'
 
 export function getConfig(): vscode.WorkspaceConfiguration {
-	return vscode.workspace.getConfiguration(Settings.Category)the;
+	return vscode.workspace.getConfiguration(Settings.Category);
 }
 
 export function isVerbose(): boolean {

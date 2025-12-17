@@ -31,12 +31,12 @@ interface ValueInfo {
 }
 
 class FlowrHoverProvider implements vscode.HoverProvider {
-	private readonly output: vscode.OutputChannel;
+	private readonly output:    vscode.OutputChannel;
 	private readonly updateEvent = new vscode.EventEmitter<void>();
 	public onDidChangeInlayHints = this.updateEvent.event;
 	private readonly cache = new Map<NodeId, ValueInfo[]>();
-	private session:         FlowrSession | undefined;
-	private refresher:       ConfigurableRefresher;
+	private session:            FlowrSession | undefined;
+	private readonly refresher: ConfigurableRefresher;
    
 
 	constructor(output: vscode.OutputChannel) {
