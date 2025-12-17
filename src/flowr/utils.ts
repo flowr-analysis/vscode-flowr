@@ -29,8 +29,8 @@ export interface FlowrSession {
 		info?: { dfi: DataflowInformation, ast: NormalizedAst }
 	) => Promise<SliceReturn>
 	retrieveDataflowMermaid: (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified?: boolean) => Promise<string>
-	retrieveAstMermaid:      (document: vscode.TextDocument) => Promise<string>
-	retrieveCfgMermaid:      (document: vscode.TextDocument) => Promise<string>
+	retrieveAstMermaid:      (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode) => Promise<string>
+	retrieveCfgMermaid:      (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode) => Promise<string>
 	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<{ result: QueryResults<T>, hasError: boolean, dfi?: DataflowInformation, ast?: NormalizedAst }>
 	runRepl:                 (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }

@@ -240,8 +240,8 @@ export class FlowrInternalSession implements FlowrSession {
 
 	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
 		return await this.startWorkWithProgressBar(document, async(analyzer) => {
-			const ast = await analyzer.normalize();
 			const df = await analyzer.dataflow();
+			const ast = await analyzer.normalize();
 			const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
 
 			return graphToMermaid({ 
@@ -250,22 +250,31 @@ export class FlowrInternalSession implements FlowrSession {
 				includeEnvironments: false, 
 				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
 				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined, 
-				markStyle:           { vertex: 'stroke:teal,stroke-width:7px,stroke-opacity:.8;', edge: 'stroke:teal,stroke-width:4.2px,stroke-opacity:.8' }
 			}).string;
 		}, 'dfg', true, '');
 	}
 
-	async retrieveAstMermaid(document: vscode.TextDocument): Promise<string> {
+	async retrieveAstMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode): Promise<string> {
 		return await this.startWorkWithProgressBar(document, async(analyzer) => {
 			const result = await analyzer.normalize();
-			return normalizedAstToMermaid(result.ast);
+			const selectionNodes = selectionsToNodeIds(result.ast.files.map(f => f.root), selections);
+
+			return normalizedAstToMermaid(result.ast, {
+				includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
+				mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+			});
 		}, 'ast', true, '');
 	}
 
-	async retrieveCfgMermaid(document: vscode.TextDocument): Promise<string> {
+	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode): Promise<string> {
 		return await this.startWorkWithProgressBar(document, async(analyzer) => {
 			const result = await analyzer.normalize();
-			return cfgToMermaid(extractCfgQuick(result), result);
+			const selectionNodes = selectionsToNodeIds(result.ast.files.map(f => f.root), selections);
+
+			return cfgToMermaid(extractCfgQuick(result), result, {
+				includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
+				mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+			});
 		}, 'cfg', true, '');
 	}
 

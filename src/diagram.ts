@@ -190,8 +190,8 @@ async function diagramFromTypeAndEditor(type: FlowrDiagramType, editor: vscode.T
 	const session = await getFlowrSession();
 	switch(type) {
 		case FlowrDiagramType.Dataflow: return await session.retrieveDataflowMermaid(editor.document, editor.selections, selectionMode, simplified);
-		case FlowrDiagramType.Controlflow: return await session.retrieveCfgMermaid(editor.document);
-		case FlowrDiagramType.Ast: return await session.retrieveAstMermaid(editor.document);
+		case FlowrDiagramType.Controlflow: return await session.retrieveCfgMermaid(editor.document, editor.selections, selectionMode);
+		case FlowrDiagramType.Ast: return await session.retrieveAstMermaid(editor.document, editor.selections, selectionMode);
 		default: assert(false);
 	}
 }
