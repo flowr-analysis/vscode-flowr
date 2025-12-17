@@ -102,8 +102,8 @@ ${JSON.stringify(getConfig(), null, 2)}
 	context.subscriptions.push(statusBarItem);
 	updateStatusBar();
 
-	context.subscriptions.push(new vscode.Disposable(() => destroySession()));
-	context.subscriptions.push(registerHoverOverValues(outputChannel));
+	context.subscriptions.push(new vscode.Disposable(() => destroySession()), 
+		...registerHoverOverValues(outputChannel));
 	
 	setTimeout(() => {
 		const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);

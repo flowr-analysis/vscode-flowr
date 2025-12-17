@@ -7,13 +7,19 @@ import { Bottom, Top } from '@eagleoutice/flowr/abstract-interpretation/domains/
 import { isTop, stringifyValue } from '@eagleoutice/flowr/dataflow/eval/values/r-value';
 import type { SingleSlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse';
 import { getConfig, Settings } from './settings';
+import { ConfigurableRefresher, RefreshType } from './configurable-refresher';
+import type { Queries } from '@eagleoutice/flowr/queries/query';
+import type { Writable } from 'ts-essentials';
 
-export function registerHoverOverValues(output: vscode.OutputChannel): vscode.Disposable {
-	return vscode.languages.registerHoverProvider(
-		// only for r
+export function registerHoverOverValues(output: vscode.OutputChannel): vscode.Disposable[] {
+	const provider = new FlowrHoverProvider(output);
+	return [vscode.languages.registerHoverProvider(
 		{ scheme: 'file', language: 'r' },
-		new FlowrHoverProvider(output)
-	);
+		provider
+	), vscode.languages.registerHoverProvider(
+		{ scheme: 'file', language: 'rmd' },
+		provider
+	)];
 }
 
 interface ValueInfo {
@@ -29,24 +35,33 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 	public onDidChangeInlayHints = this.updateEvent.event;
 	private readonly cache = new Map<NodeId, ValueInfo[]>();
 	private session:         FlowrSession | undefined;
-	// TODO: private refresher:       ConfigurableRefresher;
+	private refresher:       ConfigurableRefresher;
    
 
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
-		// TODO: register disposables
-		vscode.workspace.onDidChangeTextDocument(e => {
-			if(e.document.languageId === 'r') {
-				void this.update();
-			}
+		this.refresher = new ConfigurableRefresher({
+			name: 'Dependency View',
+			keys: {
+				type:          'fixed',
+				updateType:    RefreshType.OnChange,
+				adaptiveBreak: 0,
+				interval:      0
+			},
+			refreshCallback: async() => {
+				await this.update(); 
+			},
+			clearCallback: () => {
+				this.cache.clear();
+			},
+			output: output
 		});
-		vscode.window.onDidChangeActiveTextEditor(e => {
-			if(e?.document.languageId === 'r') {
-				void this.update();
-			}
-		});
-		setTimeout(() => void this.update(), 50);
-		setTimeout(() => void this.update(), 250);
+		
+		setTimeout(() => void this.update(), 500);
+	}
+	
+	dispose() {
+		this.refresher.dispose();
 	}
 
 	async update(): Promise<void> {
@@ -66,9 +81,14 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 		if(cached) { 
 			return valueToHint(cached);
 		}
-      
-		// TODO: data-frames
-		const valQuer = await this.session.retrieveQuery(document, [{ type: 'resolve-value', criteria: [criteria] }, { type: 'df-shape', criterion: criteria }]);
+		const query: Writable<Queries<'resolve-value' | 'df-shape'>> = [];
+		if(getConfig().get<boolean>(Settings.ValuesHoverResolve, true)) {
+			query.push({ type: 'resolve-value', criteria: [criteria] } as const);
+		}
+		if(getConfig().get<boolean>(Settings.ValuesHoverDataFrames, true)) {
+			query.push({ type: 'df-shape', criterion: criteria } as const);
+		}
+		const valQuer = await this.session.retrieveQuery(document, query);
 		const results = Object.values(valQuer.result['resolve-value'].results).flatMap(r => r.values);
 		const values: ValueInfo[] = results.filter(v => !isTop(v)).map(r => {
 			return {

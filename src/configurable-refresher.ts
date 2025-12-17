@@ -10,11 +10,17 @@ export interface ConfigurableRefresherConstructor {
 	/**
 	 * The name of the refresher instance (will show up in console output)
 	 */
-	name:                   string;
+	name: string;
 	/**
-	 * The keys that are used to configure the refresher by the user
+	 * The keys that are used to configure the refresher by the user,
+    * or to fix the values to be used
 	 */
-	keys:                   RefresherConfigKeys
+	keys:              RefresherConfigKeys & { type?: undefined } | {
+		type:          'fixed';
+		updateType:    RefreshType;
+		adaptiveBreak: number;
+		interval:      number;
+	}
 	/**
 	 * The function that should be called, when the content should be updated 
 	 * according to the policy configured by the config
@@ -182,16 +188,16 @@ export class ConfigurableRefresher {
 
 		ConfigurableRefresher.unregisterRefresherForOnChanged(this);
 
-		switch(getConfig().get<RefreshType>(this.spec.keys.updateType, RefreshType.Never)) {
+		switch(this.spec.keys.type ? this.spec.keys.adaptiveBreak : getConfig().get<RefreshType>(this.spec.keys.updateType, RefreshType.Never)) {
 			case 'never': break;
 			case 'interval': {
-				this.activeInterval = setInterval(() => this.runRefreshCallback(), getConfig().get<number>(this.spec.keys.interval, 10) * 1000);
+				this.activeInterval = setInterval(() => this.runRefreshCallback(), this.spec.keys.type ? this.spec.keys.interval : getConfig().get<number>(this.spec.keys.interval, 10) * 1000);
 				break;
 			}
 			case 'adaptive': {
-				const breakOff = getConfig().get<number>(this.spec.keys.adaptiveBreak, 5000);
+				const breakOff = this.spec.keys.type ? this.spec.keys.adaptiveBreak :getConfig().get<number>(this.spec.keys.adaptiveBreak, 5000);
 				if(getActiveEditorCharLength() > breakOff) {
-					this.activeInterval = setInterval(() => this.runRefreshCallback(), getConfig().get<number>(this.spec.keys.interval, 10) * 1000);
+					this.activeInterval = setInterval(() => this.runRefreshCallback(), this.spec.keys.type ? this.spec.keys.interval : getConfig().get<number>(this.spec.keys.interval, 10) * 1000);
 					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(() => {
 						if(getActiveEditorCharLength() <= breakOff) {
 							this.update();
@@ -217,7 +223,7 @@ export class ConfigurableRefresher {
 				ConfigurableRefresher.registerRefresherForOnChanged(this);
 				break;
 			default:
-				this.spec.output.appendLine(`[${this.spec.name}] Invalid update type: ${getConfig().get<string>(this.spec.keys.updateType)}`);
+				this.spec.output.appendLine(`[${this.spec.name}] Invalid update type: ${this.spec.keys.type ? this.spec.keys.updateType : getConfig().get<string>(this.spec.keys.updateType)}`);
 		}
 	}
 }
