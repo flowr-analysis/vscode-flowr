@@ -32,7 +32,7 @@ With this extension, you gain access to the following features (as the extension
 
    </details>
 
-4. 🕸️ [**Resolve Values**](#dataflow): Get information on the values inferred by flowR.
+4. 🔎 [**Resolve Values**](#dataflow): Get information on the values inferred by flowR.
 
    <details><summary>Example of the inferred values</summary>
 
