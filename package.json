@@ -584,7 +584,7 @@
         },
         "vscode-flowr.diagram.defaultMode": {
           "type": "string",
-          "default": "highlight",
+          "default": "hide",
           "enum": [
             "highlight",
             "hide"

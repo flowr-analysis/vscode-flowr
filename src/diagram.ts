@@ -100,7 +100,7 @@ class DiagramUpdateCoordinator {
  
 		// Initialize webview 
 		const config = {
-			mode: getConfig().get<DiagramSelectionMode>(Settings.DiagramDefaultMode, 'highlight'),
+			mode: getConfig().get<DiagramSelectionMode>(Settings.DiagramDefaultMode, 'hide'),
 			sync: getConfig().get<boolean>(Settings.DiagramDefaultSync, true),
 		};
 
