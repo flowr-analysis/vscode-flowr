@@ -188,7 +188,7 @@ export class ConfigurableRefresher {
 
 		ConfigurableRefresher.unregisterRefresherForOnChanged(this);
 
-		switch(this.spec.keys.type ? this.spec.keys.adaptiveBreak : getConfig().get<RefreshType>(this.spec.keys.updateType, RefreshType.Never)) {
+		switch(this.spec.keys.type ? this.spec.keys.updateType : getConfig().get<RefreshType>(this.spec.keys.updateType, RefreshType.Never)) {
 			case 'never': break;
 			case 'interval': {
 				this.activeInterval = setInterval(() => this.runRefreshCallback(), this.spec.keys.type ? this.spec.keys.interval : getConfig().get<number>(this.spec.keys.interval, 10) * 1000);

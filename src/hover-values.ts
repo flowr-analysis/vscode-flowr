@@ -42,12 +42,12 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
 		this.refresher = new ConfigurableRefresher({
-			name: 'Dependency View',
+			name: 'Hover-Over Values',
 			keys: {
 				type:          'fixed',
 				updateType:    RefreshType.OnChange,
-				adaptiveBreak: 0,
-				interval:      0
+				adaptiveBreak: 20,
+				interval:      500
 			},
 			refreshCallback: async() => {
 				await this.update(); 
@@ -66,7 +66,8 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 	}
 
 	async update(): Promise<void> {
-		this.session = await getFlowrSession();
+		this.session ??= await getFlowrSession();
+		this.output.appendLine('[Hover Values] Clearing hover value cache');
 		this.cache.clear();
 		this.updateEvent.fire();
 	}
