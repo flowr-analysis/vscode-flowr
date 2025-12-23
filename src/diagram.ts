@@ -6,6 +6,7 @@ import assert from 'assert';
 import type { DiagramOption, DiagramOptions , DiagramOptionsCheckbox, DiagramOptionsDropdown } from './diagram-generator';
 import { createDiagramWebview } from './diagram-generator';
 import { assertUnreachable } from '@eagleoutice/flowr/util/assert';
+import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 import { CfgSimplificationPasses } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
@@ -41,11 +42,11 @@ enum FlowrDiagramType {
 	Ast = 'flowr-ast'
 }
 
-interface DiagramPanelInformation<Options extends DiagramOptions = typeof DefaultDiagramOptions> {
+interface DiagramPanelInformation {
 	type:     FlowrDiagramType;
 	panel:    vscode.WebviewPanel;
 	simplify: boolean;
-	options:  Options;
+	options:  typeof DefaultDiagramOptions;
 }
 
 interface ContentUpdateMessage {
@@ -54,8 +55,10 @@ interface ContentUpdateMessage {
 }
 
 interface WebviewMessage {
-	key:   string, 
-	value: unknown
+	key:       string 
+	/** @see DiagramOptionsCheckbox.keyInSet */
+	keyInSet?: string
+	value:     unknown
 }
 
 export type DiagramSelectionMode = 'highlight' | 'hide';
@@ -81,8 +84,8 @@ class DiagramUpdateCoordinator {
 		}
  
 		const title = `${nameFromDiagramType(type)} (${path.basename(editor.document.fileName)})`;
-		const options = optionsFromDiagramType(type) as typeof DefaultDiagramOptions;
-		const mermaid = await diagramFromTypeAndEditor(type, editor, simplify, options.mode.currentValue);
+		const options = optionsFromDiagramType(type);
+		const mermaid = await diagramFromTypeAndEditor(type, editor, simplify, options);
 		const panel = createDiagramWebview(type as string, title, mermaid, this.output, options);
 
 		if(!panel) {
@@ -96,10 +99,24 @@ class DiagramUpdateCoordinator {
 			this.editorToDiagramPanel.get(editor)?.delete(info);
 		});
 
-		// Handle messages from panel
+		// Handle settings update messages from panel
 		panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
-			// The messages are generated based on the Options object, so the keys must always exist
-			((options as Record<string, DiagramOption>)[msg.key].currentValue as unknown) = msg.value; 
+			const key = `${DiagramSettingsPrefix}.${msg.key}`;
+			console.log(`Update: ${JSON.stringify(msg)}`);
+			if(msg.keyInSet) { // If setKey is set, the checkboxes are grouped into an array 
+				const current = new Set(getConfig().get<string[]>(key, []));
+				if(msg.value) {
+					current.add(msg.keyInSet); 
+				} else {
+					current.delete(msg.keyInSet);
+				}
+				((options as Record<string, DiagramOption>)[msg.keyInSet].currentValue as unknown) = msg.value; 
+				getConfig().update(key, current.values().toArray());
+			} else {
+				((options as Record<string, DiagramOption>)[msg.key].currentValue as unknown) = msg.value; 
+				getConfig().update(key, msg.value);
+			}
+			
 			void this.updateWebviewPanel(info, editor);
 		});
 
@@ -140,7 +157,7 @@ class DiagramUpdateCoordinator {
 	}
 
 	public async updateWebviewPanel(info: DiagramPanelInformation, textEditor: vscode.TextEditor) {
-		const mermaid = await diagramFromTypeAndEditor(info.type, textEditor, info.simplify, info.options.mode.currentValue);
+		const mermaid = await diagramFromTypeAndEditor(info.type, textEditor, info.simplify, info.options);
 		info.panel.webview.postMessage({
 			type:    'content_update',
 			content: mermaid
@@ -174,10 +191,9 @@ const DefaultDiagramOptions = {
 		displayText:  'Sync with selection',
 		default:      true,
 		currentValue: true,
-	},
+	} as DiagramOptionsCheckbox,
 } satisfies DiagramOptions;
 
-type SimplificationPasses = keyof typeof CfgSimplificationPasses;
 const CFGDiagramOptions = {
 	// Default options for mode and sync
 	...DefaultDiagramOptions,
@@ -185,14 +201,15 @@ const CFGDiagramOptions = {
 	// Checkboxes for each simplification pass
 	...(Object.fromEntries(Object.keys(CfgSimplificationPasses).map(v => [v, {
 		type:         'checkbox',
-		key:          v as DiagramSettingsKeys,
+		key:          DiagramSettingsKeys.SimplificationPasses,
 		displayText:  v,
 		default:      true,
-		currentValue: true
-	}])) as { [K in SimplificationPasses]: DiagramOptionsCheckbox } )
-} as const satisfies DiagramOptions;
+		currentValue: true,
+		keyInSet:     v
+	}])) as { [K in CfgSimplificationPassName]: DiagramOptionsCheckbox<CfgSimplificationPassName> } )
+} satisfies DiagramOptions;
 
-function optionsFromDiagramType(type: FlowrDiagramType): DiagramOptions {
+function optionsFromDiagramType(type: FlowrDiagramType) {
 	let options;
 	
 	switch(type) {
@@ -209,18 +226,39 @@ function optionsFromDiagramType(type: FlowrDiagramType): DiagramOptions {
 	}
 
 	for(const option of Object.values(options)) {
-		option.currentValue = getConfig().get(`${DiagramSettingsPrefix}.${option.key}`, option.default);
+		if('keyInSet' in option && option.keyInSet) { // option is encoded in a set
+			const rawSet = getConfig().get<string[]>(`${DiagramSettingsPrefix}.${option.key}`);
+			if(rawSet === undefined) {
+				option.currentValue = option.default;
+				continue;
+			}
+
+			const set = new Set<string>(rawSet);
+			option.currentValue = set.has(option.keyInSet);
+		} else { // option is stored directly
+			option.currentValue = getConfig().get(`${DiagramSettingsPrefix}.${option.key}`, option.default);
+		}
 	}
 
 	return options;
 }
 
-async function diagramFromTypeAndEditor(type: FlowrDiagramType, editor: vscode.TextEditor, simplified: boolean, selectionMode: DiagramSelectionMode): Promise<string> {
+function simplificationPassesFromOptions(options: DiagramOptions): CfgSimplificationPassName[] {	
+	const passes: CfgSimplificationPassName[] = [];
+	for(const pass of Object.keys(CfgSimplificationPasses) as CfgSimplificationPassName[]) {
+		if(pass in options && options[pass as keyof DiagramOptions].currentValue) {
+			passes.push(pass);
+		}
+	}
+	return passes;
+}
+
+async function diagramFromTypeAndEditor(type: FlowrDiagramType, editor: vscode.TextEditor, simplified: boolean, options: typeof DefaultDiagramOptions): Promise<string> {
 	const session = await getFlowrSession();
 	switch(type) {
-		case FlowrDiagramType.Dataflow: return await session.retrieveDataflowMermaid(editor.document, editor.selections, selectionMode, simplified);
-		case FlowrDiagramType.Controlflow: return await session.retrieveCfgMermaid(editor.document, editor.selections, selectionMode);
-		case FlowrDiagramType.Ast: return await session.retrieveAstMermaid(editor.document, editor.selections, selectionMode);
+		case FlowrDiagramType.Dataflow: return await session.retrieveDataflowMermaid(editor.document, editor.selections, options.mode.currentValue, simplified);
+		case FlowrDiagramType.Controlflow: return await session.retrieveCfgMermaid(editor.document, editor.selections, options.mode.currentValue, simplificationPassesFromOptions(options));
+		case FlowrDiagramType.Ast: return await session.retrieveAstMermaid(editor.document, editor.selections, options.mode.currentValue);
 		default: assert(false);
 	}
 }

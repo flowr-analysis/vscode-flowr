@@ -10,6 +10,7 @@ import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-sl
 import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/visitor';
 import type { RNode } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/model';
 import type { DiagramSelectionMode } from '../diagram';
+import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
@@ -30,7 +31,7 @@ export interface FlowrSession {
 	) => Promise<SliceReturn>
 	retrieveDataflowMermaid: (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified?: boolean) => Promise<string>
 	retrieveAstMermaid:      (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode) => Promise<string>
-	retrieveCfgMermaid:      (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode) => Promise<string>
+	retrieveCfgMermaid:      (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplifications: CfgSimplificationPassName[]) => Promise<string>
 	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<{ result: QueryResults<T>, hasError: boolean, dfi?: DataflowInformation, ast?: NormalizedAst }>
 	runRepl:                 (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }

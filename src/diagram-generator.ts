@@ -10,9 +10,11 @@ export interface DiagramOptionsBase<T> {
     currentValue: T 
 }
 
-export interface DiagramOptionsCheckbox extends DiagramOptionsBase<boolean> {
+export interface DiagramOptionsCheckbox<T = string> extends DiagramOptionsBase<boolean> {
     type:        'checkbox'
     displayText: string
+    /** If set, it will be used to set the value in a set references by @see key in vscode's settings.json */
+    keyInSet:    T | undefined
 };
 
 export interface DiagramOptionsDropdown<T = string> extends DiagramOptionsBase<T> {
@@ -25,47 +27,15 @@ export interface DiagramOptionsDropdown<T = string> extends DiagramOptionsBase<T
 
 export type DiagramOption = DiagramOptionsCheckbox | DiagramOptionsDropdown;
 
-export type DiagramOptions = Record<DiagramOption['key'], DiagramOption>; 
-
-// type ConverterMap = { 
-//     [K in DiagramOption['type']]: { 
-//         html: (option: Extract<DiagramOption, { type: K }>) => string, 
-//         js:   (option: Extract<DiagramOption, { type: K }>) => string 
-//     } 
-// }
-
-// const Converter = {
-// 	checkbox: {
-// 		html: (option: DiagramOptionsCheckbox) => {
-// 			return `<label><input id="${option.key}" type="checkbox" ${option.currentValue ? 'checked' : ''}>${option.displayText}</label>`;
-// 		},
-// 		js: (option: DiagramOptionsCheckbox) => {
-// 			return `document.getElementById('${option.key}').addEventListener('change', (e) => {
-// 			vscode.postMessage({ key: '${option.key}', value: event.currentTarget.checked });
-//         });`;
-// 		}
-// 	},
-// 	dropdown: {
-// 		html: (option: DiagramOptionsDropdown) => {
-// 			const optionsStr = option.values.map(o => `<option value="${o.value}" ${option.currentValue === o.value ? 'selected="selected"' : ''}>${o.displayText}</option>`).join('\n');
-// 			return `<select id="${option.key}">${optionsStr}</select>`;
-// 		},
-// 		js: (option: DiagramOptionsDropdown) => {
-// 			return `const input = document.getElementById('${option.key}');
-// 		input.addEventListener('change', (e) => {
-// 			vscode.postMessage({ key: '${option.key}', value: input.options[e.currentTarget.selectedIndex].value});
-// 		});`;
-// 		}
-// 	}
-// } as const satisfies ConverterMap;
+export type DiagramOptions = Record<string, DiagramOption>; 
 
 const Checkbox =  {
 	html: (option: DiagramOptionsCheckbox) => {
-		return `<label><input id="${option.key}" type="checkbox" ${option.currentValue ? 'checked' : ''}>${option.displayText}</label>`;
+		return `<label><input id="${option.keyInSet ?? option.key}" type="checkbox" ${option.currentValue ? 'checked' : ''}>${option.displayText}</label>`;
 	},
 	js: (option: DiagramOptionsCheckbox) => {
-		return `document.getElementById('${option.key}').addEventListener('change', (e) => {
-			vscode.postMessage({ key: '${option.key}', value: event.currentTarget.checked });
+		return `document.getElementById('${option.keyInSet ?? option.key}').addEventListener('change', (e) => {
+			vscode.postMessage({ key: '${option.key}', value: event.currentTarget.checked, keyInSet: ${option.keyInSet ? `'${option.keyInSet}'` : undefined} });
         });`;
 	}
 };
@@ -84,7 +54,6 @@ const Dropdown = {
 };
 
 function generateOptionsHTML(options: DiagramOptions): string {
-	//return Object.values(options).map(o => Converter[o.type].html(o));
 	return Object.values(options).map(option => {
 		switch(option.type) {
 			case 'checkbox': return Checkbox.html(option);
