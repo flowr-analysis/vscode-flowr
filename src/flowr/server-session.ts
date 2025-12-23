@@ -28,6 +28,7 @@ import type { DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pip
 import { extractCfgQuick } from '@eagleoutice/flowr/control-flow/extract-cfg';
 import { getConfig, isVerbose, Settings } from '../settings';
 import type { DiagramSelectionMode } from '../diagram';
+import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -189,7 +190,7 @@ export class FlowrServerSession implements FlowrSession {
 		});
 	}
 
-	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode): Promise<string> {
+	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified: boolean, _: CfgSimplificationPassName[]): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
 		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
 		
@@ -200,6 +201,7 @@ export class FlowrServerSession implements FlowrSession {
 		return cfgToMermaid(extractCfgQuick(normalize), normalize, {
 			includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
 			mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+			simplify:       simplified
 		});
 	}
 

@@ -592,12 +592,12 @@
           "minimum": 10,
           "markdownDescription": "The number of characters in the source after which the linter switches to interval updates."
         },
-        "vscode-flowr.diagram.defaultSync": {
+        "vscode-flowr.diagram.sync": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "If set to true, mermaid diagrams are automatically synced to the selected lines of code in the respective editor by default"
         },
-        "vscode-flowr.diagram.defaultMode": {
+        "vscode-flowr.diagram.mode": {
           "type": "string",
           "default": "hide",
           "enum": [
@@ -608,6 +608,26 @@
             "Selected lines are highlighted in the diagram",
             "Only selected lines are shown in the diagram"
           ]
+        },
+        "vscode-flowr.diagram.cfgSimplificationPasses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "unique-cf-sets",
+            "analyze-dead-code",
+            "remove-dead-code",
+            "to-basic-blocks"
+          ],
+          "markdownEnumDescriptions": [
+            "Simplification passes that should be applied to the cfg diagram"
+          ]
+        },
+        "vscode-flowr.diagram.simplify": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "If set to true, cfg diagrams are simplified"
         }
       }
     },
@@ -760,7 +780,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.7.4",
+    "@eagleoutice/flowr": "^2.7.6",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",

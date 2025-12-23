@@ -24,12 +24,12 @@ import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-sel
 import { getEngineConfig } from '@eagleoutice/flowr/config';
 import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
-import { extractCfgQuick } from '@eagleoutice/flowr/control-flow/extract-cfg';
 import { FlowrAnalyzerBuilder } from '@eagleoutice/flowr/project/flowr-analyzer-builder';
 import type { PipelinePerStepMetaInformation } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
 import { FlowrInlineTextFile } from '@eagleoutice/flowr/project/context/flowr-file';
 import type { FlowrAnalyzer } from '@eagleoutice/flowr/project/flowr-analyzer';
 import type { DiagramSelectionMode } from '../diagram';
+import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -266,14 +266,17 @@ export class FlowrInternalSession implements FlowrSession {
 		}, 'ast', true, '');
 	}
 
-	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode): Promise<string> {
+	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified: boolean, simplifications: CfgSimplificationPassName[]): Promise<string> {
 		return await this.startWorkWithProgressBar(document, async(analyzer) => {
-			const result = await analyzer.normalize();
-			const selectionNodes = selectionsToNodeIds(result.ast.files.map(f => f.root), selections);
+			const ast = await analyzer.normalize();
+			const result = await analyzer.controlflow(simplifications);
 
-			return cfgToMermaid(extractCfgQuick(result), result, {
+			const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
+
+			return cfgToMermaid(result, ast, {
 				includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
 				mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+				simplify:       simplified
 			});
 		}, 'cfg', true, '');
 	}
