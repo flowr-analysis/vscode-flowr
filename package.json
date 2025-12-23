@@ -623,6 +623,11 @@
           "markdownEnumDescriptions": [
             "Simplification passes that should be applied to the cfg diagram"
           ]
+        },
+        "vscode-flowr.diagram.simplify": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "If set to true, cfg diagrams are simplified"
         }
       }
     },

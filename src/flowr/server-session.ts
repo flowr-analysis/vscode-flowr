@@ -190,7 +190,7 @@ export class FlowrServerSession implements FlowrSession {
 		});
 	}
 
-	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, _: CfgSimplificationPassName[]): Promise<string> {
+	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified: boolean, _: CfgSimplificationPassName[]): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
 		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
 		
@@ -201,6 +201,7 @@ export class FlowrServerSession implements FlowrSession {
 		return cfgToMermaid(extractCfgQuick(normalize), normalize, {
 			includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
 			mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+			simplify:       simplified
 		});
 	}
 

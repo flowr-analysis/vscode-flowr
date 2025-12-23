@@ -266,7 +266,7 @@ export class FlowrInternalSession implements FlowrSession {
 		}, 'ast', true, '');
 	}
 
-	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplifications: CfgSimplificationPassName[]): Promise<string> {
+	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified: boolean, simplifications: CfgSimplificationPassName[]): Promise<string> {
 		return await this.startWorkWithProgressBar(document, async(analyzer) => {
 			const ast = await analyzer.normalize();
 			const result = await analyzer.controlflow(simplifications);
@@ -276,6 +276,7 @@ export class FlowrInternalSession implements FlowrSession {
 			return cfgToMermaid(result, ast, {
 				includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
 				mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+				simplify:       simplified
 			});
 		}, 'cfg', true, '');
 	}

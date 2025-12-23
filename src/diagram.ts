@@ -197,7 +197,13 @@ const DefaultDiagramOptions = {
 const CFGDiagramOptions = {
 	// Default options for mode and sync
 	...DefaultDiagramOptions,
-
+	simplify: {
+		type:         'checkbox',
+		key:          DiagramSettingsKeys.Simplify,
+		displayText:  'Simplify',
+		default:      true,
+		currentValue: true
+	} as DiagramOptionsCheckbox,
 	// Checkboxes for each simplification pass
 	...(Object.fromEntries(Object.keys(CfgSimplificationPasses).map(v => [v, {
 		type:         'checkbox',
@@ -257,7 +263,10 @@ async function diagramFromTypeAndEditor(type: FlowrDiagramType, editor: vscode.T
 	const session = await getFlowrSession();
 	switch(type) {
 		case FlowrDiagramType.Dataflow: return await session.retrieveDataflowMermaid(editor.document, editor.selections, options.mode.currentValue, simplified);
-		case FlowrDiagramType.Controlflow: return await session.retrieveCfgMermaid(editor.document, editor.selections, options.mode.currentValue, simplificationPassesFromOptions(options));
+		case FlowrDiagramType.Controlflow: {
+			const opts = options as typeof CFGDiagramOptions;
+			return await session.retrieveCfgMermaid(editor.document, editor.selections, opts.mode.currentValue, opts.simplify.currentValue, simplificationPassesFromOptions(opts));
+		}
 		case FlowrDiagramType.Ast: return await session.retrieveAstMermaid(editor.document, editor.selections, options.mode.currentValue);
 		default: assert(false);
 	}
