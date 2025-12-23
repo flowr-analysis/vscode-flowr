@@ -1,11 +1,11 @@
+import type { DiagramSettingsKeys } from './settings';
 import { getConfig, Settings } from './settings';
 import { assertUnreachable } from '@eagleoutice/flowr/util/assert';
 import * as vscode from 'vscode';
 
-
 export interface DiagramOptionsBase<T> {
     type:         string
-    key:          string
+    key:          DiagramSettingsKeys
     default:      T
     currentValue: T 
 }
@@ -34,10 +34,34 @@ export type DiagramOptions = Record<DiagramOption['key'], DiagramOption>;
 //     } 
 // }
 
+// const Converter = {
+// 	checkbox: {
+// 		html: (option: DiagramOptionsCheckbox) => {
+// 			return `<label><input id="${option.key}" type="checkbox" ${option.currentValue ? 'checked' : ''}>${option.displayText}</label>`;
+// 		},
+// 		js: (option: DiagramOptionsCheckbox) => {
+// 			return `document.getElementById('${option.key}').addEventListener('change', (e) => {
+// 			vscode.postMessage({ key: '${option.key}', value: event.currentTarget.checked });
+//         });`;
+// 		}
+// 	},
+// 	dropdown: {
+// 		html: (option: DiagramOptionsDropdown) => {
+// 			const optionsStr = option.values.map(o => `<option value="${o.value}" ${option.currentValue === o.value ? 'selected="selected"' : ''}>${o.displayText}</option>`).join('\n');
+// 			return `<select id="${option.key}">${optionsStr}</select>`;
+// 		},
+// 		js: (option: DiagramOptionsDropdown) => {
+// 			return `const input = document.getElementById('${option.key}');
+// 		input.addEventListener('change', (e) => {
+// 			vscode.postMessage({ key: '${option.key}', value: input.options[e.currentTarget.selectedIndex].value});
+// 		});`;
+// 		}
+// 	}
+// } as const satisfies ConverterMap;
+
 const Checkbox =  {
 	html: (option: DiagramOptionsCheckbox) => {
-		const value = getConfig().get<boolean>(`diagram.${option.key}`, option.default);
-		return `<label><input id="${option.key}" type="checkbox" ${value ? 'checked' : ''}>${option.displayText}</label>`;
+		return `<label><input id="${option.key}" type="checkbox" ${option.currentValue ? 'checked' : ''}>${option.displayText}</label>`;
 	},
 	js: (option: DiagramOptionsCheckbox) => {
 		return `document.getElementById('${option.key}').addEventListener('change', (e) => {
@@ -48,8 +72,7 @@ const Checkbox =  {
 
 const Dropdown = {
 	html: (option: DiagramOptionsDropdown) => {
-		const value = getConfig().get<string>(`diagram.${option.key}`, option.default);
-		const optionsStr = option.values.map(o => `<option value="${o.value}" ${value === o.value ? 'selected="selected"' : ''}>${o.displayText}</option>`).join('\n');
+		const optionsStr = option.values.map(o => `<option value="${o.value}" ${option.currentValue === o.value ? 'selected="selected"' : ''}>${o.displayText}</option>`).join('\n');
 		return `<select id="${option.key}">${optionsStr}</select>`;
 	},
 	js: (option: DiagramOptionsDropdown) => {
@@ -61,7 +84,7 @@ const Dropdown = {
 };
 
 function generateOptionsHTML(options: DiagramOptions): string {
-	//return options.map(o => Converter[o.type].html(o)).join('\n');
+	//return Object.values(options).map(o => Converter[o.type].html(o));
 	return Object.values(options).map(option => {
 		switch(option.type) {
 			case 'checkbox': return Checkbox.html(option);

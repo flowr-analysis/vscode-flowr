@@ -60,10 +60,14 @@ export enum Settings {
 	ValuesOnHover = 'values.hover',
 	ValuesHoverResolve = 'values.hover.resolve',
 	ValuesHoverDataFrames = 'values.hover.dataFrames',
-
-	DiagramDefaultSync = 'diagram.defaultSync',
-	DiagramDefaultMode = 'diagram.defaultMode'
 }
+
+export enum DiagramSettingsKeys {
+    Sync = 'sync',
+    Mode = 'mode',
+}
+
+export const DiagramSettingsPrefix = 'diagram';
 
 export type DefaultsMaps =  {
   [K in keyof typeof Settings]?: unknown

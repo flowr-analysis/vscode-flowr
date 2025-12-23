@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
 import { getFlowrSession, registerCommand } from './extension';
-import {  getConfig } from './settings';
+import {  DiagramSettingsKeys, DiagramSettingsPrefix, getConfig } from './settings';
 import path from 'path';
 import assert from 'assert';
-import type { DiagramOption, DiagramOptions , DiagramOptionsDropdown } from './diagram-generator';
+import type { DiagramOption, DiagramOptions , DiagramOptionsCheckbox, DiagramOptionsDropdown } from './diagram-generator';
 import { createDiagramWebview } from './diagram-generator';
 import { assertUnreachable } from '@eagleoutice/flowr/util/assert';
+import { CfgSimplificationPasses } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const coordinator = new DiagramUpdateCoordinator(output);
@@ -97,7 +98,7 @@ class DiagramUpdateCoordinator {
 
 		// Handle messages from panel
 		panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
-			// The messages are generated based on this object, so the keys must always exist
+			// The messages are generated based on the Options object, so the keys must always exist
 			((options as Record<string, DiagramOption>)[msg.key].currentValue as unknown) = msg.value; 
 			void this.updateWebviewPanel(info, editor);
 		});
@@ -157,24 +158,39 @@ function nameFromDiagramType(type: FlowrDiagramType): string {
 }
 
 const DefaultDiagramOptions = {
+	mode: {
+		type:   'dropdown',
+		key:    DiagramSettingsKeys.Mode,
+		values: [
+			{ value: 'highlight', displayText: 'Highlight selection' },
+			{ value: 'hide',      displayText: 'Only show selection' }
+		],
+		default:      'hide',
+		currentValue: 'hide'
+	} as DiagramOptionsDropdown<DiagramSelectionMode>,
 	sync: {
 		type:         'checkbox',
-		key:          'sync',
+		key:          DiagramSettingsKeys.Sync,
 		displayText:  'Sync with selection',
 		default:      true,
 		currentValue: true,
 	},
-	mode: {
-		type:   'dropdown',
-		key:    'mode',
-		values: [
-			{ value: 'highlight', displayText: 'Highlight selection' },
-			{ value: 'hide', displayText: 'Only show selection' }
-		],
-		default:      'hide',
-		currentValue: 'hide'
-	} as DiagramOptionsDropdown<DiagramSelectionMode>
 } satisfies DiagramOptions;
+
+type SimplificationPasses = keyof typeof CfgSimplificationPasses;
+const CFGDiagramOptions = {
+	// Default options for mode and sync
+	...DefaultDiagramOptions,
+
+	// Checkboxes for each simplification pass
+	...(Object.fromEntries(Object.keys(CfgSimplificationPasses).map(v => [v, {
+		type:         'checkbox',
+		key:          v as DiagramSettingsKeys,
+		displayText:  v,
+		default:      true,
+		currentValue: true
+	}])) as { [K in SimplificationPasses]: DiagramOptionsCheckbox } )
+} as const satisfies DiagramOptions;
 
 function optionsFromDiagramType(type: FlowrDiagramType): DiagramOptions {
 	let options;
@@ -184,7 +200,7 @@ function optionsFromDiagramType(type: FlowrDiagramType): DiagramOptions {
 			options = DefaultDiagramOptions; 
 			break;
 		case FlowrDiagramType.Controlflow: 
-			options = DefaultDiagramOptions;
+			options = CFGDiagramOptions;
 			break;
 		case FlowrDiagramType.Ast: 
 			options = DefaultDiagramOptions; 
@@ -193,7 +209,7 @@ function optionsFromDiagramType(type: FlowrDiagramType): DiagramOptions {
 	}
 
 	for(const option of Object.values(options)) {
-		option.currentValue = getConfig().get(`diagram.${option.key}`, option.default);
+		option.currentValue = getConfig().get(`${DiagramSettingsPrefix}.${option.key}`, option.default);
 	}
 
 	return options;
