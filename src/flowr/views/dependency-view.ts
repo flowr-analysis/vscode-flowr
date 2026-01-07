@@ -357,9 +357,10 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	private makeRootElements(dfi?: DataflowInformation, ast?: NormalizedAst) {
+		const uniqueIds = new Set<string>();
 		this.rootElements = Object.entries(dependencyDisplayInfo).map(([d, i]) => {
 			const result = this.activeDependencies[d] as DependencyInfo[];
-			return this.makeDependency(i.name, i.verb, result, new vscode.ThemeIcon(i.icon), d, i, dfi, ast);
+			return this.makeDependency(i.name, i.verb, result, new vscode.ThemeIcon(i.icon), d, i, dfi, ast).enforceUniqueIds(uniqueIds);
 		});
 	}
 
@@ -512,6 +513,15 @@ export class Dependency extends vscode.TreeItem {
 	private linkedIds(): string {
 		const num = this.info?.linkedIds?.length;
 		return num ? `, linked to ${num} id` + (num === 1 ? '' : 's') : '';
+	}
+
+	enforceUniqueIds(seen: Set<string>) {
+		if(seen.has(this.id ?? '')) {
+			this.id = this.id + '-' + Math.random().toString(16).slice(2);
+		}
+		seen.add(this.id ?? '');
+		this.children?.forEach(c => c.enforceUniqueIds(seen));
+		return this;
 	}
 
 	getNodeId(): NodeId | undefined {
