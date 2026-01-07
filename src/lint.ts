@@ -159,7 +159,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 				}
 				const range = rangeToVscodeRange(result.range);
 				const pageName = ruleName.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-				const pageUrl = `https://github.com/flowr-analysis/flowr/wiki/[Linting Rule] ${pageName}`
+				const pageUrl = `https://github.com/flowr-analysis/flowr/wiki/[Linting Rule] ${pageName}`;
 				const diag = new vscode.Diagnostic(
 					range,
 					`${ruleName}: ${(rule.prettyPrint['full'] as (result: LintingRuleResult<LintingRuleNames>, metadata: LintingRuleMetadata<LintingRuleNames>) => string)(
