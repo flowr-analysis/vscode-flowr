@@ -102,7 +102,6 @@ class DiagramUpdateCoordinator {
 		// Handle settings update messages from panel
 		panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
 			const key = `${DiagramSettingsPrefix}.${msg.key}`;
-			console.log(`Update: ${JSON.stringify(msg)}`);
 			if(msg.keyInSet) { // If setKey is set, the checkboxes are grouped into an array 
 				const current = new Set(getConfig().get<string[]>(key, []));
 				if(msg.value) {
