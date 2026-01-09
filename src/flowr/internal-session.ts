@@ -261,7 +261,7 @@ export class FlowrInternalSession implements FlowrSession {
 
 			return normalizedAstToMermaid(result.ast, {
 				includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
-				mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+				mark:           selectionMode === 'highlight' ? new Set(selectionNodes) : undefined,
 			});
 		}, 'ast', true, '');
 	}

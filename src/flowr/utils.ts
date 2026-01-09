@@ -11,6 +11,8 @@ import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/process
 import type { RNode } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/model';
 import type { DiagramSelectionMode } from '../diagram';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
+import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
+import type { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
@@ -89,23 +91,44 @@ export function rangeToVscodeRange(range: SourceRange): vscode.Range {
 	return new vscode.Range(range[0] - 1, range[1] - 1, range[2] - 1, range[3]);
 }
 
-export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<ParentInformation>[]), selections: readonly vscode.Selection[]): ReadonlySet<NodeId> | undefined {
-	if(selections.length === 0 || selections[0].isEmpty) {
+export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<ParentInformation>[]), selectionsRaw: readonly vscode.Selection[]): ReadonlySet<NodeId> | undefined {
+	if(selectionsRaw.length === 0 || selectionsRaw[0].isEmpty) {
 		return undefined;
 	}
 	
 	const result = new Set<NodeId>();
-	
+	const maybeIncluded = new Array<RExpressionList<ParentInformation>>();
+
+	// By default the end of the selection extends one more coloumn
+	// Thus we subtract one so that the selection really only includes the selected chars
+	const selections = selectionsRaw.map(sel => sel.with(
+		sel.start, 
+		sel.end.with(sel.end.line, Math.max(sel.end.character - 1, 0))
+	));
+
 	visitAst(root, node => {
-		if(!node.info.fullRange) {
+		if(node.type === RType.ExpressionList) {
+			maybeIncluded.push(node);
 			return;
 		}
 
-		const range = rangeToVscodeRange(node.info.fullRange);
+		const location = node.location ?? node.info.fullRange;
+		if(location === undefined) {
+			return;
+		}
+		
+		const range = rangeToVscodeRange(location);
 		if(selections.some(sel => sel.intersection(range) !== undefined)) {
 			result.add(node.info.id);
 		}
 	});
+
+	for(const maybe of maybeIncluded) {
+		const shouldBeIncluded = maybe.children.length !== 0 && maybe.children.every(c => result.has(c.info.id));
+		if(shouldBeIncluded) {
+			result.add(maybe.info.id);
+		}
+	}
 
 	return result;
 }
