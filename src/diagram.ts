@@ -22,10 +22,6 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 		const activeEditor = vscode.window.activeTextEditor;
 		return await coordinator.createDiagramPanel(FlowrDiagramType.Dataflow, activeEditor);
 	});
-	registerCommand(context, 'vscode-flowr.dataflow-simplified', async() => {
-		const activeEditor = vscode.window.activeTextEditor;
-		return await coordinator.createDiagramPanel(FlowrDiagramType.Dataflow, activeEditor, true);
-	});
 	registerCommand(context, 'vscode-flowr.ast', async() => {
 		const activeEditor = vscode.window.activeTextEditor;
 		return await coordinator.createDiagramPanel(FlowrDiagramType.Ast, activeEditor);
@@ -43,10 +39,9 @@ enum FlowrDiagramType {
 }
 
 interface DiagramPanelInformation {
-	type:     FlowrDiagramType;
-	panel:    vscode.WebviewPanel;
-	simplify: boolean;
-	options:  typeof DefaultDiagramOptions;
+	type:    FlowrDiagramType;
+	panel:   vscode.WebviewPanel;
+	options: typeof DefaultDiagramOptions;
 }
 
 interface ContentUpdateMessage {
@@ -78,21 +73,21 @@ class DiagramUpdateCoordinator {
 		this.output = output;
 	}
 
-	public async createDiagramPanel(type: FlowrDiagramType, editor: vscode.TextEditor | undefined, simplify: boolean = false) {
+	public async createDiagramPanel(type: FlowrDiagramType, editor: vscode.TextEditor | undefined) {
 		if(!editor) {
 			return;
 		}
  
 		const title = `${nameFromDiagramType(type)} (${path.basename(editor.document.fileName)})`;
 		const options = optionsFromDiagramType(type);
-		const mermaid = await diagramFromTypeAndEditor(type, editor, simplify, options);
+		const mermaid = await diagramFromTypeAndEditor(type, editor, options);
 		const panel = createDiagramWebview(type as string, title, mermaid, this.output, options);
 
 		if(!panel) {
 			return undefined;
 		}
 
-		const info = { type, panel, simplify, options } satisfies DiagramPanelInformation;
+		const info = { type, panel, options } satisfies DiagramPanelInformation;
 
 		// Stop tracking panel when user closes it
 		panel.onDidDispose(() => {
@@ -156,7 +151,7 @@ class DiagramUpdateCoordinator {
 	}
 
 	public async updateWebviewPanel(info: DiagramPanelInformation, textEditor: vscode.TextEditor) {
-		const mermaid = await diagramFromTypeAndEditor(info.type, textEditor, info.simplify, info.options);
+		const mermaid = await diagramFromTypeAndEditor(info.type, textEditor, info.options);
 		info.panel.webview.postMessage({
 			type:    'content_update',
 			content: mermaid
@@ -193,12 +188,24 @@ const DefaultDiagramOptions = {
 	} as DiagramOptionsCheckbox,
 } satisfies DiagramOptions;
 
+const DFGDiagramOptions = {
+	// Default options for mode and sync
+	...DefaultDiagramOptions,
+	simplifyDfg: {
+		type:         'checkbox',
+		key:          DiagramSettingsKeys.SimplifyDfg,
+		displayText:  'Simplify',
+		default:      true,
+		currentValue: true
+	} as DiagramOptionsCheckbox,
+} satisfies DiagramOptions; 
+
 const CFGDiagramOptions = {
 	// Default options for mode and sync
 	...DefaultDiagramOptions,
-	simplify: {
+	simplifyCfg: {
 		type:         'checkbox',
-		key:          DiagramSettingsKeys.Simplify,
+		key:          DiagramSettingsKeys.SimplifyCfg,
 		displayText:  'Simplify',
 		default:      true,
 		currentValue: true
@@ -219,7 +226,7 @@ function optionsFromDiagramType(type: FlowrDiagramType) {
 	
 	switch(type) {
 		case FlowrDiagramType.Dataflow: 
-			options = DefaultDiagramOptions; 
+			options = DFGDiagramOptions; 
 			break;
 		case FlowrDiagramType.Controlflow: 
 			options = CFGDiagramOptions;
@@ -258,13 +265,16 @@ function simplificationPassesFromOptions(options: DiagramOptions): CfgSimplifica
 	return passes;
 }
 
-async function diagramFromTypeAndEditor(type: FlowrDiagramType, editor: vscode.TextEditor, simplified: boolean, options: typeof DefaultDiagramOptions): Promise<string> {
+async function diagramFromTypeAndEditor(type: FlowrDiagramType, editor: vscode.TextEditor, options: typeof DefaultDiagramOptions): Promise<string> {
 	const session = await getFlowrSession();
 	switch(type) {
-		case FlowrDiagramType.Dataflow: return await session.retrieveDataflowMermaid(editor.document, editor.selections, options.mode.currentValue, simplified);
+		case FlowrDiagramType.Dataflow: {
+			const opts = options as typeof DFGDiagramOptions;
+			return await session.retrieveDataflowMermaid(editor.document, editor.selections, options.mode.currentValue, opts.simplifyDfg.currentValue);
+		} 	
 		case FlowrDiagramType.Controlflow: {
 			const opts = options as typeof CFGDiagramOptions;
-			return await session.retrieveCfgMermaid(editor.document, editor.selections, opts.mode.currentValue, opts.simplify.currentValue, simplificationPassesFromOptions(opts));
+			return await session.retrieveCfgMermaid(editor.document, editor.selections, opts.mode.currentValue, opts.simplifyCfg.currentValue, simplificationPassesFromOptions(opts));
 		}
 		case FlowrDiagramType.Ast: return await session.retrieveAstMermaid(editor.document, editor.selections, options.mode.currentValue);
 		default: assert(false);
