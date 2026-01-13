@@ -66,7 +66,9 @@ export enum DiagramSettingsKeys {
     Sync = 'sync',
     Mode = 'mode',
 	SimplificationPasses = 'cfgSimplificationPasses',
-	Simplify = 'simplify'
+	SimplifyCfg = 'simplifyCfg',
+	SimplifyDfg = 'simplifyDfg'
+
 }
 
 export const DiagramSettingsPrefix = 'diagram';

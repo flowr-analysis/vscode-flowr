@@ -171,12 +171,6 @@
         "category": "flowR"
       },
       {
-        "command": "vscode-flowr.dataflow-simplified",
-        "title": "Show Simplified Dataflow Graph",
-        "icon": "$(graph)",
-        "category": "flowR"
-      },
-      {
         "command": "vscode-flowr.session.internal",
         "title": "Start Local flowR Shell",
         "icon": "$(terminal)",
@@ -624,10 +618,15 @@
             "Simplification passes that should be applied to the cfg diagram"
           ]
         },
-        "vscode-flowr.diagram.simplify": {
+        "vscode-flowr.diagram.simplifyCfg": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "If set to true, cfg diagrams are simplified"
+        },
+        "vscode-flowr.diagram.simplifyDfg": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "If set to true, dfg diagrams are simplified"
         }
       }
     },
