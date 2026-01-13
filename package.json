@@ -171,12 +171,6 @@
         "category": "flowR"
       },
       {
-        "command": "vscode-flowr.dataflow-simplified",
-        "title": "Show Simplified Dataflow Graph",
-        "icon": "$(graph)",
-        "category": "flowR"
-      },
-      {
         "command": "vscode-flowr.session.internal",
         "title": "Start Local flowR Shell",
         "icon": "$(terminal)",
