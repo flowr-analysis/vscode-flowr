@@ -83,6 +83,8 @@ function configureFlowrLogging(output: vscode.OutputChannel) {
 	setFlowrLoggingSensitivity(output);
 }
 
+type WorkActions = 'slice' | 'ast' | 'cfg' | 'dfg' | 'callgraph';
+
 export class FlowrInternalSession implements FlowrSession {
 
 	private static treeSitterInitialized: boolean = false;
@@ -101,7 +103,7 @@ export class FlowrInternalSession implements FlowrSession {
 		updateStatusBar();
 	}
 
-	private async startWorkWithProgressBar<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer) => Promise<T>, action: string, showErrorMessage: boolean, defaultOnErr = {} as T): Promise<T> {
+	private async startWorkWithProgressBar<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer) => Promise<T>, action: WorkActions, showErrorMessage: boolean, defaultOnErr = {} as T): Promise<T> {
 		if(!this.parser) {
 			return defaultOnErr;
 		}
@@ -114,11 +116,12 @@ export class FlowrInternalSession implements FlowrSession {
 			location: vscode.ProgressLocation.Notification,
 			title:    (() => {
 				switch(action) {
-					case 'slice': return 'Creating Slice...';
-					case 'ast':   return 'Creating AST...';
-					case 'cfg':   return 'Creating Control Flow Graph...';
-					case 'dfg':   return 'Creating Data Flow Graph...';
-					default:      return 'Working...';
+					case 'slice':      return 'Creating Slice...';
+					case 'ast':        return 'Creating AST...';
+					case 'cfg':        return 'Creating Control Flow Graph...';
+					case 'dfg':        return 'Creating Data Flow Graph...';
+					case 'callgraph':  return 'Creating Call Graph...';
+					default:           return 'Working...';
 				}
 			})(),
 			cancellable: false
@@ -254,6 +257,23 @@ export class FlowrInternalSession implements FlowrSession {
 			}).string;
 		}, 'dfg', true, '');
 	}
+
+	async retrieveCallgraphMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified?: boolean): Promise<string> {
+		return await this.startWorkWithProgressBar(document, async(analyzer) => {
+			const callGraph = await analyzer.callGraph();
+			const ast = await analyzer.normalize();
+			const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
+
+			return graphToMermaid({ 
+				graph:               callGraph, 
+				simplified, 
+				includeEnvironments: false, 
+				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
+				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined, 
+			}).string;
+		}, 'callgraph', true, '');
+	}
+
 
 	async retrieveAstMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode): Promise<string> {
 		return await this.startWorkWithProgressBar(document, async(analyzer) => {

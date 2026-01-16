@@ -2,12 +2,11 @@ import * as vscode from 'vscode';
 import { getFlowrSession, registerCommand } from './extension';
 import {  DiagramSettingsKeys, DiagramSettingsPrefix, getConfig } from './settings';
 import path from 'path';
-import assert from 'assert';
 import type { DiagramOption, DiagramOptions , DiagramOptionsCheckbox, DiagramOptionsDropdown } from './diagram-generator';
 import { createDiagramWebview } from './diagram-generator';
-import { assertUnreachable } from '@eagleoutice/flowr/util/assert';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 import { CfgSimplificationPasses } from '@eagleoutice/flowr/control-flow/cfg-simplification';
+import { assertUnreachable } from '@eagleoutice/flowr/util/assert';
 
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const coordinator = new DiagramUpdateCoordinator(output);
@@ -30,12 +29,17 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 		const activeEditor = vscode.window.activeTextEditor;
 		return await coordinator.createDiagramPanel(FlowrDiagramType.Controlflow, activeEditor);
 	});
+	registerCommand(context, 'vscode-flowr.call-graph', async() => {
+		const activeEditor = vscode.window.activeTextEditor;
+		return await coordinator.createDiagramPanel(FlowrDiagramType.CallGraph, activeEditor);
+	});
 }
 
 enum FlowrDiagramType {
 	Dataflow = 'flowr-dataflow',
 	Controlflow = 'flowr-cfg',
-	Ast = 'flowr-ast'
+	Ast = 'flowr-ast',
+	CallGraph = 'flowr-call-graph',
 }
 
 interface DiagramPanelInformation {
@@ -78,7 +82,7 @@ class DiagramUpdateCoordinator {
 			return;
 		}
  
-		const title = `${nameFromDiagramType(type)} (${path.basename(editor.document.fileName)})`;
+		const title = `${DiagramTitleMap[type]} (${path.basename(editor.document.fileName)})`;
 		const options = optionsFromDiagramType(type);
 		const mermaid = await diagramFromTypeAndEditor(type, editor, options);
 		const panel = createDiagramWebview(type as string, title, mermaid, this.output, options);
@@ -158,15 +162,6 @@ class DiagramUpdateCoordinator {
 	}
 }
 
-function nameFromDiagramType(type: FlowrDiagramType): string {
-	switch(type) {
-		case FlowrDiagramType.Dataflow: return 'Dataflow Graph';
-		case FlowrDiagramType.Controlflow: return 'Control Flow Graph';
-		case FlowrDiagramType.Ast: return 'AST';
-		default: return 'Flowr';
-	}
-}
-
 const DefaultDiagramOptions = {
 	mode: {
 		type:   'dropdown',
@@ -220,21 +215,22 @@ const CFGDiagramOptions = {
 	}])) as { [K in CfgSimplificationPassName]: DiagramOptionsCheckbox<CfgSimplificationPassName> } )
 } satisfies DiagramOptions;
 
+const DiagramOptionsMap = {
+	'flowr-dataflow':   DFGDiagramOptions,
+	'flowr-cfg':        CFGDiagramOptions,
+	'flowr-ast':        DefaultDiagramOptions,
+	'flowr-call-graph': DefaultDiagramOptions
+} as const satisfies Record<FlowrDiagramType, DiagramOptions>;
+
+const DiagramTitleMap = {
+	'flowr-dataflow':   'Dataflow Graph',
+	'flowr-cfg':        'Control Flow Graph',
+	'flowr-ast':        'AST',
+	'flowr-call-graph': 'Call Graph'
+} as const satisfies Record<FlowrDiagramType, string>;
+
 function optionsFromDiagramType(type: FlowrDiagramType) {
-	let options;
-	
-	switch(type) {
-		case FlowrDiagramType.Dataflow: 
-			options = DFGDiagramOptions; 
-			break;
-		case FlowrDiagramType.Controlflow: 
-			options = CFGDiagramOptions;
-			break;
-		case FlowrDiagramType.Ast: 
-			options = DefaultDiagramOptions; 
-			break;
-		default: assertUnreachable(type);
-	}
+	const options = DiagramOptionsMap[type];
 
 	for(const option of Object.values(options)) {
 		if('keyInSet' in option && option.keyInSet) { // option is encoded in a set
@@ -276,6 +272,7 @@ async function diagramFromTypeAndEditor(type: FlowrDiagramType, editor: vscode.T
 			return await session.retrieveCfgMermaid(editor.document, editor.selections, opts.mode.currentValue, opts.simplifyCfg.currentValue, simplificationPassesFromOptions(opts));
 		}
 		case FlowrDiagramType.Ast: return await session.retrieveAstMermaid(editor.document, editor.selections, options.mode.currentValue);
-		default: assert(false);
+		case FlowrDiagramType.CallGraph: return await session.retrieveCallgraphMermaid(editor.document, editor.selections, options.mode.currentValue);
+		default: assertUnreachable(type);
 	}
 }

@@ -31,11 +31,12 @@ export interface FlowrSession {
 		showErrorMessage?: boolean,
 		info?: { dfi: DataflowInformation, ast: NormalizedAst }
 	) => Promise<SliceReturn>
-	retrieveDataflowMermaid: (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified?: boolean) => Promise<string>
-	retrieveAstMermaid:      (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode) => Promise<string>
-	retrieveCfgMermaid:      (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified: boolean, simplifications: CfgSimplificationPassName[]) => Promise<string>
-	retrieveQuery:           <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<{ result: QueryResults<T>, hasError: boolean, dfi?: DataflowInformation, ast?: NormalizedAst }>
-	runRepl:                 (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
+	retrieveDataflowMermaid:  (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified?: boolean) => Promise<string>
+	retrieveAstMermaid:       (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode) => Promise<string>
+	retrieveCfgMermaid:       (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified: boolean, simplifications: CfgSimplificationPassName[]) => Promise<string>
+	retrieveCallgraphMermaid: (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified?: boolean) => Promise<string>;
+	retrieveQuery:            <T extends SupportedQueryTypes>(document: vscode.TextDocument, query: Queries<T>) => Promise<{ result: QueryResults<T>, hasError: boolean, dfi?: DataflowInformation, ast?: NormalizedAst }>
+	runRepl:                  (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }
 
 export function getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {

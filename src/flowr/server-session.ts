@@ -168,6 +168,25 @@ export class FlowrServerSession implements FlowrSession {
 		});
 	}
 
+	async retrieveCallgraphMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
+		const { result, ast, dfi, hasError } = await this.retrieveQuery(document, [{ type: 'call-graph' }]);
+
+		if(hasError || !ast || !dfi) {
+			return '';
+		}
+
+		const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
+		
+		return graphToMermaid({
+			graph:               DataflowGraph.fromJson(result['call-graph'].graph as unknown as DataflowGraphJson),
+			simplified,
+			includeEnvironments: false,
+			includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
+			mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+		}).string;
+	}
+
+
 	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
 		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
