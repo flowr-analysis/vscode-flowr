@@ -142,7 +142,7 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	};
 }
 
-const emptyDependencies: DependenciesQueryResult = { library: [], source: [], read: [], write: [], visualize: [], '.meta': { timing: -1 } } as unknown as DependenciesQueryResult;
+const emptyDependencies: DependenciesQueryResult = { library: [], source: [], read: [], write: [], visualize: [], test: [], '.meta': { timing: -1 } } as unknown as DependenciesQueryResult;
 const emptyLocationMap: LocationMapQueryResult = { map: {
 	files: [],
 	ids:   {}
@@ -153,7 +153,8 @@ const dependencyDisplayInfo: Record<DefaultDependencyCategoryName, DependencyCat
 	'read':      { name: 'Imported Data', verb: 'imports the data', icon: 'file-text' },
 	'source':    { name: 'Sourced Scripts', verb: 'sources the script', icon: 'file-code' },
 	'write':     { name: 'Outputs', verb: 'produces the output', icon: 'new-file' },
-	'visualize': { name: 'Visualizations', verb: 'visualizes the data', icon: 'graph', useReverseLinks: true }
+	'visualize': { name: 'Visualizations', verb: 'visualizes the data', icon: 'graph', useReverseLinks: true },
+	'test':      { name: 'Tests', verb: 'tests for', icon: 'beaker' }
 };
 type Update = Dependency | undefined | null
 class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {

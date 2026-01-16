@@ -513,14 +513,16 @@
               "read",
               "source",
               "write",
-              "visualize"
+              "visualize",
+              "test"
             ],
             "enumDescriptions": [
               "Libraries",
               "Imported Data",
               "Sourced Scripts",
               "Outputs",
-              "Visualizations"
+              "Visualizations",
+              "Tests"
             ]
           },
           "default": [
@@ -528,7 +530,8 @@
             "read",
             "source",
             "write",
-            "visualize"
+            "visualize",
+            "test"
           ],
           "markdownDescription": "When using the dependency view, which dependency categories should be detected. Can also be toggled by right-clicking on a category in the dependency view itself."
         },
@@ -779,7 +782,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.8.5",
+    "@eagleoutice/flowr": "^2.8.7",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",

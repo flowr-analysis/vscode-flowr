@@ -64,8 +64,8 @@ export type DiagramSelectionMode = 'highlight' | 'hide';
  */
 class DiagramUpdateCoordinator {
 	private documentToDiagramPanel: Map<vscode.TextDocument, Set<DiagramPanelInformation>>;
-	private output:               vscode.OutputChannel;
-	private debounceTimeout:      NodeJS.Timeout | undefined;
+	private output:                 vscode.OutputChannel;
+	private debounceTimeout:        NodeJS.Timeout | undefined;
 	private debounceTime = 250; //ms
 
 	constructor(output: vscode.OutputChannel) {
