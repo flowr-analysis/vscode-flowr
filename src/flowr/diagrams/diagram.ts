@@ -5,6 +5,7 @@ import path from 'path';
 import { createDiagramWebview } from './diagram-generator';
 import type { DiagramOption , DiagramOptions, FlowrDiagramType } from './diagram-definitions';
 import { DiagramDefinitions } from './diagram-definitions';
+import { mermaidCodeToUrl } from '@eagleoutice/flowr/util/mermaid/mermaid';
 
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const coordinator = new DiagramUpdateCoordinator(output);
@@ -65,13 +66,13 @@ class DiagramUpdateCoordinator {
  
 		const definition = DiagramDefinitions[type];
 		const options = optionsFromDiagramType(type);
-		const mermaid = await definition.retrieve(options, editor);
+		const mermaid = await definition.retrieve(options as never, editor);
 
 		const panel = createDiagramWebview({
 			mermaid:          mermaid,
 			options:          options,
 			documentationUrl: definition.documentationUrl,
-			editorUrl:        '',
+			editorUrl:        mermaidCodeToUrl(mermaid, true),
 			id:               type as string,
 			name:             `${definition.title} (${path.basename(editor.document.fileName)})`
 		}, this.output);
@@ -143,31 +144,13 @@ class DiagramUpdateCoordinator {
 	}
 
 	public async updateWebviewPanel(info: DiagramPanelInformation, textEditor: vscode.TextEditor) {
-		const mermaid = await DiagramDefinitions[info.type].retrieve(info.options, textEditor);
-
-		const mermaid = await diagramFromTypeAndEditor(info.type, textEditor, info.options);
+		const mermaid = await DiagramDefinitions[info.type].retrieve(info.options as never, textEditor);
 		info.panel.webview.postMessage({
 			type:    'content_update',
 			content: mermaid
 		} satisfies ContentUpdateMessage);
 	}
 }
-
-type OptionsFor<T extends FlowrDiagramType> = (typeof DiagramDefinitions)[T]['options'];
-
-function assertOptionsMatch<T extends FlowrDiagramType>(type: T, options: DiagramOptions): asserts options is OptionsFor<T> {
-	for(const key of Object.keys(DiagramDefinitions[type].options)) {
-		if(!(key in options)) {
-			throw new Error(`Missing option '${key}' for diagram type '${type}'`);
-		}
-	}
-}
-
-async function retrieveDiagram<T extends FlowrDiagramType, O extends OptionsFor<T>>(type: T, options: O, editor: vscode.TextEditor) {
-	assertOptionsMatch(type, options);
-	return await DiagramDefinitions[type].retrieve(options, editor);
-}
-
 function optionsFromDiagramType<T extends FlowrDiagramType>(type: T): (typeof DiagramDefinitions)[T]['options'] {
 	const options = DiagramDefinitions[type].options;
 
