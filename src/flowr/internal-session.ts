@@ -31,6 +31,7 @@ import type { FlowrAnalyzer } from '@eagleoutice/flowr/project/flowr-analyzer';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 import { MermaidDefaultMarkStyle } from '@eagleoutice/flowr/util/mermaid/info';
 import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
+import { FlowrDiagramType , DiagramDefinitions } from './diagrams/diagram-definitions';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -83,7 +84,7 @@ function configureFlowrLogging(output: vscode.OutputChannel) {
 	setFlowrLoggingSensitivity(output);
 }
 
-type WorkActions = 'slice' | 'ast' | 'cfg' | 'dfg' | 'callgraph';
+type WorkActions = 'slice' | FlowrDiagramType;
 
 export class FlowrInternalSession implements FlowrSession {
 
@@ -115,13 +116,12 @@ export class FlowrInternalSession implements FlowrSession {
 		return vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
 			title:    (() => {
-				switch(action) {
-					case 'slice':      return 'Creating Slice...';
-					case 'ast':        return 'Creating AST...';
-					case 'cfg':        return 'Creating Control Flow Graph...';
-					case 'dfg':        return 'Creating Data Flow Graph...';
-					case 'callgraph':  return 'Creating Call Graph...';
-					default:           return 'Working...';
+				if(action === 'slice') {
+					return 'Creating Slice....';
+				} else if(action in DiagramDefinitions) {
+					return DiagramDefinitions[action].verb;
+				} else {
+					return 'Working...';
 				}
 			})(),
 			cancellable: false
@@ -255,7 +255,7 @@ export class FlowrInternalSession implements FlowrSession {
 				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
 				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined, 
 			}).string;
-		}, 'dfg', true, '');
+		}, FlowrDiagramType.Dataflow, true, '');
 	}
 
 	async retrieveCallgraphMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified?: boolean): Promise<string> {
@@ -271,7 +271,7 @@ export class FlowrInternalSession implements FlowrSession {
 				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
 				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined, 
 			}).string;
-		}, 'callgraph', true, '');
+		}, FlowrDiagramType.CallGraph, true, '');
 	}
 
 
@@ -284,7 +284,7 @@ export class FlowrInternalSession implements FlowrSession {
 				includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
 				mark:           selectionMode === 'highlight' ? selectionNodes : undefined,
 			});
-		}, 'ast', true, '');
+		}, FlowrDiagramType.Ast, true, '');
 	}
 
 	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified: boolean, simplifications: CfgSimplificationPassName[]): Promise<string> {
@@ -300,7 +300,7 @@ export class FlowrInternalSession implements FlowrSession {
 				simplify:       simplified,
 				markStyle:      MermaidDefaultMarkStyle
 			});
-		}, 'cfg', true, '');
+		}, FlowrDiagramType.Controlflow, true, '');
 	}
 
 	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {

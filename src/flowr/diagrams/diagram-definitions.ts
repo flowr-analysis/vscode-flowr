@@ -20,6 +20,8 @@ export interface DiagramDefinition<Options extends DiagramOptions> {
     documentationUrl: string;
     /** The command used to open the panel by the user */
     command:          string;
+	/** String that is displayed over the progress bar */
+	verb:                string; 
     /** Retrieves the mermaid diagram as a string */
     retrieve:         (options: Options, editor: vscode.TextEditor) => Promise<string>;
 }
@@ -106,41 +108,45 @@ export const CFGDiagramOptions = {
 } satisfies DiagramOptions;
 
 export const DiagramDefinitions = {
-	'flowr-dataflow': {
+	[FlowrDiagramType.Dataflow]: {
 		title:            'Dataflow Graph',
 		options:          DFGDiagramOptions,
 		documentationUrl: 'https://github.com/flowr-analysis/flowr/wiki/Dataflow-Graph',
 		command:          'vscode-flowr.dataflow',
+		verb:             'Creating Data Flow Graph...',
 		retrieve:         async(options, editor) => {
 			const session = await getFlowrSession();
 			return await session.retrieveDataflowMermaid(editor.document, editor.selections, options.mode.currentValue, options.simplifyDfg.currentValue);
 		}
 	} satisfies DiagramDefinition<typeof DFGDiagramOptions>,
-	'flowr-cfg': {
+	[FlowrDiagramType.Controlflow]: {
 		title:            'Control Flow Graph',
 		options:          CFGDiagramOptions,
 		documentationUrl: 'https://github.com/flowr-analysis/flowr/wiki/Control-Flow-Graph',
 		command:          'vscode-flowr.cfg',
+		verb:             'Creating Control Flow Graph...',
 		retrieve:         async(options, editor) => {
 			const session = await getFlowrSession();
 			return await session.retrieveCfgMermaid(editor.document, editor.selections, options.mode.currentValue, options.simplifyCfg.currentValue, simplificationPassesFromOptions(options));
 		}
 	} satisfies DiagramDefinition<typeof CFGDiagramOptions>,
-	'flowr-ast': {
+	[FlowrDiagramType.Ast]: {
 		title:            'AST',
 		options:          DefaultDiagramOptions,
 		documentationUrl: 'https://github.com/flowr-analysis/flowr/wiki/Normalized-AST',
 		command:          'vscode-flowr.ast',
+		verb:             'Creating AST...',
 		retrieve:         async(options, editor) => {
 			const session = await getFlowrSession();
 			return await session.retrieveAstMermaid(editor.document, editor.selections, options.mode.currentValue);
 		}
 	} satisfies DiagramDefinition<typeof DefaultDiagramOptions>,
-	'flowr-call-graph': {
+	[FlowrDiagramType.CallGraph]: {
 		title:            'Call Graph',
 		options:          DefaultDiagramOptions,
 		documentationUrl: 'https://github.com/flowr-analysis/flowr/wiki/Dataflow-Graph#perspectives-cg',
 		command:          'vscode-flowr.call-graph',
+		verb:             'Creating Call Graph...',
 		retrieve:         async(options, editor) => {
 			const session = await getFlowrSession();
 			return await session.retrieveCallgraphMermaid(editor.document, editor.selections, options.mode.currentValue);
