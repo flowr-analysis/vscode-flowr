@@ -3,7 +3,7 @@ import { FlowrInternalSession } from './flowr/internal-session';
 import { FlowrServerSession } from './flowr/server-session';
 import { getConfig, Settings } from './settings';
 import { registerSliceCommands } from './slice';
-import { registerDiagramCommands } from './diagram';
+import { registerDiagramCommands } from './flowr/diagrams/diagram';
 import type { FlowrSession } from './flowr/utils';
 import { selectionSlicer } from './selection-slicer';
 import { positionSlicers } from './position-slicer';

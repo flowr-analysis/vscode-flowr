@@ -27,7 +27,7 @@ import type { PipelineOutput } from '@eagleoutice/flowr/core/steps/pipeline/pipe
 import type { DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
 import { extractCfgQuick } from '@eagleoutice/flowr/control-flow/extract-cfg';
 import { getConfig, isVerbose, Settings } from '../settings';
-import type { DiagramSelectionMode } from '../diagram';
+import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 import { MermaidDefaultMarkStyle } from '@eagleoutice/flowr/util/mermaid/info';
 
@@ -167,6 +167,25 @@ export class FlowrServerSession implements FlowrSession {
 			this.onceOnLineReceived = resolve;
 		});
 	}
+
+	async retrieveCallgraphMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
+		const { result, ast, dfi, hasError } = await this.retrieveQuery(document, [{ type: 'call-graph' }]);
+
+		if(hasError || !ast || !dfi) {
+			return '';
+		}
+
+		const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
+		
+		return graphToMermaid({
+			graph:               DataflowGraph.fromJson(result['call-graph'].graph as unknown as DataflowGraphJson),
+			simplified,
+			includeEnvironments: false,
+			includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
+			mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+		}).string;
+	}
+
 
 	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
 		const response = await this.requestFileAnalysis(document);

@@ -122,6 +122,12 @@
         "category": "flowR"
       },
       {
+        "command": "vscode-flowr.call-graph",
+        "title": "Show Call Graph of the File",
+        "icon": "$(graph)",
+        "category": "flowR"
+      },
+      {
         "command": "vscode-flowr.slice.cursor",
         "title": "Show Relevant Code for Cursor Position Once (Backward Slice)",
         "icon": "$(search)",
