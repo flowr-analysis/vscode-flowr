@@ -30,6 +30,7 @@ import { FlowrInlineTextFile } from '@eagleoutice/flowr/project/context/flowr-fi
 import type { FlowrAnalyzer } from '@eagleoutice/flowr/project/flowr-analyzer';
 import type { DiagramSelectionMode } from '../diagram';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
+import { MermaidDefaultMarkStyle } from '@eagleoutice/flowr/util/mermaid/info';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -261,7 +262,7 @@ export class FlowrInternalSession implements FlowrSession {
 
 			return normalizedAstToMermaid(result.ast, {
 				includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
-				mark:           selectionMode === 'highlight' ? new Set(selectionNodes) : undefined,
+				mark:           selectionMode === 'highlight' ? selectionNodes : undefined,
 			});
 		}, 'ast', true, '');
 	}
@@ -275,8 +276,9 @@ export class FlowrInternalSession implements FlowrSession {
 
 			return cfgToMermaid(result, ast, {
 				includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
-				mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
-				simplify:       simplified
+				mark:           selectionMode === 'highlight' ? selectionNodes : undefined,
+				simplify:       simplified,
+				markStyle:      MermaidDefaultMarkStyle
 			});
 		}, 'cfg', true, '');
 	}

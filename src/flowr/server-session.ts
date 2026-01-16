@@ -29,6 +29,7 @@ import { extractCfgQuick } from '@eagleoutice/flowr/control-flow/extract-cfg';
 import { getConfig, isVerbose, Settings } from '../settings';
 import type { DiagramSelectionMode } from '../diagram';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
+import { MermaidDefaultMarkStyle } from '@eagleoutice/flowr/util/mermaid/info';
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -186,7 +187,7 @@ export class FlowrServerSession implements FlowrSession {
 		
 		return normalizedAstToMermaid(response.results.normalize.ast, {
 			includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
-			mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+			mark:           selectionMode === 'highlight' ? selectionNodes : undefined,
 		});
 	}
 
@@ -200,8 +201,9 @@ export class FlowrServerSession implements FlowrSession {
 		};
 		return cfgToMermaid(extractCfgQuick(normalize), normalize, {
 			includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
-			mark:           selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
-			simplify:       simplified
+			mark:           selectionMode === 'highlight' ? selectionNodes : undefined,
+			simplify:       simplified,
+			markStyle:      MermaidDefaultMarkStyle
 		});
 	}
 
