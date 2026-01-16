@@ -63,13 +63,13 @@ export type DiagramSelectionMode = 'highlight' | 'hide';
  * This also routes updates to the correct panel when the text selection updates in a panel
  */
 class DiagramUpdateCoordinator {
-	private editorToDiagramPanel: Map<vscode.TextEditor, Set<DiagramPanelInformation>>;
-	private output:               vscode.OutputChannel;
-	private debounceTimeout:      NodeJS.Timeout | undefined;
+	private documentToDiagramPanel: Map<vscode.TextDocument, Set<DiagramPanelInformation>>;
+	private output:                 vscode.OutputChannel;
+	private debounceTimeout:        NodeJS.Timeout | undefined;
 	private debounceTime = 250; //ms
 
 	constructor(output: vscode.OutputChannel) {
-		this.editorToDiagramPanel = new Map<vscode.TextEditor, Set<DiagramPanelInformation>>();
+		this.documentToDiagramPanel = new Map<vscode.TextDocument, Set<DiagramPanelInformation>>();
 		this.output = output;
 	}
 
@@ -91,7 +91,7 @@ class DiagramUpdateCoordinator {
 
 		// Stop tracking panel when user closes it
 		panel.onDidDispose(() => {
-			this.editorToDiagramPanel.get(editor)?.delete(info);
+			this.documentToDiagramPanel.get(editor.document)?.delete(info);
 		});
 
 		// Handle settings update messages from panel
@@ -115,11 +115,11 @@ class DiagramUpdateCoordinator {
 		});
 
 		// Add panel to map for tracking selection updates
-		if(!this.editorToDiagramPanel.has(editor)) {
-			this.editorToDiagramPanel.set(editor, new Set<DiagramPanelInformation>());
+		if(!this.documentToDiagramPanel.has(editor.document)) {
+			this.documentToDiagramPanel.set(editor.document, new Set<DiagramPanelInformation>());
 		}
 
-		this.editorToDiagramPanel.get(editor)?.add(info);
+		this.documentToDiagramPanel.get(editor.document)?.add(info);
 
 		return {
 			mermaid,
@@ -136,8 +136,7 @@ class DiagramUpdateCoordinator {
 
 		// Update when the last debounce timeout runs out
 		this.debounceTimeout = setTimeout(() => {
-			const panelsToUpdate = this.editorToDiagramPanel.get(e.textEditor);
-			
+			const panelsToUpdate = this.documentToDiagramPanel.get(e.textEditor.document);
 			if(!panelsToUpdate) {
 				return;
 			}
