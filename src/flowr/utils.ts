@@ -9,7 +9,7 @@ import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/visitor';
 import type { RNode } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/model';
-import type { DiagramSelectionMode } from '../diagram';
+import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
 import type { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';

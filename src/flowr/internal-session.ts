@@ -28,9 +28,9 @@ import { FlowrAnalyzerBuilder } from '@eagleoutice/flowr/project/flowr-analyzer-
 import type { PipelinePerStepMetaInformation } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
 import { FlowrInlineTextFile } from '@eagleoutice/flowr/project/context/flowr-file';
 import type { FlowrAnalyzer } from '@eagleoutice/flowr/project/flowr-analyzer';
-import type { DiagramSelectionMode } from '../diagram';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 import { MermaidDefaultMarkStyle } from '@eagleoutice/flowr/util/mermaid/info';
+import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
