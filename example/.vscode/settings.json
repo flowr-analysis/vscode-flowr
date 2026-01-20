@@ -7,5 +7,16 @@
         "library",
         "read"
     ],
-    "vscode-flowr.r.engine": "r-shell"
+    "vscode-flowr.r.engine": "r-shell",
+    "vscode-flowr.linter.enabledRules": [
+        "deprecated-functions",
+        "file-path-validity",
+        "seeded-randomness",
+        "absolute-file-paths",
+        "unused-definitions",
+        "dataframe-access-validation",
+        "dead-code",
+        "useless-loop",
+        "naming-convention"
+    ]
 }
