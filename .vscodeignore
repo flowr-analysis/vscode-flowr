@@ -13,3 +13,4 @@ test-workspace/
 media/
 .githooks/
 .github/
+**/*.js.map
