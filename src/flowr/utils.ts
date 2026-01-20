@@ -37,7 +37,7 @@ export interface FlowrSession {
 }
 
 export function getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {
-	const re = /([a-zA-Z0-9._:])+/;
+	const re = /([a-zA-Z0-9._])+/;
 	const wordRange = document.getWordRangeAtPosition(position, re);
 	return wordRange;
 }
