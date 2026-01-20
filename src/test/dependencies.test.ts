@@ -16,7 +16,7 @@ function simplifyDependencies(dependencies: Dependency[] | undefined): Dependenc
 
 function populateExpectedDependencies(expected: DependencyDisplay[]) {
 	// set default values for any that we didn't specify
-	for(const def of ['Libraries', 'Imported Data', 'Sourced Scripts', 'Outputs', 'Visualizations']) {
+	for(const def of ['Libraries', 'Imported Data', 'Sourced Scripts', 'Outputs', 'Visualizations', 'Tests']) {
 		if(expected.findIndex(e => e.label === def) < 0) {
 			expected.push({ label: def, description: '0 items', children: [] });
 		}

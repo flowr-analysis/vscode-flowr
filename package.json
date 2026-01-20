@@ -15,7 +15,7 @@
     "email": "florian.sihler@uni-ulm.de"
   },
   "license": "GPL-3.0",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "engines": {
     "vscode": "^1.92.0"
   },
@@ -122,6 +122,12 @@
         "category": "flowR"
       },
       {
+        "command": "vscode-flowr.call-graph",
+        "title": "Show Call Graph of the File",
+        "icon": "$(graph)",
+        "category": "flowR"
+      },
+      {
         "command": "vscode-flowr.slice.cursor",
         "title": "Show Relevant Code for Cursor Position Once (Backward Slice)",
         "icon": "$(search)",
@@ -167,12 +173,6 @@
       {
         "command": "vscode-flowr.dataflow",
         "title": "Show Dataflow Graph",
-        "icon": "$(graph)",
-        "category": "flowR"
-      },
-      {
-        "command": "vscode-flowr.dataflow-simplified",
-        "title": "Show Simplified Dataflow Graph",
         "icon": "$(graph)",
         "category": "flowR"
       },
@@ -519,14 +519,16 @@
               "read",
               "source",
               "write",
-              "visualize"
+              "visualize",
+              "test"
             ],
             "enumDescriptions": [
               "Libraries",
               "Imported Data",
               "Sourced Scripts",
               "Outputs",
-              "Visualizations"
+              "Visualizations",
+              "Tests"
             ]
           },
           "default": [
@@ -534,7 +536,8 @@
             "read",
             "source",
             "write",
-            "visualize"
+            "visualize",
+            "test"
           ],
           "markdownDescription": "When using the dependency view, which dependency categories should be detected. Can also be toggled by right-clicking on a category in the dependency view itself."
         },
@@ -624,10 +627,15 @@
             "Simplification passes that should be applied to the cfg diagram"
           ]
         },
-        "vscode-flowr.diagram.simplify": {
+        "vscode-flowr.diagram.simplifyCfg": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "If set to true, cfg diagrams are simplified"
+        },
+        "vscode-flowr.diagram.simplifyDfg": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "If set to true, dfg diagrams are simplified"
         }
       }
     },
@@ -771,7 +779,7 @@
     "test": "vscode-test --extensionDevelopmentPath=. .",
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse",
     "prebrowser": "npm run package-web",
-    "browser": "vscode-test-web --extensionDevelopmentPath=. .",
+    "browser": "vscode-test-web --extensionDevelopmentPath=. example",
     "precompile-web": "npm run copy-wasm-web",
     "compile-web": "webpack",
     "prepackage-web": "npm run copy-wasm-web",
@@ -780,7 +788,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.8.5",
+    "@eagleoutice/flowr": "^2.8.7",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
@@ -806,7 +814,7 @@
     "@types/ws": "^8.5.10",
     "@vscode/test-cli": "^0.0.6",
     "@vscode/test-electron": "^2.3.9",
-    "@vscode/test-web": "^0.0.60",
+    "@vscode/test-web": "^0.0.78",
     "copy-webpack-plugin": "^12.0.2",
     "ifdef-loader": "^2.3.2",
     "ts-essentials": "^10.1.1",

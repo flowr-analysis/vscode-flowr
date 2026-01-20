@@ -1,33 +1,16 @@
-import type { DiagramSettingsKeys } from './settings';
-import { getConfig, Settings } from './settings';
+import { getConfig, Settings } from '../../settings';
 import { assertUnreachable } from '@eagleoutice/flowr/util/assert';
 import * as vscode from 'vscode';
+import type { DiagramOptions, DiagramOptionsCheckbox, DiagramOptionsDropdown } from './diagram-definitions';
 
-export interface DiagramOptionsBase<T> {
-    type:         string
-    key:          DiagramSettingsKeys
-    default:      T
-    currentValue: T 
+export interface DiagramGeneratorData {
+    mermaid:          string;
+    options:          DiagramOptions;
+    documentationUrl: string;
+    editorUrl:        string;
+    id:               string;
+    name:             string;
 }
-
-export interface DiagramOptionsCheckbox<T = string> extends DiagramOptionsBase<boolean> {
-    type:        'checkbox'
-    displayText: string
-    /** If set, it will be used to set the value in a set references by @see key in vscode's settings.json */
-    keyInSet:    T | undefined
-};
-
-export interface DiagramOptionsDropdown<T = string> extends DiagramOptionsBase<T> {
-    type:   'dropdown'
-    values: {
-        value:       T
-        displayText: string
-    }[]
-};
-
-export type DiagramOption = DiagramOptionsCheckbox | DiagramOptionsDropdown;
-
-export type DiagramOptions = Record<string, DiagramOption>; 
 
 const Checkbox =  {
 	html: (option: DiagramOptionsCheckbox) => {
@@ -73,7 +56,7 @@ function generateOptionsJS(options: DiagramOptions): string {
 	}).join('\n');
 }
 
-function createDiagramDocument(mermaid: string, options: DiagramOptions) {
+function createDiagramDocument({ mermaid, options, documentationUrl, editorUrl }: DiagramGeneratorData): string {
 	const theme = vscode.window.activeColorTheme.kind == vscode.ColorThemeKind.Light ? 'default' : 'dark';
 	// Use 'leet-html' extension for VS Code to get intellisense for the following string:
 	return ` 
@@ -98,22 +81,39 @@ function createDiagramDocument(mermaid: string, options: DiagramOptions) {
     </script>
 
     <style>
-        :root { --footer-height: 40px; }
+        :root { 
+            --footer-height: 40px; 
+            --header-height: 40px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: min-content 1fr min-content;
+            grid-column-gap: 0px;
+            grid-row-gap: 0px;
+            height: 100vh;
+            width: 100%;
+        }
+
         .mermaid svg {
-            position: absolute;
             max-width: 100% !important;
             max-height: 100% !important;
+            height: 100%;
             width: 100%;
-            height: calc(100% - var(--footer-height));
-            top: 0;
-            left: 0;
+        }
+
+        .header {
+            height: var(--header-height);  
+            display: flex; 
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
         }
 
         .footer {
-            position: fixed;
-            left: 0; right:0; bottom: 0;
             height: var(--footer-height);
-            display: flex;
+            display: flex; 
             align-items: center;
             gap: 8px;
             margin-left: 10px;
@@ -128,12 +128,22 @@ function createDiagramDocument(mermaid: string, options: DiagramOptions) {
     </style>
 </head>
 <body>
-    <div class="mermaid" id="diagram">
-        ${mermaid}
+    <div class="container">
+        <div class="header">
+            <a href="${documentationUrl}">Documentation</a>
+            <a href="${editorUrl}">Open in Mermaid</a>
+        </div>
+
+        <div class="mermaid" id="diagram">
+            ${mermaid}
+        </div>
+        
+        <div class="footer">
+            ${generateOptionsHTML(options)}
+        </div>
     </div>
-    <div class="footer">
-        ${generateOptionsHTML(options)}
-    </div>
+
+    
     <script>
         const vscode = acquireVsCodeApi();
         
@@ -168,18 +178,18 @@ function mermaidMaxTextLength() {
 	return getConfig().get<number>(Settings.StyleMermaidMaxTextLength, 500000);
 }
 
-export function createDiagramWebview(id: string, name: string, mermaid: string, output: vscode.OutputChannel, options: DiagramOptions): vscode.WebviewPanel | undefined {
+export function createDiagramWebview(data: DiagramGeneratorData, output: vscode.OutputChannel): vscode.WebviewPanel | undefined {
 	// https://github.com/mermaid-js/mermaid/blob/47601ac311f7ad7aedfaf280d319d75434680622/packages/mermaid/src/mermaidAPI.ts#L315-L317
-	if(mermaid.length > mermaidMaxTextLength()){
+	if(data.mermaid.length > mermaidMaxTextLength()){
 		void vscode.window.showErrorMessage('The diagram is too large to be displayed by Mermaid. You can find its code in the flowR output panel instead. Additionally, you can change the maximum diagram length in the extension settings.');
-		output.appendLine(mermaid);
+		output.appendLine(data.mermaid);
 		return undefined;
 	}
 
-	const panel = vscode.window.createWebviewPanel(id, name, vscode.ViewColumn.Beside, {
+	const panel = vscode.window.createWebviewPanel(data.id, data.name, vscode.ViewColumn.Beside, {
 		enableScripts: true
 	});
-	panel.webview.html = createDiagramDocument(mermaid, options);
+	panel.webview.html = createDiagramDocument(data);
 	return panel;
 }
 
