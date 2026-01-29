@@ -68,6 +68,11 @@ class DiagramUpdateCoordinator {
 		const options = optionsFromDiagramType(type);
 		const mermaid = await definition.retrieve(options as never, editor);
 
+		// Don't show a panel if generation failed
+		if(mermaid === '') { 
+			return;
+		}
+
 		const panel = createDiagramWebview({
 			mermaid:          mermaid,
 			options:          options,
