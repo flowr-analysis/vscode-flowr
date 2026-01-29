@@ -105,11 +105,29 @@ export class FlowrInternalSession implements FlowrSession {
 	}
 
 	private async startWorkWithProgressBar<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer) => Promise<T>, action: WorkActions, showErrorMessage: boolean, defaultOnErr = {} as T): Promise<T> {
+		this.setWorking(true);
+
+		// Wait for the flowr session 
 		if(!this.parser) {
-			return defaultOnErr;
+			const times =  [3000, 2000, 1000];
+			while(times.length != 0) {
+				const timeout = times.pop();
+				this.outputChannel.appendLine(`FlowR Session not available - retrying in ${timeout}ms`);
+				await new Promise(res => setTimeout(res, timeout));
+				
+				if(this.parser) {
+					break;
+				}
+			}
+
+			if(!this.parser) {
+				this.setWorking(false);
+				await vscode.window.showErrorMessage('Failed to generate diagram - FlowR Analyzer Session is not ready!');
+				return defaultOnErr;
+			}
 		}
 
-		this.setWorking(true);
+
 		const analyzer = await analyzerFromDocument(document, this.parser);		
 
 		// update the vscode ui
