@@ -37,7 +37,6 @@ export enum Settings {
 	Rexecutable = 'r.executable',
 
 	SolverVariableHandling = 'config.solver.variableHandling',
-	SolverPointerTracking = 'config.solver.pointerTracking',
 	SolverSourceIgnoreCapitalization = 'config.solver.resolveSource.ignoreCapitalization',
 	SolverSourceInferWorkingDirectory = 'config.solver.resolveSource.inferWorkingDirectory',
 	SolverSourceSearchPath = 'config.solver.resolveSource.searchPath',

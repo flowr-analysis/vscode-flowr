@@ -237,9 +237,8 @@ function updateFlowrConfig() {
 	VSCodeFlowrConfiguration = deepMergeObject<FlowrConfigOptions>(defaultConfigOptions, {
 		ignoreSourceCalls: config.get<boolean>(Settings.IgnoreSourceCalls, false),
 		solver:            {
-			variables:       config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
-			pointerTracking: config.get<boolean>(Settings.SolverPointerTracking, false),
-			resolveSource:   {
+			variables:     config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
+			resolveSource: {
 				ignoreCapitalization:  config.get<boolean>(Settings.SolverSourceIgnoreCapitalization, true),
 				inferWorkingDirectory: config.get<InferWorkingDirectory>(Settings.SolverSourceInferWorkingDirectory, InferWorkingDirectory.ActiveScript),
 				searchPath:            config.get<string[]>(Settings.SolverSourceSearchPath, []),
@@ -254,7 +253,8 @@ function updateFlowrConfig() {
 				}
 			}
 		},
-		engines: [{
+		defaultEngine: FlowrInternalSession.getEngineToUse(),
+		engines:       [{
 			type:               FlowrInternalSession.getEngineToUse(),
 			wasmPath:           `${wasmRoot}/tree-sitter-r.wasm`,
 			treeSitterWasmPath: `${wasmRoot}/tree-sitter.wasm`,

@@ -435,11 +435,6 @@
           ],
           "markdownDescription": "How to resolve variables and their values when analyzing code."
         },
-        "vscode-flowr.config.solver.pointerTracking": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "Whether to track pointers in the dataflow graph. If this is false, the graph will be over-approximated with regard to containers and accesses."
-        },
         "vscode-flowr.config.solver.resolveSource.ignoreCapitalization": {
           "type": "boolean",
           "default": true,
@@ -788,7 +783,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.8.7",
+    "@eagleoutice/flowr": "^2.8.15",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
