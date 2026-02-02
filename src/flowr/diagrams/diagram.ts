@@ -68,6 +68,12 @@ class DiagramUpdateCoordinator {
 		const options = optionsFromDiagramType(type);
 		const mermaid = await definition.retrieve(options as never, editor);
 
+		// Don't show a panel if generation failed
+		if(mermaid === '') { 
+			await vscode.window.showErrorMessage('Failed to generate diagram - FlowR Analyzer Session is not ready. Check if flowrR is connected and try again.');
+			return;
+		}
+
 		const panel = createDiagramWebview({
 			mermaid:          mermaid,
 			options:          options,
