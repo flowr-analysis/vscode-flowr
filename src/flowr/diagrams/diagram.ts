@@ -70,6 +70,7 @@ class DiagramUpdateCoordinator {
 
 		// Don't show a panel if generation failed
 		if(mermaid === '') { 
+			await vscode.window.showErrorMessage('Failed to generate diagram - FlowR Analyzer Session is not ready. Check if flowrR is connected and try again.');
 			return;
 		}
 

@@ -110,7 +110,7 @@ export class FlowrInternalSession implements FlowrSession {
 		// Wait for the flowr session 
 		if(!this.parser) {
 			const times =  [3000, 2000, 1000];
-			while(times.length != 0) {
+			while(times.length !== 0) {
 				const timeout = times.pop();
 				this.outputChannel.appendLine(`FlowR Session not available - retrying in ${timeout}ms`);
 				await new Promise(res => setTimeout(res, timeout));
@@ -122,7 +122,6 @@ export class FlowrInternalSession implements FlowrSession {
 
 			if(!this.parser) {
 				this.setWorking(false);
-				await vscode.window.showErrorMessage('Failed to generate diagram - FlowR Analyzer Session is not ready!');
 				return defaultOnErr;
 			}
 		}
