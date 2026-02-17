@@ -7,8 +7,8 @@ import type { ConfiguredLintingRule, LintingResult, LintQuickFix } from '@eagleo
 import { ConfigurableRefresher } from './configurable-refresher';
 import type { LinterQueryResult } from '@eagleoutice/flowr/queries/catalog/linter-query/linter-query-format';
 import { rangeToVscodeRange } from './flowr/utils';
-import { rangeCompare } from '@eagleoutice/flowr/util/range';
 import { flowrScheme } from './doc-provider';
+import { SourceLocation } from '@eagleoutice/flowr/util/range';
 
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(context, output);
@@ -59,12 +59,15 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 				continue;
 			}
 			for(const finding of findings.results) {
+				if(!('loc' in finding)) {
+					continue;
+				}
 				const quickFixes = (finding as LintingResult).quickFix;
 				if(!quickFixes?.length){
 					continue;
 				}
-				// only add quick fixes if we overlap the relevant rnage or selection
-				if([...quickFixes.map(q => q.range), finding.range].some(r => rangeToVscodeRange(r).intersection(range))) {
+				// only add quick fixes if we overlap the relevant range or selection
+				if([...quickFixes.map(q => q.loc), finding.loc].some(l => rangeToVscodeRange(SourceLocation.getRange(l)).intersection(range))) {
 					ret.push(new CodeAction(document, quickFixes));
 				}
 			}
@@ -74,8 +77,8 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 
 	resolveCodeAction(codeAction: CodeAction, _token: vscode.CancellationToken): vscode.ProviderResult<CodeAction> {
 		codeAction.edit = new vscode.WorkspaceEdit();
-		for(const fix of codeAction.quickFixes.sort((f1, f2) => rangeCompare(f2.range, f1.range))) {
-			const range = rangeToVscodeRange(fix.range);
+		for(const fix of codeAction.quickFixes.sort((f1, f2) => SourceLocation.compare(f2.loc, f1.loc))) {
+			const range = rangeToVscodeRange(SourceLocation.getRange(fix.loc));
 			switch(fix.type) {
 				case 'replace':
 					codeAction.edit.replace(codeAction.document.uri, range, fix.replacement);
@@ -152,19 +155,18 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 			this.output.appendLine(`[Lint] Found ${findings.results.length} issues for rule ${ruleName}`);
 			this.output.appendLine(`[Lint] ${JSON.stringify(findings)}`);
 
-			for(const result of findings.results) {
-				// not all linting results have a range
-				if(result.range === undefined) {
+			for(const finding of findings.results) {
+				if(!('loc' in finding)) {
 					continue;
 				}
-				const range = rangeToVscodeRange(result.range);
+				const range = rangeToVscodeRange(SourceLocation.getRange(finding.loc));
 				const pageName = ruleName.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 				const pageUrl = `https://github.com/flowr-analysis/flowr/wiki/[Linting Rule] ${pageName}`;
 				const diag = new vscode.Diagnostic(
 					range,
 					`${ruleName}: ${(rule.prettyPrint['full'] as (result: LintingRuleResult<LintingRuleNames>, metadata: LintingRuleMetadata<LintingRuleNames>) => string)(
-							result as LintingRuleResult<LintingRuleNames>,
-							result as LintingRuleMetadata<LintingRuleNames>
+							finding as LintingRuleResult<LintingRuleNames>,
+							finding as LintingRuleMetadata<LintingRuleNames>
 					)}`,
 					vscode.DiagnosticSeverity.Warning
 				);

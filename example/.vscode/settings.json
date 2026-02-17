@@ -7,7 +7,6 @@
         "library",
         "read"
     ],
-    "vscode-flowr.r.engine": "r-shell",
     "vscode-flowr.linter.enabledRules": [
         "deprecated-functions",
         "file-path-validity",
@@ -18,5 +17,6 @@
         "dead-code",
         "useless-loop",
         "naming-convention"
-    ]
+    ],
+    "vscode-flowr.debug.flowrLogLevel": "Trace"
 }
