@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { SourceRange } from '@eagleoutice/flowr/util/range';
+import { SourceRange } from '@eagleoutice/flowr/util/range';
 import type { SliceDisplay } from './settings';
 import { getConfig, isVerbose, Settings } from './settings';
 import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-slicer';
@@ -8,7 +8,6 @@ import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/proc
 import { getReconstructionContentProvider, makeUri } from './doc-provider';
 import type { Dependency } from './flowr/views/dependency-view';
 import { getCriteriaSlicer } from './criteria-slicer';
-import { formatRange } from '@eagleoutice/flowr/util/mermaid/dfg';
 import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import { rangeToVscodeRange } from './flowr/utils';
 import { registerCommand } from './extension';
@@ -95,7 +94,7 @@ function showDependencySlice(output: vscode.OutputChannel, dependency: Dependenc
 	const slicer = getCriteriaSlicer();
 	/* always with reconstruction */
 	if(isVerbose()) {
-		output.appendLine(`[Dependency View] Slicing for id ${nodeId} (at: ${formatRange(loc)})`);
+		output.appendLine(`[Dependency View] Slicing for id ${nodeId} (at: ${SourceRange.format(loc)})`);
 	}
 	// we use loc slicer for uses with `::` etc.
 	const info = dependency.getAnalysisInfo();
