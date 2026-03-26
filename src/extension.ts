@@ -16,6 +16,14 @@ import { registerLintCommands } from './lint';
 import { NoTelemetry, registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
 import { registerHoverOverValues } from './hover-values';
 
+/**
+ * Public-facing API for the flowR extension, which includes a variety of helpful utilities.
+ * Currently, items exposed by the public-facing API are required and used for unit tests.
+ */
+export interface FlowrExtensionApi {
+	flowrConfig: () => FlowrConfig
+}
+
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
 
@@ -27,7 +35,7 @@ let flowrSession: FlowrSession | undefined;
 /**
  *
  */
-export async function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext): Promise<FlowrExtensionApi> {
 	extensionContext = context;
 	outputChannel = vscode.window.createOutputChannel('flowR');
 	outputChannel.appendLine(`flowR extension activated (ships with flowR v${flowrVersion().toString()}, web: ${isWeb()})`);
@@ -119,6 +127,11 @@ ${JSON.stringify(getConfig(), null, 2)}
 	if(getConfig().get<boolean>(Settings.ServerAutoConnect)) {
 		await establishServerSession();
 	}
+
+	// initialize the api :)
+	return {
+		flowrConfig: () => VSCodeFlowrConfiguration
+	};
 }
 
 /**
@@ -256,7 +269,9 @@ export function registerCommand(context: vscode.ExtensionContext, command: strin
 	}, thisArg));
 }
 
-export let VSCodeFlowrConfiguration = FlowrConfig.default();
+// we never want to access the default flowR config on accident,
+// so we set it to undefined by default until it is loaded during extension initialization
+export let VSCodeFlowrConfiguration: FlowrConfig = undefined as unknown as FlowrConfig;
 
 function updateFlowrConfig() {
 	const config = getConfig();

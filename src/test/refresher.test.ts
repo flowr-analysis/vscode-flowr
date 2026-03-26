@@ -3,6 +3,7 @@ import type { RefresherConfigKeys } from '../settings';
 import { DependencyViewRefresherConfigKeys, LinterRefresherConfigKeys, Settings } from '../settings';
 import { ConfigurableRefresher, RefreshType } from '../configurable-refresher';
 import assert from 'assert';
+import { activateExtension } from './test-util';
 
 const Keys = {
 	updateType:    Settings.LinterUpdateType,
@@ -23,6 +24,9 @@ export async function updateRefreshSettings(keys: RefresherConfigKeys, type: Ref
 }
 
 suite('refresher', () => {
+	suiteSetup(async() => {
+		await activateExtension();
+	});
 
 	suiteTeardown(async() => {
 		// remove keys from config

@@ -20,7 +20,7 @@ suite('linter', () => {
 		assert.ok(action.edit);
 		assert.ok(await vscode.workspace.applyEdit(action.edit));
 
-		assert.equal(editor.document.getText(), `
+		assert.equal(editor.document.getText().replaceAll('\r\n', '\n'), `
 cat("1")
 ; cat("2")
 cat("3")
