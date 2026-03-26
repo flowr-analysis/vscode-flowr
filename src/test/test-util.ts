@@ -7,7 +7,7 @@ import type { FlowrInternalSession } from '../flowr/internal-session';
 import type { FlowrExtensionApi } from '../extension';
 
 /**
- * Activate the extension (if not already active) and return its {@link FlowrExtensionApi}
+ * Activate the extension and return its {@link FlowrExtensionApi}
  */
 export async function activateExtension(): Promise<FlowrExtensionApi> {
 	const ext = vscode.extensions.getExtension('code-inspect.vscode-flowr');
@@ -15,9 +15,7 @@ export async function activateExtension(): Promise<FlowrExtensionApi> {
 	assert.notEqual(ext, undefined, 'extension not found');
 
 	await assert.doesNotReject(async() => {
-		if(!ext?.isActive) {
-			await ext?.activate();
-		}
+		await ext?.activate();
 	}, 'extension activation failed');
 
 	const api = (ext as vscode.Extension<FlowrExtensionApi>).exports;
