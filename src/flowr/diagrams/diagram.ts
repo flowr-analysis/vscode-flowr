@@ -5,7 +5,7 @@ import path from 'path';
 import { createDiagramWebview } from './diagram-generator';
 import type { DiagramOption , DiagramOptions, FlowrDiagramType } from './diagram-definitions';
 import { DiagramDefinitions } from './diagram-definitions';
-import { mermaidCodeToUrl } from '@eagleoutice/flowr/util/mermaid/mermaid';
+import { Mermaid } from '@eagleoutice/flowr/util/mermaid/mermaid';
 
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const coordinator = new DiagramUpdateCoordinator(output);
@@ -78,7 +78,7 @@ class DiagramUpdateCoordinator {
 			mermaid:          mermaid,
 			options:          options,
 			documentationUrl: definition.documentationUrl,
-			editorUrl:        mermaidCodeToUrl(mermaid, true),
+			editorUrl:        Mermaid.codeToUrl(mermaid, true),
 			id:               type as string,
 			name:             `${definition.title} (${path.basename(editor.document.fileName)})`
 		}, this.output);

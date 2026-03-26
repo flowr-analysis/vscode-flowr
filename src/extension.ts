@@ -9,8 +9,7 @@ import { selectionSlicer } from './selection-slicer';
 import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
 import { registerDependencyInternalCommands, registerDependencyView } from './flowr/views/dependency-view';
-import type { FlowrConfigOptions } from '@eagleoutice/flowr/config';
-import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfigOptions } from '@eagleoutice/flowr/config';
+import { DropPathsOption, FlowrConfig, InferWorkingDirectory, VariableResolve  } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
@@ -228,13 +227,13 @@ export function registerCommand(context: vscode.ExtensionContext, command: strin
 	}, thisArg));
 }
 
-export let VSCodeFlowrConfiguration = defaultConfigOptions;
+export let VSCodeFlowrConfiguration = FlowrConfig.default();
 
 function updateFlowrConfig() {
 	const config = getConfig();
 	const wasmRoot = getWasmRootPath();
 	// we don't want to *amend* here since updates to our extension config shouldn't add additional entries while keeping old ones (definitions etc.)
-	VSCodeFlowrConfiguration = deepMergeObject<FlowrConfigOptions>(defaultConfigOptions, {
+	VSCodeFlowrConfiguration = deepMergeObject<FlowrConfig>(FlowrConfig.default(), {
 		ignoreSourceCalls: config.get<boolean>(Settings.IgnoreSourceCalls, false),
 		solver:            {
 			variables:     config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
@@ -260,5 +259,5 @@ function updateFlowrConfig() {
 			treeSitterWasmPath: `${wasmRoot}/tree-sitter.wasm`,
 			lax:                config.get<boolean>(Settings.TreeSitterLax, true)
 		}]
-	});
+	} as Partial<FlowrConfig>);
 }

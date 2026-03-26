@@ -12,8 +12,8 @@ import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
 import { Settings , getConfig, isVerbose } from './settings';
 import { getCriteriaSlicer } from './criteria-slicer';
-import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import { isRTypeLanguage } from './configurable-refresher';
+import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 
 

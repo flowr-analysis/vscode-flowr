@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, VSCodeFlowrConfiguration, getWasmRootPath, isWeb, updateStatusBar } from '../extension';
 import { Settings , getConfig, isVerbose } from '../settings';
-import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import type { FlowrSession, SliceReturn } from './utils';
 import { makeSliceElements, selectionsToNodeIds } from './utils';
 import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell';
@@ -21,8 +20,6 @@ import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/mod
 import { reconstructToCode } from '@eagleoutice/flowr/reconstruct/reconstruct';
 import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto-select-defaults';
 import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
-import { getEngineConfig } from '@eagleoutice/flowr/config';
-import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { FlowrAnalyzerBuilder } from '@eagleoutice/flowr/project/flowr-analyzer-builder';
 import type { PipelinePerStepMetaInformation } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
@@ -32,6 +29,9 @@ import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/
 import { MermaidDefaultMarkStyle } from '@eagleoutice/flowr/util/mermaid/info';
 import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
 import { FlowrDiagramType , DiagramDefinitions } from './diagrams/diagram-definitions';
+import { FlowrConfig } from '@eagleoutice/flowr/config';
+import { DataflowMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
+import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -181,7 +181,7 @@ export class FlowrInternalSession implements FlowrSession {
 				}
 				this.outputChannel.appendLine(`Using options ${JSON.stringify(options)}`);
 
-				this.parser = new RShell(getEngineConfig(VSCodeFlowrConfiguration, 'r-shell'), options);
+				this.parser = new RShell(FlowrConfig.getForEngine(VSCodeFlowrConfiguration, 'r-shell'), options);
 				this.parser.tryToInjectHomeLibPath();
 
 				// wait at most 1 second for the version, since the R shell doesn't let us know if the path
@@ -224,7 +224,7 @@ export class FlowrInternalSession implements FlowrSession {
 						this.outputChannel.appendLine('Initializing tree-sitter... (wasm at: ' + getWasmRootPath() + ', timeout: ' + timeout + 'ms)');
 
 						await Promise.race([TreeSitterExecutor.initTreeSitter(
-							getEngineConfig(VSCodeFlowrConfiguration, 'tree-sitter'),
+							FlowrConfig.getForEngine(VSCodeFlowrConfiguration, 'tree-sitter'),
 						), new Promise<void>((_, reject) => setTimeout(() => reject(new Error(`Timeout (${Settings.TreeSitterTimeout} = ${timeout}ms)`)), timeout))]);
 						FlowrInternalSession.treeSitterInitialized = true;
 					} catch(e) {
@@ -265,7 +265,7 @@ export class FlowrInternalSession implements FlowrSession {
 			const ast = await analyzer.normalize();
 			const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
 
-			return graphToMermaid({ 
+			return DataflowMermaid.convert({ 
 				graph:               df.graph, 
 				simplified, 
 				includeEnvironments: false, 
@@ -281,7 +281,7 @@ export class FlowrInternalSession implements FlowrSession {
 			const ast = await analyzer.normalize();
 			const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
 
-			return graphToMermaid({ 
+			return DataflowMermaid.convert({ 
 				graph:               callGraph, 
 				simplified, 
 				includeEnvironments: false, 

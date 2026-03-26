@@ -8,9 +8,9 @@ import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/proc
 import { getReconstructionContentProvider, makeUri } from './doc-provider';
 import type { Dependency } from './flowr/views/dependency-view';
 import { getCriteriaSlicer } from './criteria-slicer';
-import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import { rangeToVscodeRange } from './flowr/utils';
 import { registerCommand } from './extension';
+import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 export function registerSliceCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	registerCommand(context, 'vscode-flowr.slice.cursor', async() => {

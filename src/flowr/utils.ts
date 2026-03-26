@@ -1,18 +1,17 @@
 import * as vscode from 'vscode';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
-import type { SingleSlicingCriterion, SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
+import type { SlicingCriterion, SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import type { NormalizedAst, ParentInformation } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
-import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
-import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/visitor';
-import type { RNode } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/model';
+import { RNode } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/model';
 import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
 import type { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';
+import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
@@ -49,11 +48,11 @@ export function consolidateNewlines(text: string) {
 	return text.replace(/\r\n/g, '\n');
 }
 
-function toSlicingCriterion(pos: vscode.Position): SingleSlicingCriterion {
+function toSlicingCriterion(pos: vscode.Position): SlicingCriterion {
 	return `${pos.line + 1}:${pos.character + 1}`;
 }
 
-export function makeSlicingCriteria(positions: [vscode.Position], doc: vscode.TextDocument, verbose?: boolean): [SingleSlicingCriterion];
+export function makeSlicingCriteria(positions: [vscode.Position], doc: vscode.TextDocument, verbose?: boolean): [SlicingCriterion];
 export function makeSlicingCriteria(positions: vscode.Position[], doc: vscode.TextDocument, verbose?: boolean): SlicingCriteria;
 export function makeSlicingCriteria(positions: vscode.Position[], doc: vscode.TextDocument, verbose: boolean = true): SlicingCriteria {
 	positions = positions.map(pos => {
@@ -107,7 +106,7 @@ export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<Pare
 		sel.end.with(sel.end.line, Math.max(sel.end.character - 1, 0))
 	));
 
-	visitAst(root, node => {
+	RNode.visitAst(root, node => {
 		if(node.type === RType.ExpressionList) {
 			maybeIncluded.push(node);
 			return;

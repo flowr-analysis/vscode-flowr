@@ -11,9 +11,9 @@ import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { getSelectionSlicer } from './selection-slicer';
 import type { SliceDisplay } from './settings';
 import { Settings , getConfig, isVerbose } from './settings';
-import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
+import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 
 const positionSlicerAuthority = 'doc-slicer';

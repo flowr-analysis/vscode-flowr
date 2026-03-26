@@ -9,7 +9,6 @@ import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { FlowrSession, SliceReturn } from './utils';
 import { consolidateNewlines, makeSliceElements, selectionsToNodeIds } from './utils';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
-import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/visitor';
 import type { DataflowGraphJson } from '@eagleoutice/flowr/dataflow/graph/graph';
 import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
@@ -18,10 +17,9 @@ import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/rep
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
-import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
+import { DataflowMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import { BiMap } from '@eagleoutice/flowr/util/collections/bimap';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
-import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import type { QueryResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-query';
 import type { PipelineOutput } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
 import type { DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
@@ -30,6 +28,8 @@ import { getConfig, isVerbose, Settings } from '../settings';
 import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 import { MermaidDefaultMarkStyle } from '@eagleoutice/flowr/util/mermaid/info';
+import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
+import { RNode } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/model';
 
 export class FlowrServerSession implements FlowrSession {
 
@@ -177,7 +177,7 @@ export class FlowrServerSession implements FlowrSession {
 
 		const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
 		
-		return graphToMermaid({
+		return DataflowMermaid.convert({
 			graph:               DataflowGraph.fromJson(result['call-graph'].graph as unknown as DataflowGraphJson),
 			simplified,
 			includeEnvironments: false,
@@ -191,7 +191,7 @@ export class FlowrServerSession implements FlowrSession {
 		const response = await this.requestFileAnalysis(document);
 		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
 		
-		return graphToMermaid({
+		return DataflowMermaid.convert({
 			graph:               DataflowGraph.fromJson(response.results.dataflow.graph as unknown as DataflowGraphJson),
 			simplified,
 			includeEnvironments: false,
@@ -231,7 +231,7 @@ export class FlowrServerSession implements FlowrSession {
 		// now we want to collect all ids from response in a map again (id -> location)
 		const idToLocation = new Map<NodeId, SourceRange>();
 		const nodes = response.results.normalize.ast.files.map(f => f.root);
-		visitAst(nodes, n => {
+		RNode.visitAst(nodes, n => {
 			// backwards compat for server versions before 2.0.2, which used a "flavor" rather than a "named" boolean
 			if(n.flavor === 'named') {
 				n['name' + 'd'] = true;

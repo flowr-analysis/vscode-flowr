@@ -5,12 +5,12 @@ import type { FlowrSession } from './flowr/utils';
 import { makeSlicingCriteria } from './flowr/utils';
 import { Bottom, Top } from '@eagleoutice/flowr/abstract-interpretation/domains/lattice';
 import { isTop, stringifyValue } from '@eagleoutice/flowr/dataflow/eval/values/r-value';
-import type { SingleSlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse';
 import { getConfig, Settings } from './settings';
 import { ConfigurableRefresher, RefreshType } from './configurable-refresher';
 import type { Queries } from '@eagleoutice/flowr/queries/query';
 import type { Writable } from 'ts-essentials';
 import { builtInEnvJsonReplacer } from '@eagleoutice/flowr/dataflow/environments/environment';
+import type { SlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse';
 
 export function registerHoverOverValues(output: vscode.OutputChannel): vscode.Disposable[] {
 	const provider = new FlowrHoverProvider(output);
@@ -27,7 +27,7 @@ interface ValueInfo {
    // can also be more complex structures like df shapes
    value:   unknown; 
    textRep: string;
-	criteria:  SingleSlicingCriterion;
+	criteria:  SlicingCriterion;
 }
 
 class FlowrHoverProvider implements vscode.HoverProvider {
