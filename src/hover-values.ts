@@ -1,17 +1,19 @@
 import * as vscode from 'vscode';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import { getFlowrSession } from './extension';
-import type { FlowrSession } from './flowr/utils';
 import { makeSlicingCriteria } from './flowr/utils';
 import { Bottom, Top } from '@eagleoutice/flowr/abstract-interpretation/domains/lattice';
 import { isTop, stringifyValue } from '@eagleoutice/flowr/dataflow/eval/values/r-value';
-import type { SingleSlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse';
 import { getConfig, Settings } from './settings';
 import { ConfigurableRefresher, RefreshType } from './configurable-refresher';
 import type { Queries } from '@eagleoutice/flowr/queries/query';
 import type { Writable } from 'ts-essentials';
 import { builtInEnvJsonReplacer } from '@eagleoutice/flowr/dataflow/environments/environment';
+import type { SlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse';
 
+/**
+ *
+ */
 export function registerHoverOverValues(output: vscode.OutputChannel): vscode.Disposable[] {
 	const provider = new FlowrHoverProvider(output);
 	return [vscode.languages.registerHoverProvider(
@@ -24,10 +26,10 @@ export function registerHoverOverValues(output: vscode.OutputChannel): vscode.Di
 }
 
 interface ValueInfo {
-   // can also be more complex structures like df shapes
-   value:   unknown; 
-   textRep: string;
-	criteria:  SingleSlicingCriterion;
+	// can also be more complex structures like df shapes
+	value:    unknown;
+	textRep:  string;
+	criteria: SlicingCriterion;
 }
 
 class FlowrHoverProvider implements vscode.HoverProvider {
@@ -35,9 +37,8 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 	private readonly updateEvent = new vscode.EventEmitter<void>();
 	public onDidChangeInlayHints = this.updateEvent.event;
 	private readonly cache = new Map<NodeId, ValueInfo[]>();
-	private session:            FlowrSession | undefined;
 	private readonly refresher: ConfigurableRefresher;
-   
+
 
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
@@ -49,24 +50,23 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 				adaptiveBreak: 20,
 				interval:      500
 			},
-			refreshCallback: async() => {
-				await this.update(); 
+			refreshCallback: () => {
+				this.update();
 			},
 			clearCallback: () => {
 				this.cache.clear();
 			},
 			output: output
 		});
-		
+
 		setTimeout(() => void this.update(), 500);
 	}
-	
+
 	dispose() {
 		this.refresher.dispose();
 	}
 
-	async update(): Promise<void> {
-		this.session ??= await getFlowrSession();
+	update() {
 		this.output.appendLine('[Hover Values] Clearing hover value cache');
 		this.cache.clear();
 		this.updateEvent.fire();
@@ -74,15 +74,16 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 
 
 	async provideHover(document: vscode.TextDocument, pos: vscode.Position, _token: vscode.CancellationToken): Promise<vscode.Hover | undefined> {
-		if(!this.session || !(getConfig().get<boolean>(Settings.ValuesOnHover))) {
+		const session = await getFlowrSession();
+		if(!session || !(getConfig().get<boolean>(Settings.ValuesOnHover))) {
 			return undefined;
 		}
-		
+
 		this.output.appendLine(`[Hover Values] Resolving value at ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1}`);
-		
+
 		const [criteria] = makeSlicingCriteria([pos], document);
 		const cached = this.cache.get(criteria);
-		if(cached) { 
+		if(cached) {
 			this.output.appendLine(`    [Hover Values] Using cached value for ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1} (${JSON.stringify(cached.map(c => c.value), builtInEnvJsonReplacer)})`);
 			return valueToHint(cached);
 		}
@@ -93,7 +94,7 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 		if(getConfig().get<boolean>(Settings.ValuesHoverDataFrames, true)) {
 			query.push({ type: 'df-shape', criterion: criteria } as const);
 		}
-		const valQuer = await this.session.retrieveQuery(document, query);
+		const valQuer = await session.retrieveQuery(document, query);
 		const results = Object.values(valQuer.result['resolve-value'].results).flatMap(r => r.values);
 		const values: ValueInfo[] = results.filter(v => !isTop(v)).map(r => {
 			return {

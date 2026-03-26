@@ -1,13 +1,13 @@
 import * as vscode from 'vscode';
 import { getFlowrSession, registerCommand } from '../../extension';
-import type { DefaultDependencyCategoryName , DependenciesQuery, DependenciesQueryResult, DependencyCategoryName, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
+import type { DefaultDependencyCategoryName, DependenciesQuery, DependenciesQueryResult, DependencyCategoryName, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import { DefaultDependencyCategories, Unknown } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { rangeToVscodeRange, RotaryBuffer } from '../utils';
 import type { DefaultsMaps } from '../../settings';
-import { DependencyViewRefresherConfigKeys, Settings , getConfig, isVerbose } from '../../settings';
+import { DependencyViewRefresherConfigKeys, Settings, getConfig, isVerbose } from '../../settings';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { ConfigurableRefresher, isRTypeLanguage, RefreshType } from '../../configurable-refresher';
@@ -26,6 +26,9 @@ const Defaults = {
 } satisfies DefaultsMaps;
 
 
+/**
+ *
+ */
 export function registerDependencyInternalCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	registerCommand(context, 'vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {
 		const node = dependency.getNodeId();
@@ -135,7 +138,7 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 				refreshDescDisposable.dispose();
 			}
 		},
-		update: async() =>{
+		update: async() => {
 			await data.refresh(true);
 			return await data.getChildren() as Dependency[] | undefined;
 		}
@@ -147,7 +150,7 @@ const emptyLocationMap: LocationMapQueryResult = { map: {
 	files: [],
 	ids:   {}
 }, '.meta': { timing: -1 } };
-interface DependencyCategoryInfo {name: string, verb: string, icon: string, useReverseLinks?: boolean};
+interface DependencyCategoryInfo { name: string, verb: string, icon: string, useReverseLinks?: boolean };
 const dependencyDisplayInfo: Record<DefaultDependencyCategoryName, DependencyCategoryInfo> = {
 	'library':   { name: 'Libraries', verb: 'loads the library', icon: 'library' },
 	'read':      { name: 'Imported Data', verb: 'imports the data', icon: 'file-text' },
@@ -156,7 +159,7 @@ const dependencyDisplayInfo: Record<DefaultDependencyCategoryName, DependencyCat
 	'visualize': { name: 'Visualizations', verb: 'visualizes the data', icon: 'graph', useReverseLinks: true },
 	'test':      { name: 'Tests', verb: 'tests for', icon: 'beaker' }
 };
-type Update = Dependency | undefined | null
+type Update = Dependency | undefined | null;
 class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private readonly output:               vscode.OutputChannel;
 	private activeDependencies:            DependenciesQueryResult = emptyDependencies;
@@ -176,7 +179,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			keys:            DependencyViewRefresherConfigKeys,
 			refreshCallback: async() => {
 				/* Gets called when the analysis should be refreshed */
-				await this.refresh(); 
+				await this.refresh();
 			},
 			configChangedCallback: () => {
 				/* Gets called when config changes, or update behaviour changes */
@@ -213,7 +216,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		);
 	}
 
-	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult, ast?: NormalizedAst, dfi?: DataflowInformation} | 'error'> {
+	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult, ast?: NormalizedAst, dfi?: DataflowInformation } | 'error'> {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(!activeEditor) {
 			return { dep: emptyDependencies, loc: emptyLocationMap };
@@ -247,7 +250,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	private working = false;
-	private textBuffer: RotaryBuffer<[{ content: string, path: string }, { dep: DependenciesQueryResult, loc: LocationMapQueryResult}]> = new RotaryBuffer(0);
+	private textBuffer: RotaryBuffer<[{ content: string, path: string }, { dep: DependenciesQueryResult, loc: LocationMapQueryResult }]> = new RotaryBuffer(0);
 	private lastText = '';
 	private lastFile = '';
 
@@ -479,7 +482,7 @@ export class Dependency extends vscode.TreeItem {
 					this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 				}
 			} else if(info.linkedIds){
-				this.children = info.linkedIds.toSorted((a,b) => compareByLocation(locationMap, a, b)).map(i => {
+				this.children = info.linkedIds.toSorted((a, b) => compareByLocation(locationMap, a, b)).map(i => {
 					const loc = locationMap.map.ids[i]?.[1];
 					const tok = loc ? activeEditor?.document.getText(rangeToVscodeRange(loc)) : undefined;
 
@@ -505,7 +508,7 @@ export class Dependency extends vscode.TreeItem {
 			this.contextValue = 'category';
 			if(getConfig().get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories).findIndex(c => this.category === c) < 0) {
 				this.description = 'Disabled';
-			}		
+			}
 		} else if(info) {
 			this.contextValue = 'dependency';
 		}
@@ -551,7 +554,7 @@ function unknownGuardedName(e: DependencyInfo): string {
 function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow: DependencyInfo[], allInfos: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency[] {
 	/* first group by name */
 	const grouped = new Map<string, DependencyInfo[]>();
-	for(const e of elementsToShow.toSorted((a,b) => compareByLocation(locationMap, a.nodeId, b.nodeId))) {
+	for(const e of elementsToShow.toSorted((a, b) => compareByLocation(locationMap, a.nodeId, b.nodeId))) {
 		const name = unknownGuardedName(e) + (e.value && e.value !== Unknown ? ` (${e.functionName})` : '');
 		if(!grouped.has(name)) {
 			grouped.set(name, []);

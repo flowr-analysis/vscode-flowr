@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, VSCodeFlowrConfiguration, getWasmRootPath, isWeb, updateStatusBar } from '../extension';
-import { Settings , getConfig, isVerbose } from '../settings';
-import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
+import { Settings, getConfig, isVerbose } from '../settings';
 import type { FlowrSession, SliceReturn } from './utils';
 import { makeSliceElements, selectionsToNodeIds } from './utils';
 import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell';
@@ -11,7 +10,7 @@ import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { KnownParser, KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
 import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/tree-sitter-executor';
 import { type Queries, type QueryResults, type SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
-import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
+import { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { SemVer } from 'semver';
 import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
@@ -21,8 +20,6 @@ import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/mod
 import { reconstructToCode } from '@eagleoutice/flowr/reconstruct/reconstruct';
 import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto-select-defaults';
 import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
-import { getEngineConfig } from '@eagleoutice/flowr/config';
-import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { FlowrAnalyzerBuilder } from '@eagleoutice/flowr/project/flowr-analyzer-builder';
 import type { PipelinePerStepMetaInformation } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
@@ -31,7 +28,10 @@ import type { FlowrAnalyzer } from '@eagleoutice/flowr/project/flowr-analyzer';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 import { MermaidDefaultMarkStyle } from '@eagleoutice/flowr/util/mermaid/info';
 import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
-import { FlowrDiagramType , DiagramDefinitions } from './diagrams/diagram-definitions';
+import { FlowrDiagramType, DiagramDefinitions } from './diagrams/diagram-definitions';
+import { FlowrConfig } from '@eagleoutice/flowr/config';
+import { DataflowMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
+import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 const logLevelToScore = {
 	Silly: LogLevel.Silly,
@@ -107,14 +107,14 @@ export class FlowrInternalSession implements FlowrSession {
 	private async startWorkWithProgressBar<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer) => Promise<T>, action: WorkActions, showErrorMessage: boolean, defaultOnErr = {} as T): Promise<T> {
 		this.setWorking(true);
 
-		// Wait for the flowr session 
+		// Wait for the flowr session
 		if(!this.parser) {
 			const times =  [3000, 2000, 1000];
 			while(times.length !== 0) {
 				const timeout = times.pop();
 				this.outputChannel.appendLine(`FlowR Session not available - retrying in ${timeout}ms`);
 				await new Promise(res => setTimeout(res, timeout));
-				
+
 				if(this.parser) {
 					break;
 				}
@@ -127,7 +127,7 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 
 
-		const analyzer = await analyzerFromDocument(document, this.parser);		
+		const analyzer = await analyzerFromDocument(document, this.parser);
 
 		// update the vscode ui
 		return vscode.window.withProgress({
@@ -181,7 +181,7 @@ export class FlowrInternalSession implements FlowrSession {
 				}
 				this.outputChannel.appendLine(`Using options ${JSON.stringify(options)}`);
 
-				this.parser = new RShell(getEngineConfig(VSCodeFlowrConfiguration, 'r-shell'), options);
+				this.parser = new RShell(FlowrConfig.getForEngine(VSCodeFlowrConfiguration, 'r-shell'), options);
 				this.parser.tryToInjectHomeLibPath();
 
 				// wait at most 1 second for the version, since the R shell doesn't let us know if the path
@@ -224,7 +224,7 @@ export class FlowrInternalSession implements FlowrSession {
 						this.outputChannel.appendLine('Initializing tree-sitter... (wasm at: ' + getWasmRootPath() + ', timeout: ' + timeout + 'ms)');
 
 						await Promise.race([TreeSitterExecutor.initTreeSitter(
-							getEngineConfig(VSCodeFlowrConfiguration, 'tree-sitter'),
+							FlowrConfig.getForEngine(VSCodeFlowrConfiguration, 'tree-sitter'),
 						), new Promise<void>((_, reject) => setTimeout(() => reject(new Error(`Timeout (${Settings.TreeSitterTimeout} = ${timeout}ms)`)), timeout))]);
 						FlowrInternalSession.treeSitterInitialized = true;
 					} catch(e) {
@@ -265,12 +265,12 @@ export class FlowrInternalSession implements FlowrSession {
 			const ast = await analyzer.normalize();
 			const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
 
-			return graphToMermaid({ 
-				graph:               df.graph, 
-				simplified, 
-				includeEnvironments: false, 
+			return DataflowMermaid.convert({
+				graph:               df.graph,
+				simplified,
+				includeEnvironments: false,
 				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
-				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined, 
+				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
 			}).string;
 		}, FlowrDiagramType.Dataflow, true, '');
 	}
@@ -281,12 +281,12 @@ export class FlowrInternalSession implements FlowrSession {
 			const ast = await analyzer.normalize();
 			const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
 
-			return graphToMermaid({ 
-				graph:               callGraph, 
-				simplified, 
-				includeEnvironments: false, 
+			return DataflowMermaid.convert({
+				graph:               callGraph,
+				simplified,
+				includeEnvironments: false,
 				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
-				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined, 
+				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
 			}).string;
 		}, FlowrDiagramType.CallGraph, true, '');
 	}
@@ -343,13 +343,13 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 
 		const now = Date.now();
-		const elements = staticSlice(analyzer.inspectContext(), info.dfi, info.ast, criteria, direction, threshold).result;
+		const elements = staticSlice(analyzer.inspectContext(), info.dfi, info.ast, SlicingCriteria.convertAll(criteria, info.ast.idMap), direction, threshold).result;
 		const sliceTime = Date.now() - now;
 		const sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
 		const reconstructNow = Date.now();
 		const code = reconstructToCode(info.ast, { nodes: new Set(elements) }, makeMagicCommentHandler(doNotAutoSelect)).code;
 		this.outputChannel.appendLine('[Slice (Internal)] Slice took ' + (Date.now() - now) + 'ms (slice: ' + sliceTime + 'ms, reconstruct: ' + (Date.now() - reconstructNow) + 'ms)');
-		
+
 		if(isVerbose()) {
 			this.outputChannel.appendLine('[Slice (Internal)] Contains Ids: ' + JSON.stringify([...elements]));
 		}
@@ -368,7 +368,7 @@ export class FlowrInternalSession implements FlowrSession {
 		const analyzer = await analyzerFromDocument(document, this.parser);
 		const dataflow = await analyzer.dataflow() as DataflowInformation & PipelinePerStepMetaInformation;
 		const normalize = await analyzer.normalize();
-		
+
 		if(normalize.hasError && (normalize.ast.files as unknown[])?.length === 0) {
 			return { result: {} as QueryResults<T>, hasError: true, dfi: dataflow, ast: normalize };
 		}
@@ -389,7 +389,7 @@ export class FlowrInternalSession implements FlowrSession {
 			.setParser(this.parser)
 			.setConfig(VSCodeFlowrConfiguration)
 			.build();
-		(config.output as { stdout: (s: string) => void}).stdout(await versionReplString(this.parser));
+		(config.output as { stdout: (s: string) => void }).stdout(await versionReplString(this.parser));
 		await repl({ analyzer: analyzer });
 	}
 

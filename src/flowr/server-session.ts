@@ -9,7 +9,6 @@ import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { FlowrSession, SliceReturn } from './utils';
 import { consolidateNewlines, makeSliceElements, selectionsToNodeIds } from './utils';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
-import { visitAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/visitor';
 import type { DataflowGraphJson } from '@eagleoutice/flowr/dataflow/graph/graph';
 import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
@@ -18,10 +17,9 @@ import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/rep
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
-import { graphToMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
+import { DataflowMermaid } from '@eagleoutice/flowr/util/mermaid/dfg';
 import { BiMap } from '@eagleoutice/flowr/util/collections/bimap';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
-import type { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import type { QueryResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-query';
 import type { PipelineOutput } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
 import type { DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
@@ -30,13 +28,15 @@ import { getConfig, isVerbose, Settings } from '../settings';
 import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 import { MermaidDefaultMarkStyle } from '@eagleoutice/flowr/util/mermaid/info';
+import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
+import { RNode } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/model';
 
 export class FlowrServerSession implements FlowrSession {
 
 	public state:        'inactive' | 'connecting' | 'connected' | 'not connected';
 	public flowrVersion: string | undefined;
 	public rVersion:     string | undefined;
-	public working:	  	  boolean = false;
+	public working:      boolean = false;
 
 	private readonly outputChannel: vscode.OutputChannel;
 	private connection:             Connection | undefined;
@@ -176,8 +176,8 @@ export class FlowrServerSession implements FlowrSession {
 		}
 
 		const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
-		
-		return graphToMermaid({
+
+		return DataflowMermaid.convert({
 			graph:               DataflowGraph.fromJson(result['call-graph'].graph as unknown as DataflowGraphJson),
 			simplified,
 			includeEnvironments: false,
@@ -190,8 +190,8 @@ export class FlowrServerSession implements FlowrSession {
 	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
 		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
-		
-		return graphToMermaid({
+
+		return DataflowMermaid.convert({
 			graph:               DataflowGraph.fromJson(response.results.dataflow.graph as unknown as DataflowGraphJson),
 			simplified,
 			includeEnvironments: false,
@@ -203,7 +203,7 @@ export class FlowrServerSession implements FlowrSession {
 	async retrieveAstMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
 		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
-		
+
 		return normalizedAstToMermaid(response.results.normalize.ast, {
 			includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
 			mark:           selectionMode === 'highlight' ? selectionNodes : undefined,
@@ -213,7 +213,7 @@ export class FlowrServerSession implements FlowrSession {
 	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified: boolean, _: CfgSimplificationPassName[]): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
 		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
-		
+
 		const normalize: NormalizedAst = {
 			...response.results.normalize,
 			idMap: new BiMap()
@@ -231,7 +231,7 @@ export class FlowrServerSession implements FlowrSession {
 		// now we want to collect all ids from response in a map again (id -> location)
 		const idToLocation = new Map<NodeId, SourceRange>();
 		const nodes = response.results.normalize.ast.files.map(f => f.root);
-		visitAst(nodes, n => {
+		RNode.visitAst(nodes, n => {
 			// backwards compat for server versions before 2.0.2, which used a "flavor" rather than a "named" boolean
 			if(n.flavor === 'named') {
 				n['name' + 'd'] = true;

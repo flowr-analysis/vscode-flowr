@@ -10,10 +10,10 @@ import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { getSelectionSlicer } from './selection-slicer';
 import type { SliceDisplay } from './settings';
-import { Settings , getConfig, isVerbose } from './settings';
-import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
+import { Settings, getConfig, isVerbose } from './settings';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
+import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 
 const positionSlicerAuthority = 'doc-slicer';
@@ -25,6 +25,9 @@ export const positionSlicers: Map<vscode.TextDocument, PositionSlicer> = new Map
 
 
 // Add the current cursor position(s) in the active editor to the list of slice criteria
+/**
+ *
+ */
 export async function addCurrentPositions(direction: SliceDirection): Promise<void> {
 	const editor = vscode.window.activeTextEditor;
 	if(!editor){
@@ -36,6 +39,9 @@ export async function addCurrentPositions(direction: SliceDirection): Promise<vo
 
 
 // Get the position slicer for the active doc, if any
+/**
+ *
+ */
 export function getActivePositionSlicer(): PositionSlicer | undefined {
 	const editor = vscode.window.activeTextEditor;
 	if(!editor){
@@ -45,6 +51,9 @@ export function getActivePositionSlicer(): PositionSlicer | undefined {
 	return positionSlicers.get(doc);
 }
 // If the active document has a position slicer, dispose it and return true, else false
+/**
+ *
+ */
 export function disposeActivePositionSlicer(): boolean {
 	const slicer = getActivePositionSlicer();
 	if(!slicer){
@@ -58,6 +67,9 @@ export function disposeActivePositionSlicer(): boolean {
 
 
 // Add a list of positions in a document to the slice criteria
+/**
+ *
+ */
 export async function addPositions(positions: vscode.Position[], direction: SliceDirection, doc: vscode.TextDocument): Promise<PositionSlicer | undefined> {
 	// Get or create a slicer for the document
 	const flowrSlicer = positionSlicers.get(doc) || new PositionSlicer(doc);

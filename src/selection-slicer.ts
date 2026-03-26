@@ -10,10 +10,10 @@ import { makeSlicingCriteria, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
-import { Settings , getConfig, isVerbose } from './settings';
+import { Settings, getConfig, isVerbose } from './settings';
 import { getCriteriaSlicer } from './criteria-slicer';
-import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
 import { isRTypeLanguage } from './configurable-refresher';
+import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 
 
@@ -24,6 +24,9 @@ const selectionSlicerPath = 'Selection Slice';
 // Get the active SelectionSlicer instance
 // currently only one instance is used and never disposed
 export let selectionSlicer: SelectionSlicer | undefined;
+/**
+ *
+ */
 export function getSelectionSlicer(): SelectionSlicer {
 	selectionSlicer ??= new SelectionSlicer();
 	return selectionSlicer;
@@ -31,6 +34,9 @@ export function getSelectionSlicer(): SelectionSlicer {
 
 // Show the selection slice in an editor
 // If nothing is sliced, slice at the current cursor position
+/**
+ *
+ */
 export async function showSelectionSliceInEditor(direction: SliceDirection): Promise<vscode.TextEditor> {
 	const slicer = getSelectionSlicer();
 	if(!slicer.hasDoc){

@@ -3,6 +3,7 @@ import type { RefresherConfigKeys } from '../settings';
 import { DependencyViewRefresherConfigKeys, LinterRefresherConfigKeys, Settings } from '../settings';
 import { ConfigurableRefresher, RefreshType } from '../configurable-refresher';
 import assert from 'assert';
+import { activateExtension } from './test-util';
 
 const Keys = {
 	updateType:    Settings.LinterUpdateType,
@@ -12,6 +13,9 @@ const Keys = {
 
 const TestFileNameBase = 'refresher-test';
 
+/**
+ *
+ */
 export async function updateRefreshSettings(keys: RefresherConfigKeys, type: RefreshType | undefined, interval: number | undefined, breakOff: number | undefined) {
 	const config = vscode.workspace.getConfiguration(Settings.Category);
 	await config.update(keys.updateType, type);
@@ -20,6 +24,9 @@ export async function updateRefreshSettings(keys: RefresherConfigKeys, type: Ref
 }
 
 suite('refresher', () => {
+	suiteSetup(async() => {
+		await activateExtension();
+	});
 
 	suiteTeardown(async() => {
 		// remove keys from config
@@ -29,13 +36,13 @@ suite('refresher', () => {
 
 	const output: vscode.OutputChannel = vscode.window.createOutputChannel('TestChannel');
 
-	function testRefresher(data: {name?: string, type: RefreshType, interval: number, breakOff: number, timeout: number, expectedTriggerCount: number, exactCount: boolean, action?: (editor: vscode.TextEditor) => Promise<void>, updateHook?: (doc: vscode.TextDocument) => boolean}) {
+	function testRefresher(data: { name?: string, type: RefreshType, interval: number, breakOff: number, timeout: number, expectedTriggerCount: number, exactCount: boolean, action?: (editor: vscode.TextEditor) => Promise<void>, updateHook?: (doc: vscode.TextDocument) => boolean }) {
 		const testName = data.name ? `${data.name} (${data.type})` : data.type;
 		const testFileName = data.name ? `${TestFileNameBase}-${data.name}-${data.type}.R` : `${TestFileNameBase}-${data.type}.R`;
 
 		test(testName, async() => {
 			await updateRefreshSettings(Keys, data.type, data.interval, data.breakOff);
-		
+
 			let triggerCount = 0;
 
 			const folder = vscode.workspace.workspaceFolders?.[0];
@@ -44,7 +51,7 @@ suite('refresher', () => {
 			await vscode.workspace.fs.writeFile(file, Buffer.from('test <- 1'));
 			const doc = await vscode.workspace.openTextDocument(file);
 			const editor = await vscode.window.showTextDocument(doc);
-            
+
 			const refresher = new ConfigurableRefresher({
 				name:            'Test',
 				keys:            Keys,
@@ -110,26 +117,26 @@ suite('refresher', () => {
 	testFileSwitch('do not refresh on non-R', ['example.R', 'unrelated.ts'], 1);
 
 	testRefresher({
-		type:                 RefreshType.OnChange, 
-		interval:             0, 
-		breakOff:             0, 
-		timeout:              100, 
-		expectedTriggerCount: 1, 
+		type:                 RefreshType.OnChange,
+		interval:             0,
+		breakOff:             0,
+		timeout:              100,
+		expectedTriggerCount: 1,
 		exactCount:           true,
 		action:               async(editor: vscode.TextEditor) => {
 			await editor.edit((edit) => {
 				edit.insert(new vscode.Position(0, 0), ' ');
 			});
-		} 
-	}); 
+		}
+	});
 
 	testRefresher({
 		name:                 'multiple changes',
-		type:                 RefreshType.OnChange, 
-		interval:             0, 
-		breakOff:             0, 
-		timeout:              100, 
-		expectedTriggerCount: 3, 
+		type:                 RefreshType.OnChange,
+		interval:             0,
+		breakOff:             0,
+		timeout:              100,
+		expectedTriggerCount: 3,
 		exactCount:           true,
 		action:               async(editor: vscode.TextEditor) => {
 			await editor.edit((edit) => {
@@ -141,31 +148,31 @@ suite('refresher', () => {
 			await editor.edit((edit) => {
 				edit.insert(new vscode.Position(0, 0), ' ');
 			});
-		} 
-	}); 
+		}
+	});
 
 	testRefresher({
 		type:                 RefreshType.OnSave,
-		interval:             0,  
-		breakOff:             0, 
-		timeout:              100, 
-		expectedTriggerCount: 1, 
+		interval:             0,
+		breakOff:             0,
+		timeout:              100,
+		expectedTriggerCount: 1,
 		exactCount:           true,
 		action:               async(editor: vscode.TextEditor) => {
 			await editor.edit((edit) => {
 				edit.insert(new vscode.Position(0, 0), ' ');
 			});
 			await editor.document.save();
-		} 
-	}); 
+		}
+	});
 
 	testRefresher({
 		name:                 'multiple changes',
 		type:                 RefreshType.OnSave,
-		interval:             0,  
-		breakOff:             0, 
-		timeout:              100, 
-		expectedTriggerCount: 2, 
+		interval:             0,
+		breakOff:             0,
+		timeout:              100,
+		expectedTriggerCount: 2,
 		exactCount:           true,
 		action:               async(editor: vscode.TextEditor) => {
 			await editor.edit((edit) => {
@@ -177,16 +184,16 @@ suite('refresher', () => {
 				edit.insert(new vscode.Position(0, 0), ' ');
 			});
 			await editor.document.save();
-		} 
-	}); 
+		}
+	});
 
 
 	testRefresher({
 		type:                 RefreshType.Interval,
-		interval:             0.01,  
-		breakOff:             0, 
-		timeout:              100, 
-		expectedTriggerCount: 5, 
+		interval:             0.01,
+		breakOff:             0,
+		timeout:              100,
+		expectedTriggerCount: 5,
 		exactCount:           false,
 		action:               async(editor: vscode.TextEditor) => {
 			for(let i = 0; i < 5; i++) {
@@ -196,16 +203,16 @@ suite('refresher', () => {
 				await editor.document.save();
 				await new Promise(r => setTimeout(r, 10));
 			}
-		} 
+		}
 	});
 
 	testRefresher({
 		name:                 'multiple changes long interval',
 		type:                 RefreshType.Interval,
 		interval:             0.1,  // =10ms
-		breakOff:             0, 
-		timeout:              100, 
-		expectedTriggerCount: 1, 
+		breakOff:             0,
+		timeout:              100,
+		expectedTriggerCount: 1,
 		exactCount:           false,
 		action:               async(editor: vscode.TextEditor) => {
 			for(let i = 0; i < 5; i++) {
@@ -215,35 +222,35 @@ suite('refresher', () => {
 				await editor.document.save();
 				await new Promise(r => setTimeout(r, 1));
 			}
-		} 
+		}
 	});
 
 	testRefresher({
 		type:                 RefreshType.Never,
-		interval:             0.01,  
-		breakOff:             0, 
-		timeout:              100, 
-		expectedTriggerCount: 0, 
+		interval:             0.01,
+		breakOff:             0,
+		timeout:              100,
+		expectedTriggerCount: 0,
 		exactCount:           true,
 		action:               async(editor: vscode.TextEditor) => {
 			await editor.edit((edit) => {
 				edit.insert(new vscode.Position(0, 0), ' ');
 			});
 			await editor.document.save();
-		} 
+		}
 	});
 
 
 	testRefresher({
 		name:                 'never refresh because of hook',
 		type:                 RefreshType.Interval,
-		interval:             0.01,  
-		breakOff:             0, 
-		timeout:              100, 
-		expectedTriggerCount: 0, 
+		interval:             0.01,
+		breakOff:             0,
+		timeout:              100,
+		expectedTriggerCount: 0,
 		exactCount:           true,
 		updateHook:           () => {
 			return false;
-		} 
+		}
 	});
 });

@@ -10,12 +10,12 @@ import { rangeToVscodeRange, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
-import { Settings , getConfig } from './settings';
+import { Settings, getConfig } from './settings';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
-import { SliceDirection } from '@eagleoutice/flowr/core/steps/all/static-slicing/00-slice';
+import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 
 const criteriaSlicerAuthority = 'criteria-slicer';
@@ -24,6 +24,9 @@ const criteriaSlicerPath = 'Dependency Slice';
 
 // currently only one instance is used and never disposed
 let criteriaSlicer: CriteriaSlicer | undefined;
+/**
+ *
+ */
 export function getCriteriaSlicer(): CriteriaSlicer {
 	if(criteriaSlicer) {
 		criteriaSlicer.disposeCurrent();

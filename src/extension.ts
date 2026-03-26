@@ -9,13 +9,20 @@ import { selectionSlicer } from './selection-slicer';
 import { positionSlicers } from './position-slicer';
 import { flowrVersion } from '@eagleoutice/flowr/util/version';
 import { registerDependencyInternalCommands, registerDependencyView } from './flowr/views/dependency-view';
-import type { FlowrConfigOptions } from '@eagleoutice/flowr/config';
-import { DropPathsOption, InferWorkingDirectory, VariableResolve , defaultConfigOptions } from '@eagleoutice/flowr/config';
+import { DropPathsOption, FlowrConfig, InferWorkingDirectory, VariableResolve  } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
 import { NoTelemetry, registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
 import { registerHoverOverValues } from './hover-values';
+
+/**
+ * Public-facing API for the flowR extension, which includes a variety of helpful utilities.
+ * Currently, items exposed by the public-facing API are required and used for unit tests.
+ */
+export interface FlowrExtensionApi {
+	flowrConfig: () => FlowrConfig
+}
 
 export const MINIMUM_R_MAJOR = 3;
 export const BEST_R_MAJOR = 4;
@@ -25,7 +32,10 @@ let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
 let flowrSession: FlowrSession | undefined;
 
-export async function activate(context: vscode.ExtensionContext) {
+/**
+ *
+ */
+export async function activate(context: vscode.ExtensionContext): Promise<FlowrExtensionApi> {
 	extensionContext = context;
 	outputChannel = vscode.window.createOutputChannel('flowR');
 	outputChannel.appendLine(`flowR extension activated (ships with flowR v${flowrVersion().toString()}, web: ${isWeb()})`);
@@ -80,7 +90,7 @@ export async function activate(context: vscode.ExtensionContext) {
 <!-- Automatically generated issue metadata, please do not edit or delete content below this line -->
 ---
 flowR version: ${flowrVersion().toString()}  
-Extension version: ${(extensionContext.extension.packageJSON as {version: string}).version} (${vscode.ExtensionMode[extensionContext.extensionMode]} mode)  
+Extension version: ${(extensionContext.extension.packageJSON as { version: string }).version} (${vscode.ExtensionMode[extensionContext.extensionMode]} mode)  
 VS Code version: ${vscode.version} (web ${isWeb()})  
 Session: ${flowrSession ? `${flowrSession instanceof FlowrServerSession ? 'server' : 'internal'} (${flowrSession instanceof FlowrServerSession ? flowrSession.state : (flowrSession as FlowrInternalSession)?.state})` : 'none'}  
 OS: ${process.platform}  
@@ -102,9 +112,9 @@ ${JSON.stringify(getConfig(), null, 2)}
 	context.subscriptions.push(statusBarItem);
 	updateStatusBar();
 
-	context.subscriptions.push(new vscode.Disposable(() => destroySession()), 
+	context.subscriptions.push(new vscode.Disposable(() => destroySession()),
 		...registerHoverOverValues(outputChannel));
-	
+
 	setTimeout(() => {
 		const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
 		registerCommand(context, 'vscode-flowr.dependencyView.update', async() => {
@@ -117,14 +127,25 @@ ${JSON.stringify(getConfig(), null, 2)}
 	if(getConfig().get<boolean>(Settings.ServerAutoConnect)) {
 		await establishServerSession();
 	}
+
+	// initialize the api :)
+	return {
+		flowrConfig: () => VSCodeFlowrConfiguration
+	};
 }
 
+/**
+ *
+ */
 export async function establishInternalSession() {
 	destroySession();
 	flowrSession = new FlowrInternalSession(outputChannel);
 	await flowrSession.initialize();
 	return flowrSession;
 }
+/**
+ *
+ */
 export async function getFlowrSession() {
 	if(flowrSession) {
 		return flowrSession;
@@ -134,6 +155,9 @@ export async function getFlowrSession() {
 	return await establishInternalSession();
 }
 
+/**
+ *
+ */
 export async function establishServerSession() {
 	destroySession();
 	flowrSession = new FlowrServerSession(outputChannel);
@@ -141,11 +165,17 @@ export async function establishServerSession() {
 	return flowrSession;
 }
 
+/**
+ *
+ */
 export function destroySession() {
 	flowrSession?.destroy();
 	flowrSession = undefined;
 }
 
+/**
+ *
+ */
 export function updateStatusBar() {
 	const text: string[] = [];
 	const tooltip: string[] = [];
@@ -177,7 +207,7 @@ export function updateStatusBar() {
 		const pos = [...positionSlicers].reduce((i, [,s]) => i + s.positions.length, 0);
 		if(pos > 0) {
 			slicingTypes.push(`${pos} position${pos === 1 ? '' : 's'}`);
-			for(const [doc,slicer] of positionSlicers) {
+			for(const [doc, slicer] of positionSlicers) {
 				slicingFiles.push(`${vscode.workspace.asRelativePath(doc.fileName)} (${slicer.positions.length} position${slicer.positions.length === 1 ? '' : 's'})`);
 			}
 		}
@@ -193,7 +223,7 @@ export function updateStatusBar() {
 	if(!(telemetry instanceof NoTelemetry)){
 		text.push('$(record) Telemetry active');
 	}
-	
+
 	if(text.length) {
 		statusBarItem.show();
 		statusBarItem.text = text.join(' ');
@@ -203,12 +233,18 @@ export function updateStatusBar() {
 	}
 }
 
+/**
+ *
+ */
 export function isWeb() {
 	// uiKind doesn't do the check we want here, since it still returns the desktop environment if we're in the vscode desktop fake browser version
 	// also, this is the recommended check according to https://code.visualstudio.com/updates/v1_101#_web-environment-detection
 	return !(typeof process === 'object' && process.versions.node);
 }
 
+/**
+ *
+ */
 export function getWasmRootPath(): string {
 	if(!isWeb()) {
 		return __dirname;
@@ -219,6 +255,11 @@ export function getWasmRootPath(): string {
 	}
 }
 
+
+/**
+ *
+ */
+// we're just passing through vscode's command args syntax here :)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerCommand(context: vscode.ExtensionContext, command: string, callback: (...args: any[]) => any, thisArg?: any): void {
 	context.subscriptions.push(vscode.commands.registerCommand(command, a => {
@@ -228,13 +269,15 @@ export function registerCommand(context: vscode.ExtensionContext, command: strin
 	}, thisArg));
 }
 
-export let VSCodeFlowrConfiguration = defaultConfigOptions;
+// we never want to access the default flowR config on accident,
+// so we set it to undefined by default until it is loaded during extension initialization
+export let VSCodeFlowrConfiguration: FlowrConfig = undefined as unknown as FlowrConfig;
 
 function updateFlowrConfig() {
 	const config = getConfig();
 	const wasmRoot = getWasmRootPath();
 	// we don't want to *amend* here since updates to our extension config shouldn't add additional entries while keeping old ones (definitions etc.)
-	VSCodeFlowrConfiguration = deepMergeObject<FlowrConfigOptions>(defaultConfigOptions, {
+	VSCodeFlowrConfiguration = deepMergeObject<FlowrConfig>(FlowrConfig.default(), {
 		ignoreSourceCalls: config.get<boolean>(Settings.IgnoreSourceCalls, false),
 		solver:            {
 			variables:     config.get<VariableResolve>(Settings.SolverVariableHandling, VariableResolve.Alias),
@@ -260,5 +303,5 @@ function updateFlowrConfig() {
 			treeSitterWasmPath: `${wasmRoot}/tree-sitter.wasm`,
 			lax:                config.get<boolean>(Settings.TreeSitterLax, true)
 		}]
-	});
+	} as Partial<FlowrConfig>);
 }

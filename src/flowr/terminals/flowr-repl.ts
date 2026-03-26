@@ -6,6 +6,9 @@ import { replCompleter } from '@eagleoutice/flowr/cli/repl/core';
 import { ansiFormatter } from '@eagleoutice/flowr/util/text/ansi';
 import { VSCodeFlowrConfiguration } from '../../extension';
 
+/**
+ *
+ */
 export function showRepl(context: vscode.ExtensionContext, session: FlowrSession) {
 	// check if we have a terminal already
 	const terminals = vscode.window.terminals;

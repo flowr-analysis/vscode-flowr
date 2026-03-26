@@ -55,15 +55,15 @@ export enum Settings {
 	LinterUpdateType = 'linter.updateType',
 	LinterUpdateInterval = 'linter.updateInterval',
 	LinterAdaptiveBreak = 'linter.adaptiveCharacterLimit',
-	
+
 	ValuesOnHover = 'values.hover',
 	ValuesHoverResolve = 'values.hover.resolve',
 	ValuesHoverDataFrames = 'values.hover.dataFrames',
 }
 
 export enum DiagramSettingsKeys {
-    Sync = 'sync',
-    Mode = 'mode',
+	Sync = 'sync',
+	Mode = 'mode',
 	SimplificationPasses = 'cfgSimplificationPasses',
 	SimplifyCfg = 'simplifyCfg',
 	SimplifyDfg = 'simplifyDfg'
@@ -73,7 +73,7 @@ export enum DiagramSettingsKeys {
 export const DiagramSettingsPrefix = 'diagram';
 
 export type DefaultsMaps =  {
-  [K in keyof typeof Settings]?: unknown
+	[K in keyof typeof Settings]?: unknown
 };
 
 export interface RefresherConfigKeys {
@@ -94,13 +94,19 @@ export const DependencyViewRefresherConfigKeys =  {
 	adaptiveBreak: Settings.DependencyViewAdaptiveBreak
 } satisfies RefresherConfigKeys;
 
-export type SliceDisplay = 'text' | 'diff' | 'tokens'
-export type ConnectionType = 'auto' | 'websocket' | 'websocket-secure' | 'tcp'
+export type SliceDisplay = 'text' | 'diff' | 'tokens';
+export type ConnectionType = 'auto' | 'websocket' | 'websocket-secure' | 'tcp';
 
+/**
+ *
+ */
 export function getConfig(): vscode.WorkspaceConfiguration {
 	return vscode.workspace.getConfiguration(Settings.Category);
 }
 
+/**
+ *
+ */
 export function isVerbose(): boolean {
 	return getConfig().get<boolean>(Settings.VerboseLog, false);
 }

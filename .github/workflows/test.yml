@@ -27,4 +27,4 @@ jobs:
         # (https://code.visualstudio.com/api/working-with-extensions/continuous-integration#github-actions)
         uses: coactions/setup-xvfb@v1
         with:
-          run: npm run test
+          run: npm run test -- --forbid-only
