@@ -4,13 +4,12 @@ import assert from 'assert';
 
 
 suite('hover values', () => {
-	let editor: vscode.TextEditor;
 	suiteSetup(async() => {
 		await activateExtension();
-		editor = await openTestFile('hover-values-example.R');
 	});
 
 	const tc = async(pos: vscode.Position, expected: string) => {
+		const editor = await openTestFile('hover-values-example.R');
 		const result: vscode.Hover[] = await vscode.commands.executeCommand('vscode.executeHoverProvider', editor.document.uri, pos);
 		assert.ok(result, 'failed to get result');
 		assert.equal(result.length, 1, `expected 1 result but got ${result.length}`);

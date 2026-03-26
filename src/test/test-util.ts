@@ -7,7 +7,7 @@ import type { FlowrInternalSession } from '../flowr/internal-session';
 import type { FlowrExtensionApi } from '../extension';
 
 /**
- * Activate the extension and return its {@link FlowrExtensionApi}
+ * Activate the extension (if not already active) and return its {@link FlowrExtensionApi}
  */
 export async function activateExtension(): Promise<FlowrExtensionApi> {
 	const ext = vscode.extensions.getExtension('code-inspect.vscode-flowr');
@@ -15,13 +15,15 @@ export async function activateExtension(): Promise<FlowrExtensionApi> {
 	assert.notEqual(ext, undefined, 'extension not found');
 
 	await assert.doesNotReject(async() => {
-		await ext?.activate();
+		if(!ext?.isActive) {
+			await ext?.activate();
+		}
 	}, 'extension activation failed');
 
 	const api = (ext as vscode.Extension<FlowrExtensionApi>).exports;
 	assert.notEqual(api, undefined, 'extension api not found');
 
-	// force start a local shell and wait, since there seem to be some async issues with commands
+	// force (re-)start local shell and wait, since there seem to be some async issues with commands
 	const session: FlowrInternalSession = await vscode.commands.executeCommand('vscode-flowr.session.internal');
 	assert.equal(session.state, 'active');
 
