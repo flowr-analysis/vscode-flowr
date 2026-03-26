@@ -10,7 +10,7 @@ import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { KnownParser, KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
 import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/tree-sitter-executor';
 import { type Queries, type QueryResults, type SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
-import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
+import { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { SemVer } from 'semver';
 import { repl, type FlowrReplOptions } from '@eagleoutice/flowr/cli/repl/core';
 import { versionReplString } from '@eagleoutice/flowr/cli/repl/print-version';
@@ -343,7 +343,7 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 
 		const now = Date.now();
-		const elements = staticSlice(analyzer.inspectContext(), info.dfi, info.ast, criteria, direction, threshold).result;
+		const elements = staticSlice(analyzer.inspectContext(), info.dfi, info.ast, SlicingCriteria.convertAll(criteria, info.ast.idMap), direction, threshold).result;
 		const sliceTime = Date.now() - now;
 		const sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
 		const reconstructNow = Date.now();
