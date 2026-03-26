@@ -46,6 +46,9 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 	}
 }
 
+/**
+ *
+ */
 export function makeUri(authority: string, path: string){
 	if(authority && path && !path.startsWith('/')){
 		path = '/' + path;
@@ -58,6 +61,9 @@ export function makeUri(authority: string, path: string){
 	return uri;
 }
 
+/**
+ *
+ */
 export async function showUri(uri: vscode.Uri, language: string = 'r', viewColumn: vscode.ViewColumn = vscode.ViewColumn.Beside): Promise<Thenable<vscode.TextEditor>> {
 	for(const editor of vscode.window.visibleTextEditors){
 		if(editor.document.uri.toString() === uri.toString()){
@@ -79,11 +85,14 @@ export async function showUri(uri: vscode.Uri, language: string = 'r', viewColum
 	setTimeout(() => {
 		editor.revealRange(lastLine.range, vscode.TextEditorRevealType.Default);
 	}, 50);
-	
+
 	return editor;
 }
 
 let reconstructionContentProvider: ReconstructionContentProvider | undefined;
+/**
+ *
+ */
 export function getReconstructionContentProvider(): ReconstructionContentProvider {
 	if(!reconstructionContentProvider) {
 		reconstructionContentProvider = new ReconstructionContentProvider();

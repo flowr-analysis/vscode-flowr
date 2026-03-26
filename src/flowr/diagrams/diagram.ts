@@ -3,10 +3,13 @@ import { registerCommand } from '../../extension';
 import { DiagramSettingsPrefix, getConfig } from '../../settings';
 import path from 'path';
 import { createDiagramWebview } from './diagram-generator';
-import type { DiagramOption , DiagramOptions, FlowrDiagramType } from './diagram-definitions';
+import type { DiagramOption, DiagramOptions, FlowrDiagramType } from './diagram-definitions';
 import { DiagramDefinitions } from './diagram-definitions';
 import { Mermaid } from '@eagleoutice/flowr/util/mermaid/mermaid';
 
+/**
+ *
+ */
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const coordinator = new DiagramUpdateCoordinator(output);
 
@@ -37,7 +40,7 @@ interface ContentUpdateMessage {
 }
 
 interface WebviewMessage {
-	key:       string 
+	key:       string
 	/** @see DiagramOptionsCheckbox.keyInSet */
 	keyInSet?: string
 	value:     unknown
@@ -63,13 +66,13 @@ class DiagramUpdateCoordinator {
 		if(!editor) {
 			return;
 		}
- 
+
 		const definition = DiagramDefinitions[type];
 		const options = optionsFromDiagramType(type);
 		const mermaid = await definition.retrieve(options as never, editor);
 
 		// Don't show a panel if generation failed
-		if(mermaid === '') { 
+		if(mermaid === '') {
 			await vscode.window.showErrorMessage('Failed to generate diagram - FlowR Analyzer Session is not ready. Check if flowrR is connected and try again.');
 			return;
 		}
@@ -97,20 +100,20 @@ class DiagramUpdateCoordinator {
 		// Handle settings update messages from panel
 		panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
 			const key = `${DiagramSettingsPrefix}.${msg.key}`;
-			if(msg.keyInSet) { // If setKey is set, the checkboxes are grouped into an array 
+			if(msg.keyInSet) { // If setKey is set, the checkboxes are grouped into an array
 				const current = new Set(getConfig().get<string[]>(key, []));
 				if(msg.value) {
-					current.add(msg.keyInSet); 
+					current.add(msg.keyInSet);
 				} else {
 					current.delete(msg.keyInSet);
 				}
-				((options as Record<string, DiagramOption>)[msg.keyInSet].currentValue as unknown) = msg.value; 
+				((options as Record<string, DiagramOption>)[msg.keyInSet].currentValue as unknown) = msg.value;
 				getConfig().update(key, current.values().toArray());
 			} else {
-				((options as Record<string, DiagramOption>)[msg.key].currentValue as unknown) = msg.value; 
+				((options as Record<string, DiagramOption>)[msg.key].currentValue as unknown) = msg.value;
 				getConfig().update(key, msg.value);
 			}
-			
+
 			void this.updateWebviewPanel(info, editor);
 		});
 
@@ -140,7 +143,7 @@ class DiagramUpdateCoordinator {
 			if(!panelsToUpdate) {
 				return;
 			}
-			
+
 			for(const panel of panelsToUpdate.values()) {
 				if(panel.options.sync.currentValue) {
 					void this.updateWebviewPanel(panel, e.textEditor);

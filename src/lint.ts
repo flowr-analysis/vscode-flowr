@@ -10,6 +10,9 @@ import { rangeToVscodeRange } from './flowr/utils';
 import { flowrScheme } from './doc-provider';
 import { SourceLocation } from '@eagleoutice/flowr/util/range';
 
+/**
+ *
+ */
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(context, output);
 	registerCommand(context, 'vscode-flowr.lint.run', async() => {
@@ -88,7 +91,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 					break;
 				default:
 					vscode.window.showWarningMessage(`The quick fix type ${(fix as LintQuickFix).type} is not yet supported by this extension`);
-			}	
+			}
 		}
 		return codeAction;
 	}
@@ -107,7 +110,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 				return results;
 			}
 		}
-		
+
 		this.output.appendLine(`[Lint] Analyzing document ${document.fileName}`);
 		const session = await getFlowrSession();
 
@@ -118,18 +121,18 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 			rules = Object.keys(LintingRules) as LintingRuleNames[];
 		}
 		// now we apply the ruleConfigs to all enabled rules
-		for(const [ruleName, config] of Object.entries(getConfig().get<{[N in LintingRuleNames]?: LintingRuleConfig<N>}>(Settings.LinterRuleConfigs, {}))) {
+		for(const [ruleName, config] of Object.entries(getConfig().get<{ [N in LintingRuleNames]?: LintingRuleConfig<N> }>(Settings.LinterRuleConfigs, {}))) {
 			const index = rules.indexOf(ruleName as LintingRuleNames);
 			if(index >= 0) {
-				rules[index] = { 
-					name:   ruleName as LintingRuleNames, 
+				rules[index] = {
+					name:   ruleName as LintingRuleNames,
 					config: config as LintingRuleConfig<LintingRuleNames>
 				};
 			}
 		}
 		this.output.appendLine(`[Lint] Using rules ${JSON.stringify(rules)}`);
 
-		const lint = await session.retrieveQuery(document, [{ 
+		const lint = await session.retrieveQuery(document, [{
 			type:  'linter',
 			rules: rules
 		}]);
@@ -165,8 +168,8 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 				const diag = new vscode.Diagnostic(
 					range,
 					`${ruleName}: ${(rule.prettyPrint['full'] as (result: LintingRuleResult<LintingRuleNames>, metadata: LintingRuleMetadata<LintingRuleNames>) => string)(
-							finding as LintingRuleResult<LintingRuleNames>,
-							finding as LintingRuleMetadata<LintingRuleNames>
+						finding as LintingRuleResult<LintingRuleNames>,
+						finding as LintingRuleMetadata<LintingRuleNames>
 					)}`,
 					vscode.DiagnosticSeverity.Warning
 				);

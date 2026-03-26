@@ -36,7 +36,7 @@ export class FlowrServerSession implements FlowrSession {
 	public state:        'inactive' | 'connecting' | 'connected' | 'not connected';
 	public flowrVersion: string | undefined;
 	public rVersion:     string | undefined;
-	public working:	  	  boolean = false;
+	public working:      boolean = false;
 
 	private readonly outputChannel: vscode.OutputChannel;
 	private connection:             Connection | undefined;
@@ -176,7 +176,7 @@ export class FlowrServerSession implements FlowrSession {
 		}
 
 		const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
-		
+
 		return DataflowMermaid.convert({
 			graph:               DataflowGraph.fromJson(result['call-graph'].graph as unknown as DataflowGraphJson),
 			simplified,
@@ -190,7 +190,7 @@ export class FlowrServerSession implements FlowrSession {
 	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
 		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
-		
+
 		return DataflowMermaid.convert({
 			graph:               DataflowGraph.fromJson(response.results.dataflow.graph as unknown as DataflowGraphJson),
 			simplified,
@@ -203,7 +203,7 @@ export class FlowrServerSession implements FlowrSession {
 	async retrieveAstMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
 		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
-		
+
 		return normalizedAstToMermaid(response.results.normalize.ast, {
 			includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
 			mark:           selectionMode === 'highlight' ? selectionNodes : undefined,
@@ -213,7 +213,7 @@ export class FlowrServerSession implements FlowrSession {
 	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified: boolean, _: CfgSimplificationPassName[]): Promise<string> {
 		const response = await this.requestFileAnalysis(document);
 		const selectionNodes = selectionsToNodeIds(response.results.normalize.ast.files.map(f => f.root), selections);
-		
+
 		const normalize: NormalizedAst = {
 			...response.results.normalize,
 			idMap: new BiMap()

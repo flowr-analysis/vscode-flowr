@@ -4,12 +4,12 @@ import * as vscode from 'vscode';
 import type { DiagramOptions, DiagramOptionsCheckbox, DiagramOptionsDropdown } from './diagram-definitions';
 
 export interface DiagramGeneratorData {
-    mermaid:          string;
-    options:          DiagramOptions;
-    documentationUrl: string;
-    editorUrl:        string;
-    id:               string;
-    name:             string;
+	mermaid:          string;
+	options:          DiagramOptions;
+	documentationUrl: string;
+	editorUrl:        string;
+	id:               string;
+	name:             string;
 }
 
 const Checkbox =  {
@@ -178,6 +178,9 @@ function mermaidMaxTextLength() {
 	return getConfig().get<number>(Settings.StyleMermaidMaxTextLength, 500000);
 }
 
+/**
+ *
+ */
 export function createDiagramWebview(data: DiagramGeneratorData, output: vscode.OutputChannel): vscode.WebviewPanel | undefined {
 	// https://github.com/mermaid-js/mermaid/blob/47601ac311f7ad7aedfaf280d319d75434680622/packages/mermaid/src/mermaidAPI.ts#L315-L317
 	if(data.mermaid.length > mermaidMaxTextLength()){

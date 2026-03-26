@@ -12,6 +12,9 @@ import type { Writable } from 'ts-essentials';
 import { builtInEnvJsonReplacer } from '@eagleoutice/flowr/dataflow/environments/environment';
 import type { SlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse';
 
+/**
+ *
+ */
 export function registerHoverOverValues(output: vscode.OutputChannel): vscode.Disposable[] {
 	const provider = new FlowrHoverProvider(output);
 	return [vscode.languages.registerHoverProvider(
@@ -24,10 +27,10 @@ export function registerHoverOverValues(output: vscode.OutputChannel): vscode.Di
 }
 
 interface ValueInfo {
-   // can also be more complex structures like df shapes
-   value:   unknown; 
-   textRep: string;
-	criteria:  SlicingCriterion;
+	// can also be more complex structures like df shapes
+	value:    unknown;
+	textRep:  string;
+	criteria: SlicingCriterion;
 }
 
 class FlowrHoverProvider implements vscode.HoverProvider {
@@ -37,7 +40,7 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 	private readonly cache = new Map<NodeId, ValueInfo[]>();
 	private session:            FlowrSession | undefined;
 	private readonly refresher: ConfigurableRefresher;
-   
+
 
 	constructor(output: vscode.OutputChannel) {
 		this.output = output;
@@ -50,17 +53,17 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 				interval:      500
 			},
 			refreshCallback: async() => {
-				await this.update(); 
+				await this.update();
 			},
 			clearCallback: () => {
 				this.cache.clear();
 			},
 			output: output
 		});
-		
+
 		setTimeout(() => void this.update(), 500);
 	}
-	
+
 	dispose() {
 		this.refresher.dispose();
 	}
@@ -77,12 +80,12 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 		if(!this.session || !(getConfig().get<boolean>(Settings.ValuesOnHover))) {
 			return undefined;
 		}
-		
+
 		this.output.appendLine(`[Hover Values] Resolving value at ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1}`);
-		
+
 		const [criteria] = makeSlicingCriteria([pos], document);
 		const cached = this.cache.get(criteria);
-		if(cached) { 
+		if(cached) {
 			this.output.appendLine(`    [Hover Values] Using cached value for ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1} (${JSON.stringify(cached.map(c => c.value), builtInEnvJsonReplacer)})`);
 			return valueToHint(cached);
 		}

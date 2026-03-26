@@ -24,10 +24,10 @@ for(i in 1:(n - 1)) product <- product * i
 		const slice: SliceReturn | undefined = await vscode.commands.executeCommand('vscode-flowr.forward-slice.cursor');
 		assert.ok(slice);
 		assert.deepEqual(slice.sliceElements.map(e => e.location), [
-			[1,1,1,3], [1,5,1,6], // line 1: sum <-
-			[6,1,6,3], // line 6: for
-			[7,3,7,5], [7,7,7,8], [7,10,7,12], [7,14,7,14], [7,18,7,18], // line 7: sum <- sum + +
-			[11,1,11,3], [11,13,11,15] // line 12: cat, sum
+			[1, 1, 1, 3], [1, 5, 1, 6], // line 1: sum <-
+			[6, 1, 6, 3], // line 6: for
+			[7, 3, 7, 5], [7, 7, 7, 8], [7, 10, 7, 12], [7, 14, 7, 14], [7, 18, 7, 18], // line 7: sum <- sum + +
+			[11, 1, 11, 3], [11, 13, 11, 15] // line 12: cat, sum
 		]);
 	});
 

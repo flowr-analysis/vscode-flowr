@@ -1,6 +1,6 @@
 import type { AsyncOrSync } from 'ts-essentials';
 import type { RefresherConfigKeys } from './settings';
-import { Settings , getConfig } from './settings';
+import { Settings, getConfig } from './settings';
 import * as vscode from 'vscode';
 
 
@@ -13,7 +13,7 @@ export interface ConfigurableRefresherConstructor {
 	name: string;
 	/**
 	 * The keys that are used to configure the refresher by the user,
-    * or to fix the values to be used
+	 * or to fix the values to be used
 	 */
 	keys:              RefresherConfigKeys & { type?: undefined } | {
 		type:          'fixed';
@@ -22,7 +22,7 @@ export interface ConfigurableRefresherConstructor {
 		interval:      number;
 	}
 	/**
-	 * The function that should be called, when the content should be updated 
+	 * The function that should be called, when the content should be updated
 	 * according to the policy configured by the config
 	 */
 	refreshCallback:        Callback<void>;
@@ -32,7 +32,7 @@ export interface ConfigurableRefresherConstructor {
 	configChangedCallback?: Callback<void>;
 	/**
 	 * (optional) The function that should be called, when the user opens a non supported file
-	 * (i.e. not an R file), and the content should be cleared 
+	 * (i.e. not an R file), and the content should be cleared
 	 */
 	clearCallback?:         Callback<void>;
 	/**
@@ -47,7 +47,7 @@ export interface ConfigurableRefresherConstructor {
 }
 
 export const enum RefreshType {
-	Never = 'never', 
+	Never = 'never',
 	Interval = 'interval',
 	Adaptive = 'adaptive',
 	OnSave = 'on save',
@@ -75,7 +75,7 @@ export class ConfigurableRefresher {
 
 	constructor(c: ConfigurableRefresherConstructor) {
 		this.spec = c;
-        
+
 		this.disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
 			if(!e.affectsConfiguration(Settings.Category)) {
 				return;
@@ -108,7 +108,7 @@ export class ConfigurableRefresher {
 
 	/**
 	 * Gets called immediatly before running the refreshCallback to avoid unnecessary updates.
-	 * Can be overriden by @see ConfigurableRefresherConstructor.shouldUpdateHook
+	 * Can be overriden by {@link ConfigurableRefresherConstructor.shouldUpdateHook}
 	 */
 	private shouldUpdate(): boolean {
 		if(!vscode.window.activeTextEditor) {
@@ -167,7 +167,7 @@ export class ConfigurableRefresher {
 	private static registerRefresherForOnChanged(refresher: ConfigurableRefresher) {
 		if(!ConfigurableRefresher.documentChangedDisposable) {
 			ConfigurableRefresher.documentChangedDisposable = vscode.workspace.onDidChangeTextDocument((e) => {
-				ConfigurableRefresher.onTextDocumentChanged(e); 
+				ConfigurableRefresher.onTextDocumentChanged(e);
 			});
 		}
 
@@ -176,7 +176,7 @@ export class ConfigurableRefresher {
 
 	private update() {
 		this.spec.output.append(`[${this.spec.name}] Updating Configuration`);
-	
+
 		if(this.activeInterval) {
 			clearInterval(this.activeInterval);
 			this.activeInterval = undefined;
@@ -204,11 +204,11 @@ export class ConfigurableRefresher {
 						}
 					});
 				} else {
-					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(e => {	
+					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(e => {
 						if(isChangeRelevant(e)) {
 							this.runRefreshCallback();
 						}
-						
+
 						if(getActiveEditorCharLength() > breakOff) {
 							this.update();
 						}
@@ -233,13 +233,16 @@ function getActiveEditorCharLength() {
 }
 
 function isChangeRelevant(e: vscode.TextDocumentChangeEvent): boolean {
-	return e.contentChanges.length > 0 
+	return e.contentChanges.length > 0
 		   && isRTypeLanguage(vscode.window.activeTextEditor?.document)
-		   && e.document === vscode.window.activeTextEditor?.document 
+		   && e.document === vscode.window.activeTextEditor?.document
 		   && e.document.version >= (vscode.window.activeTextEditor?.document.version ?? 0);
 }
 
 
+/**
+ *
+ */
 export function isRTypeLanguage(doc?: vscode.TextDocument): doc is vscode.TextDocument {
 	return !!doc && TriggerOnLanguageIds.indexOf(doc.languageId) !== -1;
 }

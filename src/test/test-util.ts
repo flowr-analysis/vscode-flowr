@@ -5,6 +5,9 @@ import * as assert from 'assert';
 import * as path from 'path';
 import type { FlowrInternalSession } from '../flowr/internal-session';
 
+/**
+ *
+ */
 export async function activateExtension(): Promise<void> {
 	const ext = vscode.extensions.getExtension('code-inspect.vscode-flowr');
 
@@ -19,6 +22,9 @@ export async function activateExtension(): Promise<void> {
 	assert.equal(session.state, 'active');
 }
 
+/**
+ *
+ */
 export async function openTestFile(name: string, selection?: vscode.Selection): Promise<vscode.TextEditor> {
 	const file = path.resolve(__dirname, '..', '..', 'test-workspace', name);
 	const doc = await vscode.workspace.openTextDocument(file);

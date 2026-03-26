@@ -38,12 +38,18 @@ export interface FlowrSession {
 	runRepl:                  (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }
 
+/**
+ *
+ */
 export function getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {
 	const re = /([a-zA-Z0-9._])+/;
 	const wordRange = document.getWordRangeAtPosition(position, re);
 	return wordRange;
 }
 
+/**
+ *
+ */
 export function consolidateNewlines(text: string) {
 	return text.replace(/\r\n/g, '\n');
 }
@@ -54,6 +60,9 @@ function toSlicingCriterion(pos: vscode.Position): SlicingCriterion {
 
 export function makeSlicingCriteria(positions: [vscode.Position], doc: vscode.TextDocument, verbose?: boolean): [SlicingCriterion];
 export function makeSlicingCriteria(positions: vscode.Position[], doc: vscode.TextDocument, verbose?: boolean): SlicingCriteria;
+/**
+ *
+ */
 export function makeSlicingCriteria(positions: vscode.Position[], doc: vscode.TextDocument, verbose: boolean = true): SlicingCriteria {
 	positions = positions.map(pos => {
 		const range = getPositionAt(pos, doc);
@@ -68,6 +77,9 @@ export function makeSlicingCriteria(positions: vscode.Position[], doc: vscode.Te
 	return criteria;
 }
 
+/**
+ *
+ */
 export function makeSliceElements(sliceResponse: ReadonlySet<NodeId>, idToLocation: (id: NodeId) => SourceRange | undefined): { id: NodeId, location: SourceRange }[] {
 	const sliceElements: { id: NodeId, location: SourceRange }[] = [];
 	for(const id of sliceResponse){
@@ -91,18 +103,21 @@ export function rangeToVscodeRange(range: SourceRange): vscode.Range {
 	return new vscode.Range(range[0] - 1, range[1] - 1, range[2] - 1, range[3]);
 }
 
+/**
+ *
+ */
 export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<ParentInformation>[]), selectionsRaw: readonly vscode.Selection[]): ReadonlySet<NodeId> | undefined {
 	if(selectionsRaw.length === 0 || selectionsRaw[0].isEmpty) {
 		return undefined;
 	}
-	
+
 	const result = new Set<NodeId>();
 	const maybeIncluded = new Array<RExpressionList<ParentInformation>>();
 
 	// By default the end of the selection extends one more coloumn
 	// Thus we subtract one so that the selection really only includes the selected chars
 	const selections = selectionsRaw.map(sel => sel.with(
-		sel.start, 
+		sel.start,
 		sel.end.with(sel.end.line, Math.max(sel.end.character - 1, 0))
 	));
 
@@ -116,7 +131,7 @@ export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<Pare
 		if(location === undefined) {
 			return;
 		}
-		
+
 		const range = rangeToVscodeRange(location);
 		if(selections.some(sel => sel.intersection(range) !== undefined)) {
 			result.add(node.info.id);

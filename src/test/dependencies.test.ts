@@ -1,16 +1,14 @@
 import * as vscode from 'vscode';
-import * as assert from 'assert';
-
-import { activateExtension, openTestFile } from './test-util';
+import * as assert from 'assert';import { activateExtension, openTestFile } from './test-util';
 import type { Dependency } from '../flowr/views/dependency-view';
 
-type DependencyDisplay = { label: string, description: string, children?: DependencyDisplay[] }
+type DependencyDisplay = { label: string, description: string, children?: DependencyDisplay[] };
 
 function simplifyDependencies(dependencies: Dependency[] | undefined): DependencyDisplay[] {
 	return dependencies?.map(d => ({
 		label:       typeof d.label === 'string' ? d.label : d.label?.label as string,
 		description: d.description as string,
-		children:    simplifyDependencies(d.children) 
+		children:    simplifyDependencies(d.children)
 	})) ?? [];
 }
 
@@ -47,6 +45,6 @@ suite('dependencies', () => {
 				{ label: 'e', description: 'by "library" in (L. 5)', children: [] },
 				{ label: 'f', description: 'by "library" in (L. 5)', children: [] },
 			] }
-		]);	
+		]);
 	});
 });

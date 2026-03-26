@@ -13,7 +13,7 @@ suite('util', () => {
 			{ selections: [], expected: undefined },
 			{ selections: [new vscode.Selection(0, 0, 0, 2)], expected: [0] },
 			{ selections: [new vscode.Selection(0, 0, 0, 3)], expected: [2, 0] },
-			{ selections: [new vscode.Selection(0, 0, 0, 3), new vscode.Selection(1, 0, 1, 3),], expected: [2, 0, 5, 3] },
+			{ selections: [new vscode.Selection(0, 0, 0, 3), new vscode.Selection(1, 0, 1, 3)], expected: [2, 0, 5, 3] },
 
 		];
 

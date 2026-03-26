@@ -5,54 +5,54 @@ import type * as vscode from 'vscode';
 import { getFlowrSession } from '../../extension';
 
 export enum FlowrDiagramType {
-    Dataflow = 'flowr-dataflow',
-    Controlflow = 'flowr-cfg',
-    Ast = 'flowr-ast',
-    CallGraph = 'flowr-call-graph',
+	Dataflow = 'flowr-dataflow',
+	Controlflow = 'flowr-cfg',
+	Ast = 'flowr-ast',
+	CallGraph = 'flowr-call-graph',
 };
 
 export interface DiagramDefinition<Options extends DiagramOptions> {
-    /** The title displayed on the tab of the panel */
-    title:            string;
-    /** The generated options at the bottom of the diagram panel */
-    options:          Options;
-    /** The url to open when clicking the Documentation button in the header */
-    documentationUrl: string;
-    /** The command used to open the panel by the user */
-    command:          string;
+	/** The title displayed on the tab of the panel */
+	title:            string;
+	/** The generated options at the bottom of the diagram panel */
+	options:          Options;
+	/** The url to open when clicking the Documentation button in the header */
+	documentationUrl: string;
+	/** The command used to open the panel by the user */
+	command:          string;
 	/** String that is displayed over the progress bar */
-	verb:                string; 
-    /** Retrieves the mermaid diagram as a string */
-    retrieve:         (options: Options, editor: vscode.TextEditor) => Promise<string>;
+	verb:             string;
+	/** Retrieves the mermaid diagram as a string */
+	retrieve:         (options: Options, editor: vscode.TextEditor) => Promise<string>;
 }
 
 export type DiagramSelectionMode = 'highlight' | 'hide';
 
 export interface DiagramOptionsBase<T> {
-    type:         string
-    key:          DiagramSettingsKeys
-    default:      T
-    currentValue: T 
+	type:         string
+	key:          DiagramSettingsKeys
+	default:      T
+	currentValue: T
 }
 
 export interface DiagramOptionsCheckbox<T = string> extends DiagramOptionsBase<boolean> {
-    type:        'checkbox'
-    displayText: string
-    /** If set, it will be used to set the value in a set references by @see key in vscode's settings.json */
-    keyInSet:    T | undefined
+	type:        'checkbox'
+	displayText: string
+	/** If set, it will be used to set the value in a set references by {@link key} in vscode's settings.json */
+	keyInSet:    T | undefined
 };
 
 export interface DiagramOptionsDropdown<T = string> extends DiagramOptionsBase<T> {
-    type:   'dropdown'
-    values: {
-        value:       T
-        displayText: string
-    }[]
+	type:   'dropdown'
+	values: {
+		value:       T
+		displayText: string
+	}[]
 };
 
 export type DiagramOption = DiagramOptionsCheckbox | DiagramOptionsDropdown;
 
-export type DiagramOptions = Record<string, DiagramOption>; 
+export type DiagramOptions = Record<string, DiagramOption>;
 
 export const DefaultDiagramOptions = {
 	mode: {
@@ -84,7 +84,7 @@ export const DFGDiagramOptions = {
 		default:      true,
 		currentValue: true
 	} as DiagramOptionsCheckbox,
-} satisfies DiagramOptions; 
+} satisfies DiagramOptions;
 
 export const CFGDiagramOptions = {
 	// Default options for mode and sync
@@ -154,7 +154,7 @@ export const DiagramDefinitions = {
 	} satisfies DiagramDefinition<typeof DefaultDiagramOptions>
 } as const satisfies Record<FlowrDiagramType, unknown>;
 
-function simplificationPassesFromOptions(options: DiagramOptions): CfgSimplificationPassName[] {	
+function simplificationPassesFromOptions(options: DiagramOptions): CfgSimplificationPassName[] {
 	const passes: CfgSimplificationPassName[] = [];
 	for(const pass of Object.keys(CfgSimplificationPasses) as CfgSimplificationPassName[]) {
 		if(pass in options && options[pass as keyof DiagramOptions].currentValue) {

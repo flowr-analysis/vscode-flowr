@@ -59,20 +59,23 @@ export class LocalTelemetry extends Telemetry {
 // #endif
 
 export enum TelemetryEvent {
-    UsedCommand = 'used-command',
-    OpenedDocument = 'opened-document',
-    ClosedDocument = 'closed-document',
-    ChangedActiveEditor = 'changed-active-editor',
-    ChangedSelection = 'changed-selection',
-    ChangedFile = 'changed-file'
+	UsedCommand = 'used-command',
+	OpenedDocument = 'opened-document',
+	ClosedDocument = 'closed-document',
+	ChangedActiveEditor = 'changed-active-editor',
+	ChangedSelection = 'changed-selection',
+	ChangedFile = 'changed-file'
 }
 
 export interface TelemetryEventArgs extends Record<string, unknown> {
-    timestamp: number
+	timestamp: number
 }
 
 export let telemetry: Telemetry = new NoTelemetry();
 
+/**
+ *
+ */
 export function registerTelemetry(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 // #if HAS_TELEMETRY
 	vscode.commands.executeCommand('setContext', 'vscode-flowr.hasTelemetry', true);
@@ -103,37 +106,37 @@ export function registerTelemetry(context: vscode.ExtensionContext, output: vsco
 		vscode.window.showInformationMessage('Stopped telemetry.');
 	});
 
-	context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, { 
+	context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, {
 		document: d.uri.toString(),
-		content:  d.getText() 
+		content:  d.getText()
 	})));
 	context.subscriptions.push(vscode.workspace.onDidOpenNotebookDocument(d => telemetry.event(TelemetryEvent.OpenedDocument, {
-		document: d.uri.toString() 
+		document: d.uri.toString()
 	})));
 	context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(d => telemetry.event(TelemetryEvent.ClosedDocument, {
 		document: d.uri.toString(),
 		content:  d.getText()
 	})));
 	context.subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(d => telemetry.event(TelemetryEvent.ClosedDocument, {
-		document: d.uri.toString() 
+		document: d.uri.toString()
 	})));
 	context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
 		if(e.document.uri.scheme !== 'output') {
-			telemetry.event(TelemetryEvent.ChangedFile, { 
+			telemetry.event(TelemetryEvent.ChangedFile, {
 				document: e.document?.uri.toString(),
-				changes:  e.contentChanges, 
+				changes:  e.contentChanges,
 				reason:   e.reason
 			});
 		}
 	}));
-	context.subscriptions.push(vscode.workspace.onDidChangeNotebookDocument(e => telemetry.event(TelemetryEvent.ChangedFile, { 
-		document:    e.notebook?.uri.toString(), 
-		changes:     e.contentChanges, 
+	context.subscriptions.push(vscode.workspace.onDidChangeNotebookDocument(e => telemetry.event(TelemetryEvent.ChangedFile, {
+		document:    e.notebook?.uri.toString(),
+		changes:     e.contentChanges,
 		cellChanges: e.cellChanges
 	})));
 
-	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(e => telemetry.event(TelemetryEvent.ChangedActiveEditor, { 
-		document: e?.document.uri.toString(), 
+	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(e => telemetry.event(TelemetryEvent.ChangedActiveEditor, {
+		document: e?.document.uri.toString(),
 		content:  e?.document.getText()
 	})));
 	context.subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor(e => telemetry.event(TelemetryEvent.ChangedActiveEditor, {
@@ -147,7 +150,7 @@ export function registerTelemetry(context: vscode.ExtensionContext, output: vsco
 			});
 		}
 	}));
-	context.subscriptions.push(vscode.window.onDidChangeNotebookEditorSelection(e => telemetry.event(TelemetryEvent.ChangedSelection, { 
+	context.subscriptions.push(vscode.window.onDidChangeNotebookEditorSelection(e => telemetry.event(TelemetryEvent.ChangedSelection, {
 		document:   e.notebookEditor?.notebook.uri.toString(),
 		selections: e.selections
 	})));

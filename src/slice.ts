@@ -12,6 +12,9 @@ import { rangeToVscodeRange } from './flowr/utils';
 import { registerCommand } from './extension';
 import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
+/**
+ *
+ */
 export function registerSliceCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	registerCommand(context, 'vscode-flowr.slice.cursor', async() => {
 		return await getSelectionSlicer().sliceSelectionOnce(SliceDirection.Backward);
@@ -115,6 +118,9 @@ function showDependencySlice(output: vscode.OutputChannel, dependency: Dependenc
 	}, 1);
 }
 
+/**
+ *
+ */
 export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[], decos: DecoTypes) {
 	const sliceLines = new Set<number>(sliceElements.map(s => s.location[0] - 1));
 	switch(getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay)) {
@@ -152,7 +158,7 @@ export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: Nod
 			// only ever open one diff view to avoid "stuttering" between multiple or between the reconstruct
 			if(!vscode.workspace.textDocuments.find(e => e.uri.authority === uri.authority)){
 				void vscode.commands.executeCommand('vscode.diff', uri, editor.document.uri, 'Slice Diff View',
-				{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true } as vscode.TextDocumentShowOptions);
+					{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true } as vscode.TextDocumentShowOptions);
 			}
 			break;
 		}
@@ -165,6 +171,9 @@ export interface DecoTypes {
 	slicedPos:  vscode.TextEditorDecorationType
 	dispose(): void
 }
+/**
+ *
+ */
 export function makeSliceDecorationTypes(): DecoTypes {
 	const config = getConfig();
 	const tokenColor = config.get<string>(Settings.StyleTokenBackground, 'green');
