@@ -547,9 +547,12 @@
             "seeded-randomness",
             "absolute-file-paths",
             "unused-definitions",
+            "network-functions",
             "dataframe-access-validation",
             "dead-code",
-            "useless-loop"
+            "useless-loop",
+            "problematic-eval",
+            "stop-call"
           ],
           "markdownDescription": "The names of the linting rules that should be enabled. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their identifiers. An empty array causes all linting rules to be enabled."
         },
