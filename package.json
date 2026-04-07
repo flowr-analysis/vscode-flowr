@@ -761,8 +761,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run package && npm run package-web",
-    "copy-wasm-node": "mkdir -p dist/node && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/node && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/node",
-    "copy-wasm-web": "mkdir -p dist/web && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/web && cp node_modules/@eagleoutice/tree-sitter-r/tree-sitter-r.wasm dist/web",
+    "copy-wasm-node": "mkdir -p dist/node && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/node && cp node_modules/@davisvaughan/tree-sitter-r/tree-sitter-r.wasm dist/node",
+    "copy-wasm-web": "mkdir -p dist/web && cp node_modules/web-tree-sitter/tree-sitter.wasm dist/web && cp node_modules/@davisvaughan/tree-sitter-r/tree-sitter-r.wasm dist/web",
     "precompile": "npm run copy-wasm-node",
     "compile": "webpack",
     "prepackage": "npm run copy-wasm-node",
@@ -787,6 +787,7 @@
   },
   "dependencies": {
     "@eagleoutice/flowr": "^2.10.1",
+    "@davisvaughan/tree-sitter-r": "^1.2.0",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
