@@ -786,8 +786,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.10.1",
-    "@davisvaughan/tree-sitter-r": "^1.2.0",
+    "@eagleoutice/flowr": "^2.10.3",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
