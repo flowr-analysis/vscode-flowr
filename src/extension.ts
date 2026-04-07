@@ -15,6 +15,7 @@ import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
 import { NoTelemetry, registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
 import { registerHoverOverValues } from './hover-values';
+import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/tree-sitter-executor';
 
 /**
  * Public-facing API for the flowR extension, which includes a variety of helpful utilities.
@@ -191,7 +192,11 @@ export function updateStatusBar() {
 	} else if(flowrSession instanceof FlowrInternalSession) {
 		text.push(`$(console) flowR ${flowrSession.state}`);
 		if(flowrSession.state === 'active') {
-			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}  \nEngine ${flowrSession.parser?.name}`);
+			let info = `R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}  \nEngine ${flowrSession.parser?.name}`;
+			if(flowrSession.parser instanceof TreeSitterExecutor) {
+				info += ` version ${flowrSession.parser.treeSitterVersion()}`;
+			}
+			tooltip.push(info);
 		}
 		if(flowrSession.working){
 			text.push('$(loading~spin) Analyzing');
