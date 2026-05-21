@@ -168,7 +168,11 @@ function createDiagramDocument({ options, documentationUrl }: DiagramGeneratorDa
                         panZoom.destroy();        
                     }
 
-                    panZoom = svgPanZoom('.mermaid svg', { controlIconsEnabled: true });
+                    panZoom = svgPanZoom('.mermaid svg', { 
+                        controlIconsEnabled: true,
+                        minZoom: Number.MIN_SAFE_INTEGER,
+                        maxZoom: Number.MAX_SAFE_INTEGER 
+                    });
                     panZoom.resize();
                     panZoom.zoom(zoom);
                     panZoom.pan(pan);
