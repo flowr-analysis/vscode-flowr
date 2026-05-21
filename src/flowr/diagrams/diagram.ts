@@ -21,9 +21,9 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 
 	for(const type in DiagramDefinitions) {
 		const definition = DiagramDefinitions[type as FlowrDiagramType];
-		registerCommand(context, definition.command, async() => {
+		registerCommand(context, definition.command, () => {
 			const activeEditor = vscode.window.activeTextEditor;
-			return await coordinator.createDiagramPanel(type as FlowrDiagramType, activeEditor);
+			return coordinator.createDiagramPanel(type as FlowrDiagramType, activeEditor);
 		});
 	}
 }
@@ -45,7 +45,7 @@ interface WebviewReadyMessage {
 }
 
 interface WebviewSettingsMessage {
-	type: 'settings'
+	type:      'settings'
 	key:       string
 	/** @see DiagramOptionsCheckbox.keyInSet */
 	keyInSet?: string
@@ -70,29 +70,19 @@ class DiagramUpdateCoordinator {
 		this.output = output;
 	}
 
-	public async createDiagramPanel(type: FlowrDiagramType, editor: vscode.TextEditor | undefined) {
+	public createDiagramPanel(type: FlowrDiagramType, editor: vscode.TextEditor | undefined) {
 		if(!editor) {
 			return;
 		}
 
 		const definition = DiagramDefinitions[type];
 		const options = optionsFromDiagramType(type);
-		// const mermaid = await definition.retrieve(options as never, editor);
-
-		// // Don't show a panel if generation failed
-		// if(mermaid === '') {
-		// 	await vscode.window.showErrorMessage('Failed to generate diagram - FlowR Analyzer Session is not ready. Check if flowrR is connected and try again.');
-		// 	return;
-		// }
-
 		const panel = createDiagramWebview({
-		//	mermaid:          mermaid,
 			options:          options,
 			documentationUrl: definition.documentationUrl,
-		//	editorUrl:        Mermaid.codeToUrl(mermaid, true),
 			id:               type as string,
 			name:             `${definition.title} (${path.basename(editor.document.fileName)})`
-		}, this.output);
+		});
 
 		if(!panel) {
 			return undefined;
@@ -111,7 +101,6 @@ class DiagramUpdateCoordinator {
 		}
 
 		this.documentToDiagramPanel.get(editor.document)?.add(info);
-
 
 		const onReady = () => {
 			void this.updateWebviewPanel(info, editor);
@@ -132,9 +121,9 @@ class DiagramUpdateCoordinator {
 				((options as Record<string, DiagramOption>)[msg.key].currentValue as unknown) = msg.value;
 				getConfig().update(key, msg.value);
 			}
-		
+
 			void this.updateWebviewPanel(info, editor);
-		}
+		};
 
 		// Handle messages from panel
 		panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
@@ -174,8 +163,8 @@ class DiagramUpdateCoordinator {
 	public async updateWebviewPanel(info: DiagramPanelInformation, textEditor: vscode.TextEditor) {
 		const mermaid = await DiagramDefinitions[info.type].retrieve(info.options as never, textEditor);
 		info.panel.webview.postMessage({
-			type:    'content_update',
-			content: mermaid,
+			type:      'content_update',
+			content:   mermaid,
 			editorUrl: Mermaid.codeToUrl(mermaid, true)
 		} satisfies ContentUpdateMessage);
 	}

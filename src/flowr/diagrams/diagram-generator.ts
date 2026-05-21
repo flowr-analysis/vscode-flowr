@@ -192,17 +192,8 @@ function mermaidMaxTextLength() {
 /**
  *
  */
-export function createDiagramWebview(data: DiagramGeneratorData, output: vscode.OutputChannel): vscode.WebviewPanel | undefined {
-	// // https://github.com/mermaid-js/mermaid/blob/47601ac311f7ad7aedfaf280d319d75434680622/packages/mermaid/src/mermaidAPI.ts#L315-L317
-	// if(data.mermaid.length > mermaidMaxTextLength()){
-	// 	void vscode.window.showErrorMessage('The diagram is too large to be displayed by Mermaid. You can find its code in the flowR output panel instead. Additionally, you can change the maximum diagram length in the extension settings.');
-	// 	output.appendLine(data.mermaid);
-	// 	return undefined;
-	// }
-
-	const panel = vscode.window.createWebviewPanel(data.id, data.name, vscode.ViewColumn.Beside, {
-		enableScripts: true
-	});
+export function createDiagramWebview(data: DiagramGeneratorData): vscode.WebviewPanel | undefined {
+	const panel = vscode.window.createWebviewPanel(data.id, data.name, vscode.ViewColumn.Beside, { enableScripts: true });
 	panel.webview.html = createDiagramDocument(data);
 	return panel;
 }
