@@ -4,10 +4,8 @@ import * as vscode from 'vscode';
 import type { DiagramOptions, DiagramOptionsCheckbox, DiagramOptionsDropdown } from './diagram-definitions';
 
 export interface DiagramGeneratorData {
-	mermaid:          string;
 	options:          DiagramOptions;
 	documentationUrl: string;
-	editorUrl:        string;
 	id:               string;
 	name:             string;
 }
@@ -18,7 +16,7 @@ const Checkbox =  {
 	},
 	js: (option: DiagramOptionsCheckbox) => {
 		return `document.getElementById('${option.keyInSet ?? option.key}').addEventListener('change', (e) => {
-			vscode.postMessage({ key: '${option.key}', value: event.currentTarget.checked, keyInSet: ${option.keyInSet ? `'${option.keyInSet}'` : undefined} });
+			vscode.postMessage({ type: 'settings', key: '${option.key}', value: event.currentTarget.checked, keyInSet: ${option.keyInSet ? `'${option.keyInSet}'` : undefined} });
         });`;
 	}
 };
@@ -31,7 +29,7 @@ const Dropdown = {
 	js: (option: DiagramOptionsDropdown) => {
 		return `const input = document.getElementById('${option.key}');
 		input.addEventListener('change', (e) => {
-			vscode.postMessage({ key: '${option.key}', value: input.options[e.currentTarget.selectedIndex].value});
+			vscode.postMessage({ type: 'settings', key: '${option.key}', value: input.options[e.currentTarget.selectedIndex].value});
 		});`;
 	}
 };
@@ -56,7 +54,7 @@ function generateOptionsJS(options: DiagramOptions): string {
 	}).join('\n');
 }
 
-function createDiagramDocument({ mermaid, options, documentationUrl, editorUrl }: DiagramGeneratorData): string {
+function createDiagramDocument({ options, documentationUrl }: DiagramGeneratorData): string {
 	const theme = vscode.window.activeColorTheme.kind == vscode.ColorThemeKind.Light ? 'default' : 'dark';
 	// Use 'leet-html' extension for VS Code to get intellisense for the following string:
 	return ` 
@@ -66,7 +64,7 @@ function createDiagramDocument({ mermaid, options, documentationUrl, editorUrl }
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
     <script>
         const mermaidConfig = {
@@ -131,12 +129,10 @@ function createDiagramDocument({ mermaid, options, documentationUrl, editorUrl }
     <div class="container">
         <div class="header">
             <a href="${documentationUrl}">Documentation</a>
-            <a href="${editorUrl}">Open in Mermaid</a>
+            <a href="" id="a-open">Open in Mermaid</a>
         </div>
 
-        <div class="mermaid" id="diagram">
-            ${mermaid}
-        </div>
+        <div class="mermaid" id="diagram"></div>
         
         <div class="footer">
             ${generateOptionsHTML(options)}
@@ -145,30 +141,45 @@ function createDiagramDocument({ mermaid, options, documentationUrl, editorUrl }
 
     
     <script>
+        /* The vscode object is needed by the code returned by generateOptions */
         const vscode = acquireVsCodeApi();
-        
-        /* Mermaid Rendering */
-        let panZoom; 
-        mermaid.run().then(() => {
-            panZoom = svgPanZoom('.mermaid svg', { controlIconsEnabled: true })
-            addEventListener("resize", () => panZoom.resize())
-        });
+        const diagramContainer = document.getElementById('diagram');
+        const openEditorLink = document.getElementById('a-open');
 
+        let panZoom; 
+        let pan = { x: 0, y: 0 };
+        let zoom = 1;
+        window.addEventListener("resize", () => panZoom.resize());
+        
         /* Communication with extension */
         window.addEventListener('message', async event => {
             const msg = event.data;
             switch(msg.type) {
                 case 'content_update':
-                    const el = document.getElementById('diagram');
+                    openEditorLink.href = msg.editorUrl;
+
                     const { svg, bindFunctions } = await mermaid.render('flowr-diagram', msg.content);
-                    el.innerHTML = svg;
-                    bindFunctions?.(el);
-                    panZoom = svgPanZoom('.mermaid svg', { controlIconsEnabled: true })
+                    diagramContainer.innerHTML = svg;
+                    bindFunctions?.(diagramContainer);
+        
+                    if(panZoom) {
+                        pan = panZoom.getPan();
+                        zoom = panZoom.getZoom();
+                        panZoom.destroy();        
+                    }
+
+                    panZoom = svgPanZoom('.mermaid svg', { controlIconsEnabled: true });
+                    panZoom.resize();
+                    panZoom.zoom(zoom);
+                    panZoom.pan(pan);
                     break;
             }
         });
 
        ${generateOptionsJS(options)}
+
+       /* Tell the extension that we are ready to recieve the first content_update message */
+       vscode.postMessage({ type: 'ready' });
     </script>
 </body>
 </html>`;
@@ -182,12 +193,12 @@ function mermaidMaxTextLength() {
  *
  */
 export function createDiagramWebview(data: DiagramGeneratorData, output: vscode.OutputChannel): vscode.WebviewPanel | undefined {
-	// https://github.com/mermaid-js/mermaid/blob/47601ac311f7ad7aedfaf280d319d75434680622/packages/mermaid/src/mermaidAPI.ts#L315-L317
-	if(data.mermaid.length > mermaidMaxTextLength()){
-		void vscode.window.showErrorMessage('The diagram is too large to be displayed by Mermaid. You can find its code in the flowR output panel instead. Additionally, you can change the maximum diagram length in the extension settings.');
-		output.appendLine(data.mermaid);
-		return undefined;
-	}
+	// // https://github.com/mermaid-js/mermaid/blob/47601ac311f7ad7aedfaf280d319d75434680622/packages/mermaid/src/mermaidAPI.ts#L315-L317
+	// if(data.mermaid.length > mermaidMaxTextLength()){
+	// 	void vscode.window.showErrorMessage('The diagram is too large to be displayed by Mermaid. You can find its code in the flowR output panel instead. Additionally, you can change the maximum diagram length in the extension settings.');
+	// 	output.appendLine(data.mermaid);
+	// 	return undefined;
+	// }
 
 	const panel = vscode.window.createWebviewPanel(data.id, data.name, vscode.ViewColumn.Beside, {
 		enableScripts: true

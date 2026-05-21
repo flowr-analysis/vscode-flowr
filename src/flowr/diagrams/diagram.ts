@@ -35,16 +35,24 @@ interface DiagramPanelInformation {
 }
 
 interface ContentUpdateMessage {
-	type:    'content_update',
-	content: string
+	type:      'content_update';
+	content:   string;
+	editorUrl: string;
 }
 
-interface WebviewMessage {
+interface WebviewReadyMessage {
+	type: 'ready'
+}
+
+interface WebviewSettingsMessage {
+	type: 'settings'
 	key:       string
 	/** @see DiagramOptionsCheckbox.keyInSet */
 	keyInSet?: string
 	value:     unknown
 }
+
+type WebviewMessage = WebviewReadyMessage | WebviewSettingsMessage;
 
 
 /**
@@ -69,19 +77,19 @@ class DiagramUpdateCoordinator {
 
 		const definition = DiagramDefinitions[type];
 		const options = optionsFromDiagramType(type);
-		const mermaid = await definition.retrieve(options as never, editor);
+		// const mermaid = await definition.retrieve(options as never, editor);
 
-		// Don't show a panel if generation failed
-		if(mermaid === '') {
-			await vscode.window.showErrorMessage('Failed to generate diagram - FlowR Analyzer Session is not ready. Check if flowrR is connected and try again.');
-			return;
-		}
+		// // Don't show a panel if generation failed
+		// if(mermaid === '') {
+		// 	await vscode.window.showErrorMessage('Failed to generate diagram - FlowR Analyzer Session is not ready. Check if flowrR is connected and try again.');
+		// 	return;
+		// }
 
 		const panel = createDiagramWebview({
-			mermaid:          mermaid,
+		//	mermaid:          mermaid,
 			options:          options,
 			documentationUrl: definition.documentationUrl,
-			editorUrl:        Mermaid.codeToUrl(mermaid, true),
+		//	editorUrl:        Mermaid.codeToUrl(mermaid, true),
 			id:               type as string,
 			name:             `${definition.title} (${path.basename(editor.document.fileName)})`
 		}, this.output);
@@ -97,8 +105,19 @@ class DiagramUpdateCoordinator {
 			this.documentToDiagramPanel.get(editor.document)?.delete(info);
 		});
 
-		// Handle settings update messages from panel
-		panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
+		// Add panel to map for tracking selection updates
+		if(!this.documentToDiagramPanel.has(editor.document)) {
+			this.documentToDiagramPanel.set(editor.document, new Set<DiagramPanelInformation>());
+		}
+
+		this.documentToDiagramPanel.get(editor.document)?.add(info);
+
+
+		const onReady = () => {
+			void this.updateWebviewPanel(info, editor);
+		};
+
+		const onSettingsChanged = (msg: WebviewSettingsMessage) => {
 			const key = `${DiagramSettingsPrefix}.${msg.key}`;
 			if(msg.keyInSet) { // If setKey is set, the checkboxes are grouped into an array
 				const current = new Set(getConfig().get<string[]>(key, []));
@@ -113,19 +132,19 @@ class DiagramUpdateCoordinator {
 				((options as Record<string, DiagramOption>)[msg.key].currentValue as unknown) = msg.value;
 				getConfig().update(key, msg.value);
 			}
-
+		
 			void this.updateWebviewPanel(info, editor);
-		});
-
-		// Add panel to map for tracking selection updates
-		if(!this.documentToDiagramPanel.has(editor.document)) {
-			this.documentToDiagramPanel.set(editor.document, new Set<DiagramPanelInformation>());
 		}
 
-		this.documentToDiagramPanel.get(editor.document)?.add(info);
+		// Handle messages from panel
+		panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
+			switch(msg.type) {
+				case 'ready': onReady(); break;
+				case 'settings': onSettingsChanged(msg); break;
+			}
+		});
 
 		return {
-			mermaid,
 			webview: panel
 		};
 	}
@@ -156,7 +175,8 @@ class DiagramUpdateCoordinator {
 		const mermaid = await DiagramDefinitions[info.type].retrieve(info.options as never, textEditor);
 		info.panel.webview.postMessage({
 			type:    'content_update',
-			content: mermaid
+			content: mermaid,
+			editorUrl: Mermaid.codeToUrl(mermaid, true)
 		} satisfies ContentUpdateMessage);
 	}
 }
