@@ -21,9 +21,9 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 
 	for(const type in DiagramDefinitions) {
 		const definition = DiagramDefinitions[type as FlowrDiagramType];
-		registerCommand(context, definition.command, async() => {
+		registerCommand(context, definition.command, (callbacks?: WebviewCallbacks) => {
 			const activeEditor = vscode.window.activeTextEditor;
-			return await coordinator.createDiagramPanel(type as FlowrDiagramType, activeEditor);
+			return coordinator.createDiagramPanel(type as FlowrDiagramType, activeEditor, callbacks);
 		});
 	}
 }
@@ -34,24 +34,60 @@ interface DiagramPanelInformation {
 	options: DiagramOptions;
 }
 
+/**
+ * Sent by the extension to the webview when there is new mermaid code to show
+ */
 interface ContentUpdateMessage {
-	type:    'content_update',
-	content: string
+	type:      'content_update';
+	content:   string;
+	editorUrl: string;
 }
 
-interface WebviewMessage {
+/**
+ * Sent when the webview is ready to recieve mermaid code
+ */
+interface WebviewReadyMessage {
+	type: 'ready';
+}
+
+/**
+ * Sent by the webview when an error occured during diagram conversion using mermaid
+ */
+interface WebviewErrorMessage {
+	type:    'error';
+	message: string;
+}
+
+/**
+ * Sent by the webview when a mermaid diagram
+ * was successfully genereted and converted into svg
+ */
+interface WebviewDiagramGeneratedMessage {
+	type: 'diagram_generated';
+}
+
+/**
+ * Sent by the Webview when settings were changed by the user.
+ * Settings include the checkboxes and dropdowns in the webview pane
+ */
+interface WebviewSettingsMessage {
+	type:      'settings'
 	key:       string
 	/** @see DiagramOptionsCheckbox.keyInSet */
 	keyInSet?: string
 	value:     unknown
 }
 
+type WebviewMessage = WebviewReadyMessage | WebviewSettingsMessage | WebviewErrorMessage | WebviewDiagramGeneratedMessage;
+
+export type WebviewCallbacks = { onError: (message: string) => void, onGenerated: () => void };
+
 
 /**
  * Manages Webview Panels created through flowr commands (like Show Dataflow Graph)
  * This also routes updates to the correct panel when the text selection updates in a panel
  */
-class DiagramUpdateCoordinator {
+export class DiagramUpdateCoordinator {
 	private documentToDiagramPanel: Map<vscode.TextDocument, Set<DiagramPanelInformation>>;
 	private output:                 vscode.OutputChannel;
 	private debounceTimeout:        NodeJS.Timeout | undefined;
@@ -62,29 +98,19 @@ class DiagramUpdateCoordinator {
 		this.output = output;
 	}
 
-	public async createDiagramPanel(type: FlowrDiagramType, editor: vscode.TextEditor | undefined) {
+	public createDiagramPanel(type: FlowrDiagramType, editor: vscode.TextEditor | undefined, callbacks?: WebviewCallbacks) {
 		if(!editor) {
 			return;
 		}
 
 		const definition = DiagramDefinitions[type];
 		const options = optionsFromDiagramType(type);
-		const mermaid = await definition.retrieve(options as never, editor);
-
-		// Don't show a panel if generation failed
-		if(mermaid === '') {
-			await vscode.window.showErrorMessage('Failed to generate diagram - FlowR Analyzer Session is not ready. Check if flowrR is connected and try again.');
-			return;
-		}
-
 		const panel = createDiagramWebview({
-			mermaid:          mermaid,
 			options:          options,
 			documentationUrl: definition.documentationUrl,
-			editorUrl:        Mermaid.codeToUrl(mermaid, true),
 			id:               type as string,
 			name:             `${definition.title} (${path.basename(editor.document.fileName)})`
-		}, this.output);
+		});
 
 		if(!panel) {
 			return undefined;
@@ -97,8 +123,18 @@ class DiagramUpdateCoordinator {
 			this.documentToDiagramPanel.get(editor.document)?.delete(info);
 		});
 
-		// Handle settings update messages from panel
-		panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
+		// Add panel to map for tracking selection updates
+		if(!this.documentToDiagramPanel.has(editor.document)) {
+			this.documentToDiagramPanel.set(editor.document, new Set<DiagramPanelInformation>());
+		}
+
+		this.documentToDiagramPanel.get(editor.document)?.add(info);
+
+		const onReady = () => {
+			void this.updateWebviewPanel(info, editor);
+		};
+
+		const onSettingsChanged = (msg: WebviewSettingsMessage) => {
 			const key = `${DiagramSettingsPrefix}.${msg.key}`;
 			if(msg.keyInSet) { // If setKey is set, the checkboxes are grouped into an array
 				const current = new Set(getConfig().get<string[]>(key, []));
@@ -115,17 +151,22 @@ class DiagramUpdateCoordinator {
 			}
 
 			void this.updateWebviewPanel(info, editor);
+		};
+
+		// Handle messages from panel
+		panel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
+			switch(msg.type) {
+				case 'ready': onReady(); break;
+				case 'settings': onSettingsChanged(msg); break;
+				case 'error':
+					this.output.appendLine(`[Diagram]: Failed to convert mermaid code into svg: ${msg.message}`);
+					callbacks?.onError(msg.message);
+					break;
+				case 'diagram_generated': callbacks?.onGenerated(); break;
+			}
 		});
 
-		// Add panel to map for tracking selection updates
-		if(!this.documentToDiagramPanel.has(editor.document)) {
-			this.documentToDiagramPanel.set(editor.document, new Set<DiagramPanelInformation>());
-		}
-
-		this.documentToDiagramPanel.get(editor.document)?.add(info);
-
 		return {
-			mermaid,
 			webview: panel
 		};
 	}
@@ -155,8 +196,9 @@ class DiagramUpdateCoordinator {
 	public async updateWebviewPanel(info: DiagramPanelInformation, textEditor: vscode.TextEditor) {
 		const mermaid = await DiagramDefinitions[info.type].retrieve(info.options as never, textEditor);
 		info.panel.webview.postMessage({
-			type:    'content_update',
-			content: mermaid
+			type:      'content_update',
+			content:   mermaid,
+			editorUrl: Mermaid.codeToUrl(mermaid, true)
 		} satisfies ContentUpdateMessage);
 	}
 }
