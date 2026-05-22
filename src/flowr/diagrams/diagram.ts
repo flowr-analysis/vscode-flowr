@@ -21,9 +21,9 @@ export function registerDiagramCommands(context: vscode.ExtensionContext, output
 
 	for(const type in DiagramDefinitions) {
 		const definition = DiagramDefinitions[type as FlowrDiagramType];
-		registerCommand(context, definition.command, () => {
+		registerCommand(context, definition.command, (callbacks?: WebviewCallbacks) => {
 			const activeEditor = vscode.window.activeTextEditor;
-			return coordinator.createDiagramPanel(type as FlowrDiagramType, activeEditor);
+			return coordinator.createDiagramPanel(type as FlowrDiagramType, activeEditor, callbacks);
 		});
 	}
 }
@@ -34,16 +34,42 @@ interface DiagramPanelInformation {
 	options: DiagramOptions;
 }
 
+/**
+ * Sent by the extension to the webview when there is new mermaid code to show
+ */
 interface ContentUpdateMessage {
 	type:      'content_update';
 	content:   string;
 	editorUrl: string;
 }
 
+/**
+ * Sent when the webview is ready to recieve mermaid code
+ */
 interface WebviewReadyMessage {
-	type: 'ready'
+	type: 'ready';
 }
 
+/**
+ * Sent by the webview when an error occured during diagram conversion using mermaid
+ */
+interface WebviewErrorMessage {
+	type:    'error';
+	message: string;
+}
+
+/**
+ * Sent by the webview when a mermaid diagram
+ * was successfully genereted and converted into svg
+ */
+interface WebviewDiagramGeneratedMessage {
+	type: 'diagram_generated';
+}
+
+/**
+ * Sent by the Webview when settings were changed by the user.
+ * Settings include the checkboxes and dropdowns in the webview pane
+ */
 interface WebviewSettingsMessage {
 	type:      'settings'
 	key:       string
@@ -52,14 +78,16 @@ interface WebviewSettingsMessage {
 	value:     unknown
 }
 
-type WebviewMessage = WebviewReadyMessage | WebviewSettingsMessage;
+type WebviewMessage = WebviewReadyMessage | WebviewSettingsMessage | WebviewErrorMessage | WebviewDiagramGeneratedMessage;
+
+export type WebviewCallbacks = { onError: (message: string) => void, onGenerated: () => void };
 
 
 /**
  * Manages Webview Panels created through flowr commands (like Show Dataflow Graph)
  * This also routes updates to the correct panel when the text selection updates in a panel
  */
-class DiagramUpdateCoordinator {
+export class DiagramUpdateCoordinator {
 	private documentToDiagramPanel: Map<vscode.TextDocument, Set<DiagramPanelInformation>>;
 	private output:                 vscode.OutputChannel;
 	private debounceTimeout:        NodeJS.Timeout | undefined;
@@ -70,7 +98,7 @@ class DiagramUpdateCoordinator {
 		this.output = output;
 	}
 
-	public createDiagramPanel(type: FlowrDiagramType, editor: vscode.TextEditor | undefined) {
+	public createDiagramPanel(type: FlowrDiagramType, editor: vscode.TextEditor | undefined, callbacks?: WebviewCallbacks) {
 		if(!editor) {
 			return;
 		}
@@ -130,6 +158,8 @@ class DiagramUpdateCoordinator {
 			switch(msg.type) {
 				case 'ready': onReady(); break;
 				case 'settings': onSettingsChanged(msg); break;
+				case 'error': callbacks?.onError(msg.message); break;
+				case 'diagram_generated': callbacks?.onGenerated(); break;
 			}
 		});
 

@@ -158,24 +158,29 @@ function createDiagramDocument({ options, documentationUrl }: DiagramGeneratorDa
                 case 'content_update':
                     openEditorLink.href = msg.editorUrl;
 
-                    const { svg, bindFunctions } = await mermaid.render('flowr-diagram', msg.content);
-                    diagramContainer.innerHTML = svg;
-                    bindFunctions?.(diagramContainer);
-        
-                    if(panZoom) {
-                        pan = panZoom.getPan();
-                        zoom = panZoom.getZoom();
-                        panZoom.destroy();        
-                    }
+                    try {
+                        const { svg, bindFunctions } = await mermaid.render('flowr-diagram', msg.content);
+                        diagramContainer.innerHTML = svg;
+                        bindFunctions?.(diagramContainer);
+                        
+                        if(panZoom) {
+                            pan = panZoom.getPan();
+                            zoom = panZoom.getZoom();
+                            panZoom.destroy();        
+                        }
 
-                    panZoom = svgPanZoom('.mermaid svg', { 
-                        controlIconsEnabled: true,
-                        minZoom: Number.MIN_SAFE_INTEGER,
-                        maxZoom: Number.MAX_SAFE_INTEGER 
-                    });
-                    panZoom.resize();
-                    panZoom.zoom(zoom);
-                    panZoom.pan(pan);
+                        panZoom = svgPanZoom('.mermaid svg', { 
+                            controlIconsEnabled: true,
+                            minZoom: Number.MIN_SAFE_INTEGER,
+                            maxZoom: Number.MAX_SAFE_INTEGER 
+                        });
+                        panZoom.resize();
+                        panZoom.zoom(zoom);
+                        panZoom.pan(pan);
+                        vscode.postMessage({ type: 'diagram_generated' });
+                    } catch(e) {
+                        vscode.postMessage({ type: 'error', message: e });
+                    }
                     break;
             }
         });
