@@ -158,7 +158,10 @@ export class DiagramUpdateCoordinator {
 			switch(msg.type) {
 				case 'ready': onReady(); break;
 				case 'settings': onSettingsChanged(msg); break;
-				case 'error': callbacks?.onError(msg.message); break;
+				case 'error':
+					this.output.appendLine(`[Diagram]: Failed to convert mermaid code into svg: ${msg.message}`);
+					callbacks?.onError(msg.message);
+					break;
 				case 'diagram_generated': callbacks?.onGenerated(); break;
 			}
 		});

@@ -177,9 +177,12 @@ function createDiagramDocument({ options, documentationUrl }: DiagramGeneratorDa
                         panZoom.resize();
                         panZoom.zoom(zoom);
                         panZoom.pan(pan);
+
                         vscode.postMessage({ type: 'diagram_generated' });
                     } catch(e) {
-                        vscode.postMessage({ type: 'error', message: e });
+                        const error = JSON.stringify(e, null, 2);
+                        diagramContainer.innerHTML = '<p>Failed to generate diagram using mermaid.</p><span>Mermaid Error:</span><pre>' + error + '</pre>';
+                        vscode.postMessage({ type: 'error', message: error });
                     }
                     break;
             }
