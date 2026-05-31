@@ -28,7 +28,12 @@
     "R",
     "R Markdown"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:r",
+    "onLanguage:rmd",
+    "onLanguage:qmd",
+    "onLanguage:ipynb"
+  ],
   "main": "./dist/node/extension.js",
   "browser": "./dist/web/extension.js",
   "contributes": {
