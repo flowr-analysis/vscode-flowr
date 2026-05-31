@@ -408,7 +408,10 @@ async function analyzerFromDocument(document: vscode.TextDocument, parser: Known
 		const file = new FlowrInlineTextFile(document.fileName, document.getText());
 		analyzer.reset();
 		analyzer.addFile(file);
-		analyzer.addRequest(`file://${document.fileName}`);
+		analyzer.addRequest({
+			request: 'file',
+			content: document.fileName
+		});
 	} else {
 		analyzer.reset();
 		analyzer.addRequest({

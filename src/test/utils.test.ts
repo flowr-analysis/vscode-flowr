@@ -1,7 +1,6 @@
 import { FlowrInlineTextFile } from '@eagleoutice/flowr/project/context/flowr-file';
 import { FlowrAnalyzerBuilder } from '@eagleoutice/flowr/project/flowr-analyzer-builder';
 import { selectionsToNodeIds } from '../flowr/utils';
-import { FlowrAnalyzerPluginDefaults } from '@eagleoutice/flowr/project/plugins/flowr-analyzer-plugin-defaults';
 import assert from 'assert';
 import * as vscode from 'vscode';
 import type { FlowrExtensionApi } from '../extension';
@@ -23,10 +22,9 @@ suite('util', () => {
 		];
 		cases.forEach(({ selections, expected }) => {
 			test(`should only include selected nodeids ${expected?.join(', ') ?? '(none)'}`, async() => {
-				const analyzer = await new FlowrAnalyzerBuilder()
+				const analyzer = await new FlowrAnalyzerBuilder(false)
 					.setConfig(api.flowrConfig())
 					.setEngine('tree-sitter')
-					.unregisterPlugins(...FlowrAnalyzerPluginDefaults())
 					.build();
 
 				analyzer.addFile(new FlowrInlineTextFile('a.R', `x <- 5
