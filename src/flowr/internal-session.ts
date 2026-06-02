@@ -390,7 +390,7 @@ export class FlowrInternalSession implements FlowrSession {
 			.setConfig(VSCodeFlowrConfiguration)
 			.build();
 		(config.output as { stdout: (s: string) => void }).stdout(await versionReplString(this.parser));
-		await repl({ analyzer: analyzer });
+		await repl({ analyzer: analyzer, ...config });
 	}
 
 	public static getEngineToUse(): KnownParserName {
