@@ -16,6 +16,7 @@ import { registerLintCommands } from './lint';
 import { NoTelemetry, registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
 import { registerHoverOverValues } from './hover-values';
 import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/tree-sitter-executor';
+import { showRepl } from './flowr/terminals/flowr-repl';
 
 /**
  * Public-facing API for the flowR extension, which includes a variety of helpful utilities.
@@ -69,8 +70,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FlowrE
 	});
 	registerCommand(context, 'vscode-flowr.repl', async() => {
 		try {
-			const repl = await import('./flowr/terminals/flowr-repl');
-			repl.showRepl(context, await getFlowrSession());
+			showRepl(context, await getFlowrSession());
 		} catch(e){
 			vscode.window.showErrorMessage('Failed to start flowR REPL');
 			console.error(e);
