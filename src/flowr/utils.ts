@@ -12,6 +12,7 @@ import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/
 import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
 import type { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';
 import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
+import { Q } from '@eagleoutice/flowr/search/flowr-search-builder';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
@@ -41,6 +42,24 @@ export interface FlowrSession {
 /**
  *
  */
+export async function getNodeIdAt(position: vscode.Position, document: vscode.TextDocument, session: FlowrSession): Promise<NodeId | undefined> {
+	const result = await session.retrieveQuery(document, [{
+		type:   'search',
+		search: Q.locFuzzy(position.line + 1, position.character + 1, true).build()
+	}]);
+
+	if(result.hasError) {
+		return undefined;
+	}
+
+	const id = result.result.search.results[0].ids[0];
+	console.log(`Found nodeid=${id} at (${position.line}, ${position.character})`);
+	return id;
+}
+
+/**
+ *
+ */
 export function getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {
 	const re = /([a-zA-Z0-9._])+/;
 	const wordRange = document.getWordRangeAtPosition(position, re);
@@ -54,27 +73,15 @@ export function consolidateNewlines(text: string) {
 	return text.replace(/\r\n/g, '\n');
 }
 
-function toSlicingCriterion(pos: vscode.Position): SlicingCriterion {
-	return `${pos.line + 1}:${pos.character + 1}`;
-}
 
-export function makeSlicingCriteria(positions: [vscode.Position], doc: vscode.TextDocument, verbose?: boolean): [SlicingCriterion];
-export function makeSlicingCriteria(positions: vscode.Position[], doc: vscode.TextDocument, verbose?: boolean): SlicingCriteria;
+export async function makeSlicingCriteriaForPositions(positions: [vscode.Position], doc: vscode.TextDocument, session: FlowrSession): Promise<[SlicingCriterion]>;
+export async function makeSlicingCriteriaForPositions(positions: vscode.Position[], doc: vscode.TextDocument, session: FlowrSession): Promise<SlicingCriteria>;
 /**
  *
  */
-export function makeSlicingCriteria(positions: vscode.Position[], doc: vscode.TextDocument, verbose: boolean = true): SlicingCriteria {
-	positions = positions.map(pos => {
-		const range = getPositionAt(pos, doc);
-		pos = range?.start ?? pos;
-		if(verbose){
-			console.log(`Extracting slice at ${pos.line + 1}:${pos.character + 1} in ${doc.fileName}`);
-			console.log(`Token: ${doc.getText(range)}`);
-		}
-		return pos;
-	});
-	const criteria = positions.map(toSlicingCriterion);
-	return criteria;
+export async function makeSlicingCriteriaForPositions(positions: vscode.Position[], doc: vscode.TextDocument, session: FlowrSession): Promise<SlicingCriteria> {
+	const ids = await Promise.all(positions.map(pos => getNodeIdAt(pos, doc, session)));
+	return ids.map(id => `$${id}` as SlicingCriterion);
 }
 
 /**

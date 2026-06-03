@@ -5,12 +5,12 @@
 import * as vscode from 'vscode';
 import { getFlowrSession, updateStatusBar } from './extension';
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
-import { getPositionAt, makeSlicingCriteria } from './flowr/utils';
+import { getPositionAt, makeSlicingCriteriaForPositions } from './flowr/utils';
 import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { getSelectionSlicer } from './selection-slicer';
 import type { SliceDisplay } from './settings';
-import { Settings, getConfig, isVerbose } from './settings';
+import { Settings, getConfig } from './settings';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
@@ -269,12 +269,12 @@ export class PositionSlicer {
 		const positions = this.positions.map(p => ({ direction: p.direction, docPos: this.doc.positionAt(p.offset) }));
 		const { backward, forward } = Object.groupBy(positions, p => p.direction.toString());
 		if(backward && backward.length > 0) {
-			const results = await session.retrieveSlice(makeSlicingCriteria(backward.map(p => p.docPos), this.doc, isVerbose()), SliceDirection.Backward, this.doc, this.showErrors);
+			const results = await session.retrieveSlice(await makeSlicingCriteriaForPositions(backward.map(p => p.docPos), this.doc, session), SliceDirection.Backward, this.doc, this.showErrors);
 			code = results.code;
 			sliceElements.push(...results.sliceElements);
 		}
 		if(forward && forward.length > 0) {
-			const results = await session.retrieveSlice(makeSlicingCriteria(forward.map(p => p.docPos), this.doc, isVerbose()), SliceDirection.Forward, this.doc, this.showErrors);
+			const results = await session.retrieveSlice(await makeSlicingCriteriaForPositions(forward.map(p => p.docPos), this.doc, session), SliceDirection.Forward, this.doc, this.showErrors);
 			sliceElements.push(...results.sliceElements);
 			// we don't return code if we have at least one forward slice in our list, because forward slices don't ensure executability!
 			code = undefined;

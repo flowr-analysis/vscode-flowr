@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import { getFlowrSession } from './extension';
-import { makeSlicingCriteria } from './flowr/utils';
+import { makeSlicingCriteriaForPositions } from './flowr/utils';
 import { Bottom, Top } from '@eagleoutice/flowr/abstract-interpretation/domains/lattice';
 import { isTop, stringifyValue } from '@eagleoutice/flowr/dataflow/eval/values/r-value';
 import { getConfig, Settings } from './settings';
@@ -81,7 +81,7 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 
 		this.output.appendLine(`[Hover Values] Resolving value at ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1}`);
 
-		const [criteria] = makeSlicingCriteria([pos], document);
+		const [criteria] = await makeSlicingCriteriaForPositions([pos], document, session);
 		const cached = this.cache.get(criteria);
 		if(cached) {
 			this.output.appendLine(`    [Hover Values] Using cached value for ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1} (${JSON.stringify(cached.map(c => c.value), builtInEnvJsonReplacer)})`);

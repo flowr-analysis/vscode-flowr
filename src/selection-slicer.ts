@@ -6,11 +6,11 @@
 import * as vscode from 'vscode';
 import { getFlowrSession, updateStatusBar } from './extension';
 import { flowrScheme, makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
-import { makeSlicingCriteria, type SliceReturn } from './flowr/utils';
+import { makeSlicingCriteriaForPositions, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { positionSlicers } from './position-slicer';
-import { Settings, getConfig, isVerbose } from './settings';
+import { Settings, getConfig } from './settings';
 import { getCriteriaSlicer } from './criteria-slicer';
 import { isRTypeLanguage } from './configurable-refresher';
 import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
@@ -178,7 +178,7 @@ async function getSelectionSlice(direction: SliceDirection): Promise<SelectionSl
 		return undefined;
 	}
 	const flowrSession = await getFlowrSession();
-	const ret = await flowrSession.retrieveSlice(makeSlicingCriteria(positions, editor.document, isVerbose()), direction, editor.document, false);
+	const ret = await flowrSession.retrieveSlice(await makeSlicingCriteriaForPositions(positions, editor.document, flowrSession), direction, editor.document, false);
 	if(!ret.sliceElements.length){
 		return {
 			code:          '# No slice',
