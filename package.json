@@ -791,7 +791,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.10.7",
+    "@eagleoutice/flowr": "^2.10.9",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
@@ -806,7 +806,7 @@
     "util": "^0.12.5"
   },
   "devDependencies": {
-    "@eagleoutice/eslint-config-flowr": "^1.0.40",
+    "@eagleoutice/eslint-config-flowr": "^1.0.43",
     "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^9.39.2",
     "@types/mocha": "^10.0.10",
@@ -823,6 +823,7 @@
     "ts-essentials": "^10.2.0",
     "ts-loader": "^9.6.0",
     "typescript": "^5.6.2",
+    "url": "^0.11.4",
     "webpack": "^5.107.2",
     "webpack-cli": "^7.0.3"
   },

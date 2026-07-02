@@ -195,7 +195,7 @@ export class ConfigurableRefresher {
 				break;
 			}
 			case 'adaptive': {
-				const breakOff = this.spec.keys.type ? this.spec.keys.adaptiveBreak :getConfig().get<number>(this.spec.keys.adaptiveBreak, 5000);
+				const breakOff = this.spec.keys.type ? this.spec.keys.adaptiveBreak : getConfig().get<number>(this.spec.keys.adaptiveBreak, 5000);
 				if(getActiveEditorCharLength() > breakOff) {
 					this.activeInterval = setInterval(() => this.runRefreshCallback(), this.spec.keys.type ? this.spec.keys.interval : getConfig().get<number>(this.spec.keys.interval, 10) * 1000);
 					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(() => {

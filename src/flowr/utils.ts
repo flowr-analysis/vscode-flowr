@@ -12,7 +12,7 @@ import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/
 import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
 import type { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';
 import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
-import { Q } from '@eagleoutice/flowr/search/flowr-search-builder';
+import type { FlowrSearch } from '@eagleoutice/flowr/search/flowr-search-builder';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
@@ -40,21 +40,35 @@ export interface FlowrSession {
 }
 
 /**
- *
+ * Resolves the flowR node id at the given editor position (or `undefined` if none can be found).
  */
 export async function getNodeIdAt(position: vscode.Position, document: vscode.TextDocument, session: FlowrSession): Promise<NodeId | undefined> {
+	const range = getPositionAt(position, document);
+	position = range?.start ?? position;
+
+	const search: FlowrSearch = {
+		generator: {
+			type: 'generator',
+			name: 'get',
+			args: { filter: {
+				line:          position.line + 1,
+				column:        position.character + 1,
+				fuzzy:         true,
+				innermostOnly: true
+			} }
+		},
+		search: []
+	};
 	const result = await session.retrieveQuery(document, [{
-		type:   'search',
-		search: Q.locFuzzy(position.line + 1, position.character + 1, true).build()
+		type: 'search',
+		search
 	}]);
 
 	if(result.hasError) {
 		return undefined;
 	}
 
-	const id = result.result.search.results[0].ids[0];
-	console.log(`Found nodeid=${id} at (${position.line}, ${position.character})`);
-	return id;
+	return result.result.search.results[0]?.ids[0];
 }
 
 /**
