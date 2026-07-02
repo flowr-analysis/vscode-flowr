@@ -464,7 +464,7 @@ export class Dependency extends vscode.TreeItem {
 			}
 		} else if(children.length > 0) {
 			this.tooltip = `${typeof this.label === 'string' ? this.label : ''}${info ? ' (right-click for more!)' : ''}`;
-			this.description =`${children.length} item${children.length === 1 ? '' : 's'}`;
+			this.description = `${children.length} item${children.length === 1 ? '' : 's'}`;
 			this.id = label + children.map(c => c.id).join('-');
 		} else {
 			this.description = '0 items';
