@@ -29,6 +29,7 @@
     "R Markdown"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onLanguage:r",
     "onLanguage:rmd",
     "onLanguage:qmd",
