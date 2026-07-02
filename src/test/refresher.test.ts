@@ -104,7 +104,7 @@ suite('refresher', () => {
 
 			for(const file of filesToOpen) {
 				await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(file));
-				await new Promise(r => setTimeout(r, 10));
+				await new Promise(r => setTimeout(r, 50));
 			}
 
 			assert.equal(triggerCount, expectedTriggerCount);
