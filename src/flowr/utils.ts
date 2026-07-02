@@ -13,6 +13,7 @@ import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
 import type { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';
 import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 import type { FlowrSearch } from '@eagleoutice/flowr/search/flowr-search-builder';
+import { isNotUndefined } from '@eagleoutice/flowr/util/assert';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
 
@@ -39,36 +40,30 @@ export interface FlowrSession {
 	runRepl:                  (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }
 
-/**
- * Resolves the flowR node id at the given editor position (or `undefined` if none can be found).
- */
-export async function getNodeIdAt(position: vscode.Position, document: vscode.TextDocument, session: FlowrSession): Promise<NodeId | undefined> {
-	const range = getPositionAt(position, document);
-	position = range?.start ?? position;
-
-	const search: FlowrSearch = {
+// Snaps to the enclosing word so positions on adjacent whitespace still hit the identifier.
+function locationSearch(position: vscode.Position, document: vscode.TextDocument): FlowrSearch {
+	const pos = getPositionAt(position, document)?.start ?? position;
+	return {
 		generator: {
 			type: 'generator',
 			name: 'get',
 			args: { filter: {
-				line:          position.line + 1,
-				column:        position.character + 1,
+				line:          pos.line + 1,
+				column:        pos.character + 1,
 				fuzzy:         true,
 				innermostOnly: true
 			} }
 		},
 		search: []
 	};
-	const result = await session.retrieveQuery(document, [{
-		type: 'search',
-		search
-	}]);
+}
 
-	if(result.hasError) {
-		return undefined;
-	}
-
-	return result.result.search.results[0]?.ids[0];
+/**
+ * Resolves the flowR node id at the given editor position (or `undefined` if none can be found).
+ */
+export async function getNodeIdAt(position: vscode.Position, document: vscode.TextDocument, session: FlowrSession): Promise<NodeId | undefined> {
+	const result = await session.retrieveQuery(document, [{ type: 'search', search: locationSearch(position, document) }]);
+	return result.hasError ? undefined : result.result.search.results[0]?.ids[0];
 }
 
 /**
@@ -88,14 +83,19 @@ export function consolidateNewlines(text: string) {
 }
 
 
-export async function makeSlicingCriteriaForPositions(positions: [vscode.Position], doc: vscode.TextDocument, session: FlowrSession): Promise<[SlicingCriterion]>;
-export async function makeSlicingCriteriaForPositions(positions: vscode.Position[], doc: vscode.TextDocument, session: FlowrSession): Promise<SlicingCriteria>;
 /**
- *
+ * Resolves each position to a slicing criterion in a single analysis pass, dropping positions that
+ * do not map to a flowR node. The result may be shorter than `positions` (or empty).
  */
 export async function makeSlicingCriteriaForPositions(positions: vscode.Position[], doc: vscode.TextDocument, session: FlowrSession): Promise<SlicingCriteria> {
-	const ids = await Promise.all(positions.map(pos => getNodeIdAt(pos, doc, session)));
-	return ids.map(id => `$${id}` as SlicingCriterion);
+	if(positions.length === 0) {
+		return [];
+	}
+	const result = await session.retrieveQuery(doc, positions.map(pos => ({ type: 'search', search: locationSearch(pos, doc) } as const)));
+	if(result.hasError) {
+		return [];
+	}
+	return result.result.search.results.map(r => r.ids[0]).filter(isNotUndefined).map(id => `$${id}` as SlicingCriterion);
 }
 
 /**
