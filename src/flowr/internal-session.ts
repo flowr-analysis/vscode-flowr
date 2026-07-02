@@ -343,7 +343,14 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 
 		const now = Date.now();
-		const elements = staticSlice(analyzer.inspectContext(), info.dfi, info.ast, SlicingCriteria.convertAll(criteria, info.ast.idMap), direction, threshold).result;
+		const elements = staticSlice({
+			ctx:  analyzer.inspectContext(),
+			info: info.dfi,
+			ast:  info.ast,
+			ids:  SlicingCriteria.convertAll(criteria, info.ast.idMap),
+			direction,
+			threshold
+		}).result;
 		const sliceTime = Date.now() - now;
 		const sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
 		const reconstructNow = Date.now();

@@ -92,6 +92,7 @@ suite('refresher', () => {
 
 			// Make sure to start from a clean slate
 			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+			await new Promise(r => setTimeout(r, 100));
 
 			const refresher = new ConfigurableRefresher({
 				name:            'Test',
@@ -104,12 +105,17 @@ suite('refresher', () => {
 
 			for(const file of filesToOpen) {
 				await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(file));
-				await new Promise(r => setTimeout(r, 10));
+				await new Promise(r => setTimeout(r, 50));
 			}
 
 			assert.equal(triggerCount, expectedTriggerCount);
 
 			refresher.dispose();
+			// Clean up opened editors
+			while(vscode.window.visibleTextEditors.length > 0) {
+				await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+				await new Promise(r => setTimeout(r, 10));
+			}
 		});
 	}
 

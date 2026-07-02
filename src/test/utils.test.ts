@@ -1,6 +1,6 @@
 import { FlowrInlineTextFile } from '@eagleoutice/flowr/project/context/flowr-file';
 import { FlowrAnalyzerBuilder } from '@eagleoutice/flowr/project/flowr-analyzer-builder';
-import { selectionsToNodeIds } from '../flowr/utils';
+import { getNodeIdAt, makeSlicingCriteriaForPositions, selectionsToNodeIds, type FlowrSession } from '../flowr/utils';
 import assert from 'assert';
 import * as vscode from 'vscode';
 import type { FlowrExtensionApi } from '../extension';
@@ -37,6 +37,42 @@ z <- 23
 				const actual = selectionsToNodeIds(ast.ast.files.map(a => a.root), selections);
 				assert.deepEqual(actual?.values().toArray(), expected);
 			});
+		});
+	});
+
+	suite('slicing criteria from positions', () => {
+		let session: FlowrSession;
+		suiteSetup(async() => {
+			session = await vscode.commands.executeCommand<FlowrSession>('vscode-flowr.session.internal');
+		});
+
+		const open = (content: string) => vscode.workspace.openTextDocument({ language: 'r', content });
+
+		test('resolves a node id at a variable position', async() => {
+			const doc = await open('x <- 5\ny <- 10\n');
+			const id = await getNodeIdAt(new vscode.Position(0, 0), doc, session);
+			assert.notEqual(id, undefined, 'expected a node id for the variable position');
+		});
+
+		test('snaps whitespace adjacent to an identifier to that identifier', async() => {
+			const doc = await open('x <- 5\n');
+			const onVar = await getNodeIdAt(new vscode.Position(0, 0), doc, session);
+			const onSpace = await getNodeIdAt(new vscode.Position(0, 1), doc, session);
+			assert.notEqual(onVar, undefined);
+			assert.equal(onSpace, onVar);
+		});
+
+		test('does not emit a "$undefined" criterion for unresolvable positions', async() => {
+			const doc = await open('x <- 5\n\n\ny <- 10\n');
+			const criteria = await makeSlicingCriteriaForPositions([
+				new vscode.Position(0, 0),
+				new vscode.Position(1, 0),
+				new vscode.Position(2, 0),
+				new vscode.Position(3, 0)
+			], doc, session);
+			assert.ok(criteria.every(c => !c.includes('undefined')), `criteria must not contain "$undefined": ${JSON.stringify(criteria)}`);
+			assert.ok(criteria.every(c => c.startsWith('$')));
+			assert.ok(criteria.length >= 2);
 		});
 	});
 });

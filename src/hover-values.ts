@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import { getFlowrSession } from './extension';
-import { makeSlicingCriteria } from './flowr/utils';
+import { makeSlicingCriteriaForPositions } from './flowr/utils';
 import { Bottom, Top } from '@eagleoutice/flowr/abstract-interpretation/domains/lattice';
 import { isTop, stringifyValue } from '@eagleoutice/flowr/dataflow/eval/values/r-value';
 import { getConfig, Settings } from './settings';
@@ -73,15 +73,18 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 	}
 
 
-	async provideHover(document: vscode.TextDocument, pos: vscode.Position, _token: vscode.CancellationToken): Promise<vscode.Hover | undefined> {
+	async provideHover(document: vscode.TextDocument, pos: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover | undefined> {
 		const session = await getFlowrSession();
-		if(!session || !(getConfig().get<boolean>(Settings.ValuesOnHover))) {
+		if(!session || token.isCancellationRequested || !(getConfig().get<boolean>(Settings.ValuesOnHover))) {
 			return undefined;
 		}
 
 		this.output.appendLine(`[Hover Values] Resolving value at ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1}`);
 
-		const [criteria] = makeSlicingCriteria([pos], document);
+		const [criteria] = await makeSlicingCriteriaForPositions([pos], document, session);
+		if(!criteria || token.isCancellationRequested) {
+			return undefined;
+		}
 		const cached = this.cache.get(criteria);
 		if(cached) {
 			this.output.appendLine(`    [Hover Values] Using cached value for ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1} (${JSON.stringify(cached.map(c => c.value), builtInEnvJsonReplacer)})`);
@@ -95,6 +98,9 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 			query.push({ type: 'df-shape', criterion: criteria } as const);
 		}
 		const valQuer = await session.retrieveQuery(document, query);
+		if(token.isCancellationRequested) {
+			return undefined;
+		}
 		const results = Object.values(valQuer.result['resolve-value'].results).flatMap(r => r.values);
 		const values: ValueInfo[] = results.filter(v => !isTop(v)).map(r => {
 			return {
