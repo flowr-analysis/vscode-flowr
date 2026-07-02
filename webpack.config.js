@@ -91,7 +91,9 @@ module.exports = env => {
 				fs: false,
 				clipboardy: false,
 				'rotating-file-stream': false,
-				timers: false
+				timers: false,
+				// `v8` has no web equivalent; provide a shim so heap-pressure checks are no-ops
+				v8: path.resolve(__dirname, 'webpack-shims/v8.js')
 			},
 			fallback: {
 				// Webpack 5 no longer polyfills Node.js core modules automatically.
