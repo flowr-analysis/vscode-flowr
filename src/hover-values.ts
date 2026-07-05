@@ -142,7 +142,7 @@ function formatSetRange(set: { readonly min: ReadonlySet<string>, readonly range
 	let txt: string | undefined;
 
 	if(set.min.size === 0) {
-		txt = '*<None>*';
+		txt = '*\\<None\\>*';
 	} else {
 		txt = `${set.min.values().toArray().map(entry => '`' + entry + '`').join(', ')}`;
 	}
