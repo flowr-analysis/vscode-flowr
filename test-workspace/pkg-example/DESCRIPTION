@@ -1,0 +1,9 @@
+Package: pkgexample
+Type: Package
+Title: A Fixture R Package
+Version: 0.1.0
+Imports:
+    dplyr (>= 1.0.0),
+    purrr
+Suggests: testthat (>= 3.0.0)
+License: MIT
