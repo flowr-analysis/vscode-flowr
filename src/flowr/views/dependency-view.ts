@@ -4,6 +4,8 @@ import type { DefaultDependencyCategoryName, DependenciesQuery, DependenciesQuer
 import { DefaultDependencyCategories, Unknown } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
+import type { Identifier } from '@eagleoutice/flowr/dataflow/environments/identifier';
+import { Identifier as IdentifierUtil } from '@eagleoutice/flowr/dataflow/environments/identifier';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { rangeToVscodeRange, RotaryBuffer } from '../utils';
 import type { DefaultsMaps } from '../../settings';
@@ -216,15 +218,16 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		);
 	}
 
-	async getDependenciesForActiveFile(): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult, ast?: NormalizedAst, dfi?: DataflowInformation } | 'error'> {
-		const activeEditor = vscode.window.activeTextEditor;
-		if(!activeEditor) {
+	async getDependenciesForActiveFile(document?: vscode.TextDocument): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult, ast?: NormalizedAst, dfi?: DataflowInformation } | 'error'> {
+		// use the document captured by the caller so a mid-analysis editor switch can't store A's deps under B
+		const doc = document ?? vscode.window.activeTextEditor?.document;
+		if(!doc) {
 			return { dep: emptyDependencies, loc: emptyLocationMap };
 		}
 		const config = getConfig();
 		const session = await getFlowrSession();
 		const now = Date.now();
-		const { result, hasError, dfi, ast } = await session.retrieveQuery(activeEditor.document, [
+		const { result, hasError, dfi, ast } = await session.retrieveQuery(doc, [
 			{
 				type:                   'dependencies',
 				ignoreDefaultFunctions: config.get<boolean>(Settings.DependenciesQueryIgnoreDefaults, false),
@@ -250,6 +253,8 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	private working = false;
+	/** when the current refresh started, used to recover from a wedged `working` flag (see {@link refresh}) */
+	private workingSince = 0;
 	private textBuffer: RotaryBuffer<[{ content: string, path: string }, { dep: DependenciesQueryResult, loc: LocationMapQueryResult }]> = new RotaryBuffer(0);
 	private lastText = '';
 	private lastFile = '';
@@ -259,7 +264,8 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	}
 
 	public async refresh(force = false) {
-		if(this.working && force) {
+		// clear `working` on a forced refresh, or if a prior run has been stuck implausibly long (never wedge auto-refresh)
+		if(this.working && (force || Date.now() - this.workingSince > 15_000)) {
 			this.working = false;
 		}
 		if(!this.parent?.visible || !vscode.window.activeTextEditor || this.working || (!force && !isRTypeLanguage(vscode.window.activeTextEditor?.document))) {
@@ -270,8 +276,11 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			}
 			return;
 		}
-		const text = this.textFingerprint(vscode.window.activeTextEditor?.document.getText());
-		const file = vscode.window.activeTextEditor?.document.uri.fsPath;
+		// capture the active document once; every step below uses it so an editor switch mid-analysis can't
+		// mix up which file the results belong to
+		const document = vscode.window.activeTextEditor?.document;
+		const text = this.textFingerprint(document?.getText());
+		const file = document?.uri.fsPath;
 		if(!force && text === this.lastText && file === this.lastFile) {
 			if(isVerbose()) {
 				this.output.appendLine('[Dependency View] Do not refresh (no change)');
@@ -283,8 +292,9 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		}
 		this.output.appendLine('[Dependency View] Refreshing dependencies' + (force ? ' (forced)' : ''));
 		this.working = true;
+		this.workingSince = Date.now();
 		try {
-			const has = !force && this.textBuffer.get(e => e?.[0].path === vscode.window.activeTextEditor?.document.uri.fsPath && e?.[0].content === text);
+			const has = !force && this.textBuffer.get(e => e?.[0].path === document?.uri.fsPath && e?.[0].content === text);
 			if(has) {
 				try {
 					this.output.appendLine(`[Dependency View] Using cached dependencies (Dependencies: ${has[1].dep['.meta'].timing}ms, Locations: ${has[1].loc['.meta'].timing}ms)`);
@@ -299,9 +309,11 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				return;
 			}
 			await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
-				return this.getDependenciesForActiveFile().then(res => {
+				return this.getDependenciesForActiveFile(document).then(res => {
 					if(res === 'error') {
 						if(getConfig().get<boolean>(Settings.DependencyViewKeepOnError, Defaults.DependencyViewKeepOnError)) {
+							// keep the old tree but forget the fingerprint, so the next edit re-analyzes instead of being deduped
+							this.lastText = '';
 							return;
 						} else {
 							this.activeDependencies = emptyDependencies;
@@ -313,7 +325,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					}
 					this.activeDependencies = res.dep;
 					this.locationMap = res.loc;
-					this.textBuffer.push([{ content: text, path: vscode.window.activeTextEditor?.document.uri.fsPath ?? '' }, res]);
+					this.textBuffer.push([{ content: text, path: document?.uri.fsPath ?? '' }, res]);
 					this.makeRootElements(res.dfi, res.ast);
 					this._onDidChangeTreeData.fire(undefined);
 				}).catch(e => {
@@ -442,11 +454,12 @@ export class Dependency extends vscode.TreeItem {
 		this.iconPath = icon;
 
 		if(info) {
+			const functionName = renderFunctionName(info.functionName);
 			this.loc = locationMap?.map.ids[info.nodeId]?.[1];
 			// if the value is undefined or unknown, we already display the function name as the label (see unknownGuardedName)
-			this.description = `${info.value && info.value !== Unknown ? `by "${info.functionName}" ` : ''}in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
-			this.tooltip = `${verb} "${info.value ?? Unknown}" with the "${info.functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
-			this.id = (parent?.id ?? '') + label + info.nodeId + JSON.stringify(this.loc) + info.functionName + this.linkedIds();
+			this.description = `${info.value && info.value !== Unknown ? `by "${functionName}" ` : ''}in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
+			this.tooltip = `${verb} "${info.value ?? Unknown}" with the "${functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
+			this.id = (parent?.id ?? '') + label + info.nodeId + JSON.stringify(this.loc) + functionName + this.linkedIds();
 			if(this.loc && vscode.window.activeTextEditor) {
 				const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
 				const end = new vscode.Position(this.loc[2] - 1, this.loc[3]);
@@ -540,10 +553,20 @@ function getActiveEditorCharLength() {
 	return vscode.window.activeTextEditor?.document.getText().length ?? 0;
 }
 
+/** Renders a dependency's {@link Identifier} function name as valid R (e.g. `purrr::map`, not `map,purrr,false`). */
+export function renderFunctionName(fn: Identifier): string {
+	try {
+		return IdentifierUtil.toString(fn);
+	} catch{
+		// be robust against unexpected shapes rather than breaking the whole view
+		return Array.isArray(fn) ? String(fn[0]) : String(fn);
+	}
+}
+
 function unknownGuardedName(e: DependencyInfo): string {
 	let value = e.value ?? Unknown;
 	if(value === Unknown){
-		value = `function "${e.functionName}"`;
+		value = `function "${renderFunctionName(e.functionName)}"`;
 		if(e.lexemeOfArgument) {
 			value = `${value}: ${e.lexemeOfArgument}`;
 		}
@@ -555,7 +578,7 @@ function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow
 	/* first group by name */
 	const grouped = new Map<string, DependencyInfo[]>();
 	for(const e of elementsToShow.toSorted((a, b) => compareByLocation(locationMap, a.nodeId, b.nodeId))) {
-		const name = unknownGuardedName(e) + (e.value && e.value !== Unknown ? ` (${e.functionName})` : '');
+		const name = unknownGuardedName(e) + (e.value && e.value !== Unknown ? ` (${renderFunctionName(e.functionName)})` : '');
 		if(!grouped.has(name)) {
 			grouped.set(name, []);
 		}

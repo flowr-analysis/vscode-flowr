@@ -6,10 +6,10 @@ import type { WebviewCallbacks } from '../flowr/diagrams/diagram';
 
 async function testDiagramGeneration(command: string) {
 	await openTestFile('simple-example.R');
-	const result = await new Promise<{ error: boolean }>((resolve) => {
+	const result = await new Promise<{ error: boolean, message?: string }>((resolve) => {
 		vscode.commands.executeCommand(command, {
-			onError(_message) {
-				resolve({ error: true });
+			onError(message) {
+				resolve({ error: true, message });
 			},
 			onGenerated() {
 				resolve({ error: false });
@@ -17,7 +17,7 @@ async function testDiagramGeneration(command: string) {
 		} as WebviewCallbacks);
 	});
 
-	assert.equal(result.error, false);
+	assert.equal(result.error, false, `diagram generation reported an error: ${result.message}`);
 }
 
 suite('diagram', () => {

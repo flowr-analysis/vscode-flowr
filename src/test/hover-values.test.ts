@@ -28,6 +28,16 @@ suite('hover values', () => {
 		await tc(new vscode.Position(1, 7), '[40L, 40L]');
 	});
 
+	test('does not show a hover when the value is bottom (e.g. print)', async() => {
+		const editor = await openTestFile('hover-bottom-example.R');
+		// `print(x)` on line 2 resolves to bottom - we must not surface an "Inferred Value ⊥" hover for it
+		const result: vscode.Hover[] = await vscode.commands.executeCommand('vscode.executeHoverProvider', editor.document.uri, new vscode.Position(1, 0));
+		const values = (result ?? [])
+			.flatMap(h => h.contents)
+			.map(c => (c as vscode.MarkdownString).value ?? '');
+		assert.ok(!values.some(v => v.includes('Inferred Value') && v.includes('⊥')), `did not expect a bottom inferred-value hover, got: ${JSON.stringify(values)}`);
+	});
+
 	test('shows inferred value for dataframe', async() => {
 		const df = `
 Dataframe Shape:

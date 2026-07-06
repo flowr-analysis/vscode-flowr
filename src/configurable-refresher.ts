@@ -63,9 +63,13 @@ const TriggerOnLanguageIds = ['r', 'rmd'];
  * Runs a callback based on a configurable refresh policy.
  * The callback can be called based on an interval
  */
+/** debounce (ms) for refreshing a large document in adaptive mode after the last edit */
+const AdaptiveLargeDocDebounceMs = 1200;
+
 export class ConfigurableRefresher {
 	private activeInterval:                   NodeJS.Timeout | undefined;
 	private activeDisposable:                 vscode.Disposable | undefined;
+	private debounceTimer:                    NodeJS.Timeout | undefined;
 	private disposables:                      vscode.Disposable[] = [];
 	private readonly spec:                    ConfigurableRefresherConstructor;
 	private lastDocumentVersion?:             number;
@@ -86,6 +90,10 @@ export class ConfigurableRefresher {
 		}));
 
 		this.disposables.push(vscode.window.onDidChangeActiveTextEditor(_ => {
+			// re-arm adaptive mode for the new editor's size (other modes don't depend on it)
+			if(this.currentUpdateType() === RefreshType.Adaptive) {
+				this.update();
+			}
 			this.runRefreshCallback();
 		}));
 
@@ -99,11 +107,23 @@ export class ConfigurableRefresher {
 	public dispose() {
 		ConfigurableRefresher.unregisterRefresherForOnChanged(this);
 		clearInterval(this.activeInterval);
+		clearTimeout(this.debounceTimer);
 		this.activeDisposable?.dispose();
 
 		for(const d of this.disposables) {
 			d.dispose();
 		}
+	}
+
+	/** the currently configured refresh policy (either fixed by the spec or read from the user's settings) */
+	private currentUpdateType(): RefreshType {
+		return this.spec.keys.type ? this.spec.keys.updateType : getConfig().get<RefreshType>(this.spec.keys.updateType, RefreshType.Never);
+	}
+
+	/** run the refresh callback after {@link AdaptiveLargeDocDebounceMs}, coalescing rapid successive edits */
+	private scheduleDebouncedRefresh() {
+		clearTimeout(this.debounceTimer);
+		this.debounceTimer = setTimeout(() => this.runRefreshCallback(), AdaptiveLargeDocDebounceMs);
 	}
 
 	/**
@@ -185,10 +205,12 @@ export class ConfigurableRefresher {
 			this.activeDisposable.dispose();
 			this.activeDisposable = undefined;
 		}
+		clearTimeout(this.debounceTimer);
+		this.debounceTimer = undefined;
 
 		ConfigurableRefresher.unregisterRefresherForOnChanged(this);
 
-		switch(this.spec.keys.type ? this.spec.keys.updateType : getConfig().get<RefreshType>(this.spec.keys.updateType, RefreshType.Never)) {
+		switch(this.currentUpdateType()) {
 			case 'never': break;
 			case 'interval': {
 				this.activeInterval = setInterval(() => this.runRefreshCallback(), this.spec.keys.type ? this.spec.keys.interval : getConfig().get<number>(this.spec.keys.interval, 10) * 1000);
@@ -198,9 +220,12 @@ export class ConfigurableRefresher {
 				const breakOff = this.spec.keys.type ? this.spec.keys.adaptiveBreak : getConfig().get<number>(this.spec.keys.adaptiveBreak, 5000);
 				if(getActiveEditorCharLength() > breakOff) {
 					this.activeInterval = setInterval(() => this.runRefreshCallback(), this.spec.keys.type ? this.spec.keys.interval : getConfig().get<number>(this.spec.keys.interval, 10) * 1000);
-					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(() => {
+					this.activeDisposable = vscode.workspace.onDidChangeTextDocument(e => {
 						if(getActiveEditorCharLength() <= breakOff) {
 							this.update();
+						} else if(isChangeRelevant(e)) {
+							// debounce so large-doc edits still refresh without analysing every keystroke
+							this.scheduleDebouncedRefresh();
 						}
 					});
 				} else {

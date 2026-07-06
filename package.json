@@ -496,6 +496,26 @@
           "default": [],
           "markdownDescription": "When overwriting the builtin definitions of flowR, the set of additional definitions to load. For more info on how these need to be formatted, see [the wiki](https://github.com/flowr-analysis/flowr/wiki/Interface#%EF%B8%8F-configuring-flowr)."
         },
+        "vscode-flowr.config.solver.pkgdb.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Resolve `library()`/`use()` exports from flowR's package database (`flowr-pkgdb`, bundled with the extension) so that package and function information is available by default. This lets flowR know which package a function such as `map` originates from (e.g. `purrr::map` vs. the `maps` plotting function) and improves dependency categorization and the `undefined-symbol` linting rule. When `false`, no database is consulted."
+        },
+        "vscode-flowr.config.solver.pkgdb.eagerlyLoad": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Parse the package database up front rather than lazily on the first `library()`/`use()` call (ignored if the database is disabled). Enabling this makes the very first analysis that uses a package slightly faster at the cost of some work during startup."
+        },
+        "vscode-flowr.config.solver.pkgdb.eagerlyLoadExports": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Add a dataflow vertex for every package export on load rather than on demand. Leaving this off (default) keeps the dataflow graph small for large packages."
+        },
+        "vscode-flowr.config.solver.pkgdb.customPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Optional path (or `http(s)` URL) to a custom flowR package database (`flowr-pkgdb`) file to use **in addition to** the one bundled with the extension. Leave empty to only use the shipped database. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Analyzer)."
+        },
         "vscode-flowr.dependencyView.query.ignoreDefaults": {
           "type": "boolean",
           "default": false,
@@ -545,7 +565,45 @@
         "vscode-flowr.linter.enabledRules": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "deprecated-functions",
+              "file-path-validity",
+              "seeded-randomness",
+              "absolute-file-paths",
+              "unused-definitions",
+              "naming-convention",
+              "network-functions",
+              "dataframe-access-validation",
+              "dead-code",
+              "useless-loop",
+              "problematic-inputs",
+              "stop-call",
+              "roxygen-arguments",
+              "software-has-license",
+              "software-has-tests",
+              "no-leaked-credentials",
+              "undefined-symbol"
+            ],
+            "enumDescriptions": [
+              "Marks deprecated functions that should not be used anymore.",
+              "Checks whether file paths used in read/write operations point to existing files.",
+              "Checks whether randomness-based calls are preceded by a random seed (e.g. set.seed).",
+              "Checks whether file paths are absolute.",
+              "Checks for unused definitions.",
+              "Checks whether symbols conform to a certain naming convention (off by default).",
+              "Marks network functions (downloads, HTTP requests, etc.).",
+              "Validates existence of accessed columns/rows of dataframes.",
+              "Marks areas of code never reached during execution.",
+              "Detects loops which only iterate once.",
+              "Detects dynamic calls (eval, system) with non-constant inputs and pipe-command injection in graphics devices.",
+              "Checks whether stop calls set call. to FALSE.",
+              "Checks whether a function has undocumented or overdocumented parameters.",
+              "Checks whether the project provides a license.",
+              "Checks whether the project has tests.",
+              "Detects hardcoded credentials (experimental).",
+              "Flags calls to functions that are neither defined locally, a known builtin, nor exported by a loaded package (experimental)."
+            ]
           },
           "default": [
             "deprecated-functions",
@@ -557,10 +615,14 @@
             "dataframe-access-validation",
             "dead-code",
             "useless-loop",
-            "problematic-eval",
-            "stop-call"
+            "problematic-inputs",
+            "stop-call",
+            "software-has-license",
+            "software-has-tests",
+            "no-leaked-credentials",
+            "undefined-symbol"
           ],
-          "markdownDescription": "The names of the linting rules that should be enabled. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their identifiers. An empty array causes all linting rules to be enabled."
+          "markdownDescription": "The names of the linting rules that should be enabled. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their identifiers. By default, all rules except `naming-convention` and `roxygen-arguments` are enabled. An empty array causes _all_ linting rules (including `naming-convention`) to be enabled."
         },
         "vscode-flowr.linter.ruleConfigs": {
           "type": "object",
@@ -744,6 +806,12 @@
           "id": "flowr-dependencies",
           "icon": "$(notebook-template)",
           "name": "Dependencies"
+        },
+        {
+          "id": "flowr-project",
+          "icon": "$(project)",
+          "name": "Project",
+          "when": "vscode-flowr:hasProject"
         }
       ]
     },
@@ -792,7 +860,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.10.10",
+    "@eagleoutice/flowr": "^2.11.1",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
@@ -835,5 +903,8 @@
     "rules": {
       "tsdoc/syntax": "off"
     }
+  },
+  "allowScripts": {
+    "@davisvaughan/tree-sitter-r@1.2.0": true
   }
 }

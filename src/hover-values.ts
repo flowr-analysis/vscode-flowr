@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
-import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import { getFlowrSession } from './extension';
 import { makeSlicingCriteriaForPositions } from './flowr/utils';
 import { Bottom, BottomSymbol, Top, TopSymbol } from '@eagleoutice/flowr/abstract-interpretation/domains/lattice';
-import { isTop, stringifyValue } from '@eagleoutice/flowr/dataflow/eval/values/r-value';
+import { isBottom, isTop, stringifyValue } from '@eagleoutice/flowr/dataflow/eval/values/r-value';
 import { getConfig, Settings } from './settings';
 import { ConfigurableRefresher, RefreshType } from './configurable-refresher';
 import type { Queries } from '@eagleoutice/flowr/queries/query';
@@ -33,10 +32,13 @@ interface ValueInfo {
 }
 
 class FlowrHoverProvider implements vscode.HoverProvider {
+	/** LRU cap so rapid hovering can't grow memory without bound */
+	private static readonly maxCacheEntries = 250;
 	private readonly output:    vscode.OutputChannel;
 	private readonly updateEvent = new vscode.EventEmitter<void>();
 	public onDidChangeInlayHints = this.updateEvent.event;
-	private readonly cache = new Map<NodeId, ValueInfo[]>();
+	/** insertion-ordered LRU cache of resolved values, keyed by `uri@version#criterion` (node ids collide across files) */
+	private readonly cache = new Map<string, ValueInfo[]>();
 	private readonly refresher: ConfigurableRefresher;
 
 
@@ -85,8 +87,12 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 		if(!criteria || token.isCancellationRequested) {
 			return undefined;
 		}
-		const cached = this.cache.get(criteria);
+		const cacheKey = `${document.uri.toString()}@${document.version}#${criteria}`;
+		const cached = this.cache.get(cacheKey);
 		if(cached) {
+			// refresh recency (LRU) so hot positions survive eviction
+			this.cache.delete(cacheKey);
+			this.cache.set(cacheKey, cached);
 			this.output.appendLine(`    [Hover Values] Using cached value for ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1} (${JSON.stringify(cached.map(c => c.value), builtInEnvJsonReplacer)})`);
 			return valueToHint(cached);
 		}
@@ -97,18 +103,23 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 		if(getConfig().get<boolean>(Settings.ValuesHoverDataFrames, true)) {
 			query.push({ type: 'df-shape', criterion: criteria } as const);
 		}
-		const valQuer = await session.retrieveQuery(document, query);
+		let valQuer;
+		try {
+			valQuer = await session.retrieveQuery(document, query);
+		} catch(e) {
+			// never let a hover error bubble up (it would surface as a broken hover); just skip this hover
+			this.output.appendLine(`[Hover Values] Error while resolving value: ${(e as Error).message}`);
+			return undefined;
+		}
 		if(token.isCancellationRequested) {
 			return undefined;
 		}
 		const results = Object.values(valQuer.result['resolve-value'].results).flatMap(r => r.values);
-		const values: ValueInfo[] = results.filter(v => !isTop(v)).map(r => {
-			return {
-				value:    r,
-				textRep:  stringifyValue(r),
-				criteria: criteria
-			};
-		});
+		// only surface real values: drop top/bottom (e.g. `print(...)` resolves to ⊥, which we don't show)
+		const values: ValueInfo[] = results
+			.filter(v => !isTop(v) && !isBottom(v))
+			.map(r => ({ value: r, textRep: stringifyValue(r), criteria }))
+			.filter(v => v.textRep.length > 0 && v.textRep !== BottomSymbol && v.textRep !== TopSymbol);
 		const dfShape = valQuer.result['df-shape'].domains;
 		if(dfShape instanceof Map) {
 			for(const e of dfShape.entries()) {
@@ -128,8 +139,19 @@ Dataframe Shape:
 				}
 			}
 		}
-		this.cache.set(criteria, values);
+		this.cachePut(cacheKey, values);
 		return valueToHint(values);
+	}
+
+	/** stores a resolved value, evicting the least-recently-used entry once {@link maxCacheEntries} is exceeded */
+	private cachePut(key: string, values: ValueInfo[]) {
+		if(this.cache.size >= FlowrHoverProvider.maxCacheEntries) {
+			const oldest = this.cache.keys().next().value;
+			if(oldest !== undefined) {
+				this.cache.delete(oldest);
+			}
+		}
+		this.cache.set(key, values);
 	}
 }
 
@@ -161,7 +183,7 @@ function valueToHint(cached: ValueInfo[]): vscode.Hover | undefined {
 	return {
 		contents: [
 			new vscode.MarkdownString()
-				.appendMarkdown('**Inferred Value**\n\n' + cached.map(v => v.textRep).join('\n'))
+				.appendMarkdown('**Inferred Value**\n\n' + cached.map(v => v.textRep).join('\n\n'))
 		]
 	};
 }

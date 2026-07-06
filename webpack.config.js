@@ -22,7 +22,10 @@ module.exports = env => {
 		plugins: [
 			new CopyWebpackPlugin({
 				patterns: [
-					{ from: path.resolve(__dirname, 'resources'), to: 'resources' }
+					{ from: path.resolve(__dirname, 'resources'), to: 'resources' },
+					// ship flowR's bundled package database so package information is available by default
+					// (it lives in node_modules and would otherwise not be part of the packaged extension)
+					{ from: path.resolve(__dirname, 'node_modules/@eagleoutice/flowr/data/pkgdb/pkgdb-latest.json.br'), to: 'pkgdb-latest.json.br' }
 				]
 			})
 		],
@@ -137,7 +140,9 @@ module.exports = env => {
 			}),
 			new CopyWebpackPlugin({
 				patterns: [
-					{ from: path.resolve(__dirname, 'resources'), to: 'resources' }
+					{ from: path.resolve(__dirname, 'resources'), to: 'resources' },
+					// ship flowR's bundled package database (see the node config for details)
+					{ from: path.resolve(__dirname, 'node_modules/@eagleoutice/flowr/data/pkgdb/pkgdb-latest.json.br'), to: 'pkgdb-latest.json.br' }
 				]
 			})
 		],

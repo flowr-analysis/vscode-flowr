@@ -46,6 +46,11 @@ export enum Settings {
 	BuiltInsDefinitions = 'config.overwriteBuiltIns.definitions',
 	IgnoreSourceCalls = 'config.ignoreSourceCalls',
 
+	PackageDbEnabled = 'config.solver.pkgdb.enabled',
+	PackageDbEagerlyLoad = 'config.solver.pkgdb.eagerlyLoad',
+	PackageDbEagerlyLoadExports = 'config.solver.pkgdb.eagerlyLoadExports',
+	PackageDbCustomPath = 'config.solver.pkgdb.customPath',
+
 	ErrorMessageTimer = 'errorMessage.Timer',
 
 	DebugFlowrLoglevel = 'debug.flowrLogLevel',

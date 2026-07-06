@@ -41,7 +41,10 @@ export interface FlowrSession {
 }
 
 // Snaps to the enclosing word so positions on adjacent whitespace still hit the identifier.
-function locationSearch(position: vscode.Position, document: vscode.TextDocument): FlowrSearch {
+/**
+ *
+ */
+export function locationSearch(position: vscode.Position, document: vscode.TextDocument): FlowrSearch {
 	const pos = getPositionAt(position, document)?.start ?? position;
 	return {
 		generator: {
@@ -64,6 +67,22 @@ function locationSearch(position: vscode.Position, document: vscode.TextDocument
 export async function getNodeIdAt(position: vscode.Position, document: vscode.TextDocument, session: FlowrSession): Promise<NodeId | undefined> {
 	const result = await session.retrieveQuery(document, [{ type: 'search', search: locationSearch(position, document) }]);
 	return result.hasError ? undefined : result.result.search.results[0]?.ids[0];
+}
+
+/**
+ * Maps a function-name symbol (what a location search resolves to for `print(x)`) to its enclosing call node,
+ * which - unlike the name symbol - is a dataflow vertex. Non-call nodes are returned unchanged.
+ */
+export function toDataflowNode(ast: NormalizedAst, id: NodeId): NodeId {
+	const parentId = ast.idMap.get(id)?.info.parent;
+	if(parentId === undefined) {
+		return id;
+	}
+	const parent = ast.idMap.get(parentId);
+	if(parent?.type === RType.FunctionCall && parent.named && parent.functionName.info.id === id) {
+		return parentId;
+	}
+	return id;
 }
 
 /**
@@ -95,7 +114,13 @@ export async function makeSlicingCriteriaForPositions(positions: vscode.Position
 	if(result.hasError) {
 		return [];
 	}
-	return result.result.search.results.map(r => r.ids[0]).filter(isNotUndefined).map(id => `$${id}` as SlicingCriterion);
+	const ast = result.ast;
+	return result.result.search.results
+		.map(r => r.ids[0])
+		.filter(isNotUndefined)
+		// map a function-name symbol to its call node so slicing on e.g. `print(x)` slices the call, not the bare name
+		.map(id => ast ? toDataflowNode(ast, id) : id)
+		.map(id => `$${id}` as SlicingCriterion);
 }
 
 /**
@@ -118,10 +143,14 @@ export function makeSliceElements(sliceResponse: ReadonlySet<NodeId>, idToLocati
 }
 
 /**
- * Converts a flowR {@link SourceRange} into an equivalent {@link vscode.Range}.
+ * Converts a flowR {@link SourceRange} into an equivalent {@link vscode.Range}. flowR positions are
+ * 1-based while VS Code's are 0-based, so we subtract one - clamping to zero because `new vscode.Range`
+ * throws on negative arguments, which would otherwise take down an entire diagnostics/decoration update
+ * if flowR ever reports a finding without a proper location (e.g. a synthetic line 0).
  */
 export function rangeToVscodeRange(range: SourceRange): vscode.Range {
-	return new vscode.Range(range[0] - 1, range[1] - 1, range[2] - 1, range[3]);
+	const clamp = (n: number) => n > 0 ? n : 0;
+	return new vscode.Range(clamp(range[0] - 1), clamp(range[1] - 1), clamp(range[2] - 1), clamp(range[3]));
 }
 
 /**

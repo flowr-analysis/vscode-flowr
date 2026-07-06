@@ -39,9 +39,9 @@ export function getSelectionSlicer(): SelectionSlicer {
  */
 export async function showSelectionSliceInEditor(direction: SliceDirection): Promise<vscode.TextEditor> {
 	const slicer = getSelectionSlicer();
-	if(!slicer.hasDoc){
-		await slicer.sliceSelectionOnce(direction);
-	}
+	// always (re-)slice the current selection so "show slice in editor" reflects the cursor the user is on now,
+	// rather than a stale slice cached from an earlier position or document
+	await slicer.sliceSelectionOnce(direction);
 	const uri = slicer.makeUri();
 	return await showUri(uri);
 }
@@ -52,6 +52,8 @@ class SelectionSlicer {
 	hasDoc:           boolean = false;
 	decos:            DecoTypes | undefined;
 	decoratedEditors: vscode.TextEditor[] = [];
+	/** re-entrancy guard: prevents `update()` from recursing into itself (see the guard in {@link update}) */
+	private updating = false;
 
 	// Turn on/off following of the cursor
 	async startFollowSelection(direction: SliceDirection): Promise<void> {
@@ -124,6 +126,19 @@ class SelectionSlicer {
 	}
 
 	protected async update(direction: SliceDirection): Promise<SliceReturn | undefined> {
+		if(this.updating){
+			// never let update() recurse into itself (e.g. via an auto-reconstruct that re-slices)
+			return undefined;
+		}
+		this.updating = true;
+		try {
+			return await this.doUpdate(direction);
+		} finally {
+			this.updating = false;
+		}
+	}
+
+	private async doUpdate(direction: SliceDirection): Promise<SliceReturn | undefined> {
 		const ret = await getSelectionSlice(direction);
 		if(ret === undefined){
 			return undefined;
@@ -146,7 +161,9 @@ class SelectionSlicer {
 		displaySlice(ret.editor, ret.sliceElements, this.decos);
 		this.decoratedEditors.push(ret.editor);
 		if(direction === SliceDirection.Backward && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
-			void showSelectionSliceInEditor(direction);
+			// the slice is already computed and written to the reconstruction URI above; just reveal it.
+			// (calling showSelectionSliceInEditor here would re-slice and recurse back into update())
+			void showUri(this.makeUri());
 		}
 		return ret;
 	}

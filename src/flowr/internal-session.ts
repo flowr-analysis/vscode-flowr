@@ -22,6 +22,7 @@ import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto
 import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { FlowrAnalyzerBuilder } from '@eagleoutice/flowr/project/flowr-analyzer-builder';
+import { packageDbSummary } from '../package-db';
 import type { PipelinePerStepMetaInformation } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
 import { FlowrInlineTextFile } from '@eagleoutice/flowr/project/context/flowr-file';
 import type { FlowrAnalyzer } from '@eagleoutice/flowr/project/flowr-analyzer';
@@ -74,17 +75,36 @@ function setFlowrLoggingSensitivity(output: vscode.OutputChannel) {
 }
 
 
+let loggingListenerRegistered = false;
+
 function configureFlowrLogging(output: vscode.OutputChannel) {
-	vscode.workspace.onDidChangeConfiguration(e => {
-		if(!e.affectsConfiguration(Settings.Category)) {
-			return;
-		}
-		setFlowrLoggingSensitivity(output);
-	});
+	// register the config listener only once (it is process-global logging state); creating a session per
+	// reconnect must not keep stacking listeners
+	if(!loggingListenerRegistered) {
+		loggingListenerRegistered = true;
+		vscode.workspace.onDidChangeConfiguration(e => {
+			if(e.affectsConfiguration(Settings.Category)) {
+				setFlowrLoggingSensitivity(output);
+			}
+		});
+	}
 	setFlowrLoggingSensitivity(output);
 }
 
 type WorkActions = 'slice' | FlowrDiagramType;
+
+type ProgressReporter = vscode.Progress<{ message?: string }>;
+
+/** runs the (memoized) pipeline step by step, reporting each stage to the progress bar */
+async function dataflowWithProgress(analyzer: FlowrAnalyzer, progress: ProgressReporter): Promise<{ ast: NormalizedAst, dfi: DataflowInformation }> {
+	progress.report({ message: 'Parsing…' });
+	await analyzer.parse();
+	progress.report({ message: 'Normalizing…' });
+	const ast = await analyzer.normalize();
+	progress.report({ message: 'Computing data flow…' });
+	const dfi = await analyzer.dataflow();
+	return { ast, dfi };
+}
 
 export class FlowrInternalSession implements FlowrSession {
 
@@ -104,7 +124,7 @@ export class FlowrInternalSession implements FlowrSession {
 		updateStatusBar();
 	}
 
-	private async startWorkWithProgressBar<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer) => Promise<T>, action: WorkActions, showErrorMessage: boolean, defaultOnErr = {} as T): Promise<T> {
+	private async startWorkWithProgressBar<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer, progress: ProgressReporter) => Promise<T>, action: WorkActions, showErrorMessage: boolean, defaultOnErr = {} as T): Promise<T> {
 		this.setWorking(true);
 
 		// Wait for the flowr session
@@ -127,25 +147,25 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 
 
-		const analyzer = await analyzerFromDocument(document, this.parser);
+		const parser = this.parser;
 
-		// update the vscode ui
+		// status-bar progress, not a Notification: slicers re-run on every edit and stacked notifications spam
 		return vscode.window.withProgress({
-			location: vscode.ProgressLocation.Notification,
+			location: vscode.ProgressLocation.Window,
 			title:    (() => {
 				if(action === 'slice') {
-					return 'Creating Slice....';
+					return 'flowR: slicing';
 				} else if(action in DiagramDefinitions) {
 					return DiagramDefinitions[action].verb;
 				} else {
-					return 'Working...';
+					return 'flowR: working';
 				}
 			})(),
 			cancellable: false
 		},
-		async() => {
+		async(progress) => {
 			try {
-				return await actionFn(analyzer);
+				return await withAnalyzer(document, parser, analyzer => actionFn(analyzer, progress));
 			} catch(e) {
 				this.outputChannel.appendLine('Error: ' + (e as Error)?.message);
 				(e as Error).stack?.split('\n').forEach(l => this.outputChannel.appendLine(l));
@@ -246,6 +266,7 @@ export class FlowrInternalSession implements FlowrSession {
 	}
 
 	public destroy(): void {
+		clearAnalyzerCache();
 		this.parser?.close();
 	}
 
@@ -256,15 +277,15 @@ export class FlowrInternalSession implements FlowrSession {
 				sliceElements: []
 			};
 		}
-		return await this.startWorkWithProgressBar(document, async() => await this.extractSlice(document, criteria, direction, info), 'slice', showErrorMessage, { code: '', sliceElements: [] });
+		return await this.startWorkWithProgressBar(document, (analyzer, progress) => this.extractSlice(analyzer, progress, criteria, direction, info), 'slice', showErrorMessage, { code: '', sliceElements: [] });
 	}
 
 	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
-		return await this.startWorkWithProgressBar(document, async(analyzer) => {
-			const df = await analyzer.dataflow();
-			const ast = await analyzer.normalize();
+		return await this.startWorkWithProgressBar(document, async(analyzer, progress) => {
+			const { ast, dfi: df } = await dataflowWithProgress(analyzer, progress);
 			const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
 
+			progress.report({ message: 'Rendering diagram…' });
 			return DataflowMermaid.convert({
 				graph:               df.graph,
 				simplified,
@@ -276,11 +297,13 @@ export class FlowrInternalSession implements FlowrSession {
 	}
 
 	async retrieveCallgraphMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified?: boolean): Promise<string> {
-		return await this.startWorkWithProgressBar(document, async(analyzer) => {
+		return await this.startWorkWithProgressBar(document, async(analyzer, progress) => {
+			progress.report({ message: 'Computing call graph…' });
 			const callGraph = await analyzer.callGraph();
 			const ast = await analyzer.normalize();
 			const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
 
+			progress.report({ message: 'Rendering diagram…' });
 			return DataflowMermaid.convert({
 				graph:               callGraph,
 				simplified,
@@ -293,10 +316,14 @@ export class FlowrInternalSession implements FlowrSession {
 
 
 	async retrieveAstMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode): Promise<string> {
-		return await this.startWorkWithProgressBar(document, async(analyzer) => {
+		return await this.startWorkWithProgressBar(document, async(analyzer, progress) => {
+			progress.report({ message: 'Parsing…' });
+			await analyzer.parse();
+			progress.report({ message: 'Normalizing…' });
 			const result = await analyzer.normalize();
 			const selectionNodes = selectionsToNodeIds(result.ast.files.map(f => f.root), selections);
 
+			progress.report({ message: 'Rendering diagram…' });
 			return normalizedAstToMermaid(result.ast, {
 				includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
 				mark:           selectionMode === 'highlight' ? selectionNodes : undefined,
@@ -305,12 +332,15 @@ export class FlowrInternalSession implements FlowrSession {
 	}
 
 	async retrieveCfgMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified: boolean, simplifications: CfgSimplificationPassName[]): Promise<string> {
-		return await this.startWorkWithProgressBar(document, async(analyzer) => {
+		return await this.startWorkWithProgressBar(document, async(analyzer, progress) => {
+			progress.report({ message: 'Normalizing…' });
 			const ast = await analyzer.normalize();
+			progress.report({ message: 'Computing control flow…' });
 			const result = await analyzer.controlflow(simplifications);
 
 			const selectionNodes = selectionsToNodeIds(ast.ast.files.map(f => f.root), selections);
 
+			progress.report({ message: 'Rendering diagram…' });
 			return cfgToMermaid(result, ast, {
 				includeOnlyIds: selectionMode === 'hide' ? selectionNodes : undefined,
 				mark:           selectionMode === 'highlight' ? selectionNodes : undefined,
@@ -320,29 +350,14 @@ export class FlowrInternalSession implements FlowrSession {
 		}, FlowrDiagramType.Controlflow, true, '');
 	}
 
-	private async extractSlice(document: vscode.TextDocument, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
-		if(!this.parser) {
-			return {
-				code:          '',
-				sliceElements: []
-			};
-		}
-
-		const analyzer = await analyzerFromDocument(document, this.parser);
+	// takes the analyzer from its caller's withAnalyzer scope (opening its own would deadlock the queue)
+	private async extractSlice(analyzer: FlowrAnalyzer, progress: ProgressReporter, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
 		const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
 		if(!info) {
-			this.outputChannel.appendLine(`[Slice (Internal)] Slicing using pipeline (threshold: ${threshold})`);
-			const dataflow = await analyzer.dataflow();
-			const ast = await analyzer.normalize();
-			info = {
-				dfi: dataflow,
-				ast: ast
-			};
-		} else {
-			this.outputChannel.appendLine(`[Slice (Internal)] Re-Slice using existing dataflow Graph and AST (threshold: ${threshold})`);
+			info = await dataflowWithProgress(analyzer, progress);
 		}
-
-		const now = Date.now();
+		progress.report({ message: 'Computing slice…' });
+		const sliceStart = Date.now();
 		const elements = staticSlice({
 			ctx:  analyzer.inspectContext(),
 			info: info.dfi,
@@ -351,15 +366,15 @@ export class FlowrInternalSession implements FlowrSession {
 			direction,
 			threshold
 		}).result;
-		const sliceTime = Date.now() - now;
-		const sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
-		const reconstructNow = Date.now();
-		const code = reconstructToCode(info.ast, { nodes: new Set(elements) }, makeMagicCommentHandler(doNotAutoSelect)).code;
-		this.outputChannel.appendLine('[Slice (Internal)] Slice took ' + (Date.now() - now) + 'ms (slice: ' + sliceTime + 'ms, reconstruct: ' + (Date.now() - reconstructNow) + 'ms)');
+		const sliceMs = Date.now() - sliceStart;
 
-		if(isVerbose()) {
-			this.outputChannel.appendLine('[Slice (Internal)] Contains Ids: ' + JSON.stringify([...elements]));
-		}
+		progress.report({ message: 'Reconstructing…' });
+		const reconstructStart = Date.now();
+		const sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
+		const code = reconstructToCode(info.ast, { nodes: new Set(elements) }, makeMagicCommentHandler(doNotAutoSelect)).code;
+
+		// one compact line per slice
+		this.outputChannel.appendLine(`[Slice] ${elements.size} node${elements.size === 1 ? '' : 's'} (slice ${sliceMs}ms, reconstruct ${Date.now() - reconstructStart}ms)${isVerbose() ? ` ids=${JSON.stringify([...elements])}` : ''}`);
 
 		return {
 			code,
@@ -372,20 +387,21 @@ export class FlowrInternalSession implements FlowrSession {
 			throw new Error('No parser available');
 		}
 
-		const analyzer = await analyzerFromDocument(document, this.parser);
-		const dataflow = await analyzer.dataflow() as DataflowInformation & PipelinePerStepMetaInformation;
-		const normalize = await analyzer.normalize();
+		return withAnalyzer(document, this.parser, async analyzer => {
+			const dataflow = await analyzer.dataflow() as DataflowInformation & PipelinePerStepMetaInformation;
+			const normalize = await analyzer.normalize();
 
-		if(normalize.hasError && (normalize.ast.files as unknown[])?.length === 0) {
-			return { result: {} as QueryResults<T>, hasError: true, dfi: dataflow, ast: normalize };
-		}
+			if(normalize.hasError && (normalize.ast.files as unknown[])?.length === 0) {
+				return { result: {} as QueryResults<T>, hasError: true, dfi: dataflow, ast: normalize };
+			}
 
-		return {
-			result:   await analyzer.query(query),
-			hasError: normalize.hasError ?? false,
-			dfi:      dataflow,
-			ast:      normalize
-		};
+			return {
+				result:   await analyzer.query(query),
+				hasError: normalize.hasError ?? false,
+				dfi:      dataflow,
+				ast:      normalize
+			};
+		});
 	}
 
 	public async runRepl(config: Omit<Required<FlowrReplOptions>, 'parser'>) {
@@ -396,7 +412,7 @@ export class FlowrInternalSession implements FlowrSession {
 			.setParser(this.parser)
 			.setConfig(VSCodeFlowrConfiguration)
 			.build();
-		(config.output as { stdout: (s: string) => void }).stdout(await versionReplString(this.parser));
+		(config.output as { stdout: (s: string) => void }).stdout(`${await versionReplString(this.parser)}\n${packageDbSummary()}`);
 		await repl({ analyzer: analyzer, ...config });
 	}
 
@@ -405,27 +421,92 @@ export class FlowrInternalSession implements FlowrSession {
 	}
 }
 
-async function analyzerFromDocument(document: vscode.TextDocument, parser: KnownParser): Promise<FlowrAnalyzer> {
-	const analyzer = await new FlowrAnalyzerBuilder()
-		.setParser(parser)
-		.setConfig(VSCodeFlowrConfiguration)
-		.build();
+interface CachedAnalyzer {
+	version:  number;
+	parser:   KnownParser;
+	config:   FlowrConfig;
+	analyzer: Promise<FlowrAnalyzer>;
+	/** serializes pipeline access: flowR's pipeline is not re-entrant, so concurrent callers must queue */
+	queue:    Promise<unknown>;
+}
 
-	if(document.uri.scheme === 'file') {
-		const file = new FlowrInlineTextFile(document.fileName, document.getText());
-		analyzer.reset();
-		analyzer.addFile(file);
-		analyzer.addRequest({
-			request: 'file',
-			content: document.fileName
+/**
+ * Caches one analyzer per document (keyed by version/parser/config) so the many analyses a single interaction
+ * triggers reuse memoized dataflow/normalize/query results instead of recomputing them.
+ */
+const analyzerCache = new Map<string, CachedAnalyzer>();
+const maxAnalyzerCache = 4;
+
+/**
+ *
+ */
+export function clearAnalyzerCache(): void {
+	analyzerCache.clear();
+}
+
+function buildAnalyzerForDocument(document: vscode.TextDocument, parser: KnownParser, config: FlowrConfig): Promise<FlowrAnalyzer> {
+	return new FlowrAnalyzerBuilder()
+		.setParser(parser)
+		.setConfig(config)
+		.build()
+		.then(analyzer => {
+			if(document.uri.scheme === 'file') {
+				const file = new FlowrInlineTextFile(document.fileName, document.getText());
+				analyzer.reset();
+				analyzer.addFile(file);
+				analyzer.addRequest({
+					request: 'file',
+					content: document.fileName
+				});
+			} else {
+				analyzer.reset();
+				analyzer.addRequest({
+					request: 'text',
+					content: document.getText()
+				});
+			}
+			return analyzer;
 		});
-	} else {
-		analyzer.reset();
-		analyzer.addRequest({
-			request: 'text',
-			content: document.getText()
-		});
+}
+
+function analyzerEntryForDocument(document: vscode.TextDocument, parser: KnownParser): CachedAnalyzer {
+	const key = document.uri.toString();
+	const config = VSCodeFlowrConfiguration;
+	const cached = analyzerCache.get(key);
+	if(cached && cached.version === document.version && cached.parser === parser && cached.config === config) {
+		// mark as most-recently-used and reuse the analyzer (with its memoized results)
+		analyzerCache.delete(key);
+		analyzerCache.set(key, cached);
+		return cached;
 	}
 
-	return analyzer;
+	const analyzer = buildAnalyzerForDocument(document, parser, config);
+	// don't let a failed build poison the cache
+	analyzer.catch(() => {
+		if(analyzerCache.get(key)?.analyzer === analyzer) {
+			analyzerCache.delete(key);
+		}
+	});
+	const entry: CachedAnalyzer = { version: document.version, parser, config, analyzer, queue: Promise.resolve() };
+	analyzerCache.set(key, entry);
+
+	// evict least-recently-used entries; we must NOT close evicted analyzers, as they share the session's parser
+	while(analyzerCache.size > maxAnalyzerCache) {
+		const oldest = analyzerCache.keys().next().value;
+		if(oldest === undefined) {
+			break;
+		}
+		analyzerCache.delete(oldest);
+	}
+
+	return entry;
+}
+
+/** runs `work` against the document's cached analyzer, serialized against other callers (see {@link CachedAnalyzer.queue}) */
+export function withAnalyzer<T>(document: vscode.TextDocument, parser: KnownParser, work: (analyzer: FlowrAnalyzer) => Promise<T>): Promise<T> {
+	const entry = analyzerEntryForDocument(document, parser);
+	const run = entry.queue.then(async() => work(await entry.analyzer));
+	// swallow rejections on the chain so one failure doesn't wedge the queue
+	entry.queue = run.then(() => undefined, () => undefined);
+	return run;
 }

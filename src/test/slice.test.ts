@@ -42,4 +42,24 @@ n <- 10
 for(i in 1:(n - 1)) product <- product * i
 			`.trim());
 	});
+
+	// slicing with the cursor on a function-name (e.g. `print`, `ggplot`) must resolve to the enclosing call
+	// node (the name symbol is not a dataflow vertex), otherwise the slice comes back empty - especially once
+	// package functions are resolved via the package database
+	test('slices on a function call (print) and includes its dependency', async() => {
+		await openTestFile('slice-library-example.R', new vscode.Selection(3, 0, 3, 0)); // cursor on `print`
+		const slice: SliceReturn | undefined = await vscode.commands.executeCommand('vscode-flowr.slice.cursor');
+		assert.ok(slice, 'expected a slice result');
+		assert.notEqual(slice.code.trim(), '', 'slice on a function call must not be empty');
+		assert.ok(slice.code.includes('print(x)'), `expected the call in the slice, got: ${slice.code}`);
+		assert.ok(slice.code.includes('x <- 5'), `expected the sliced dependency, got: ${slice.code}`);
+	});
+
+	test('slices on a library-provided call (ggplot) and includes the library', async() => {
+		await openTestFile('slice-library-example.R', new vscode.Selection(2, 0, 2, 0)); // cursor on `ggplot`
+		const slice: SliceReturn | undefined = await vscode.commands.executeCommand('vscode-flowr.slice.cursor');
+		assert.ok(slice, 'expected a slice result');
+		assert.ok(slice.code.includes('ggplot()'), `expected the ggplot call in the slice, got: ${slice.code}`);
+		assert.ok(slice.code.includes('library(ggplot2)'), `expected the library load in the slice, got: ${slice.code}`);
+	});
 });

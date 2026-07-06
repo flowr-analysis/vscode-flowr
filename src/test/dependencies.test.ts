@@ -47,4 +47,21 @@ suite('dependencies', () => {
 			] }
 		]);
 	});
+
+	// typing a new `library()` line must be reflected in the view - the analyzer is keyed by document version,
+	// so the edited (in-memory) text is re-analyzed rather than served stale from the cache
+	test('reflects edits: a newly typed library() appears', async() => {
+		const editor = await openTestFile('dep-edit-example.R');
+		const libraryLabels = (deps: Dependency[] | undefined) =>
+			simplifyDependencies(deps).find(d => d.label === 'Libraries')?.children?.map(c => c.label) ?? [];
+
+		const before: Dependency[] | undefined = await vscode.commands.executeCommand('vscode-flowr.dependencyView.update');
+		assert.deepEqual(libraryLabels(before), ['alpha'], 'the fixture starts with a single library');
+
+		// simulate the user typing a second library() call
+		await editor.edit(eb => eb.insert(new vscode.Position(1, 0), 'library(beta)\n'));
+
+		const after: Dependency[] | undefined = await vscode.commands.executeCommand('vscode-flowr.dependencyView.update');
+		assert.deepEqual(libraryLabels(after).sort(), ['alpha', 'beta'], 'the typed library must appear alongside the original');
+	});
 });
