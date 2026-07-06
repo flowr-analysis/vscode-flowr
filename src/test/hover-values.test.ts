@@ -29,13 +29,13 @@ suite('hover values', () => {
 	});
 
 	test('shows inferred value for dataframe', async() => {
-		const df = `Dataframe Shape:
-|    |    |
-|----|----|
-| Rows: | [3, 3] |
-| Cols: | [2, 2] |
+		const df = `
+Dataframe Shape:
 
-Known Columns: \`id\`, \`label\``;
+*Columns*: \`id\`, \`label\`\\
+*Cols*: [2, 2]\\
+*Rows*: [3, 3]
+		`.trim();
 		await tc(new vscode.Position(2, 1), df);
 	});
 });

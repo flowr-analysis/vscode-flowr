@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import { getFlowrSession } from './extension';
 import { makeSlicingCriteriaForPositions } from './flowr/utils';
-import { Bottom, Top } from '@eagleoutice/flowr/abstract-interpretation/domains/lattice';
+import { Bottom, BottomSymbol, Top, TopSymbol } from '@eagleoutice/flowr/abstract-interpretation/domains/lattice';
 import { isTop, stringifyValue } from '@eagleoutice/flowr/dataflow/eval/values/r-value';
 import { getConfig, Settings } from './settings';
 import { ConfigurableRefresher, RefreshType } from './configurable-refresher';
@@ -116,14 +116,12 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 				if(shape) {
 					values.push({
 						value:   shape,
-						textRep: `Dataframe Shape:
-|    |    |
-|----|----|
-| Rows: | ${intLift2Str(shape.rows.value)} |
-| Cols: | ${intLift2Str(shape.cols.value)} |
+						textRep: `
+Dataframe Shape:
 
-Known Columns: ${setString(shape.colnames.value)}
-
+*Columns*: ${formatSetRange(shape.colnames.value)}\\
+*Cols*: ${shape.cols.toString()}\\
+*Rows*: ${shape.rows.toString()}
 					`.trim(),
 						criteria: criteria
 					});
@@ -135,28 +133,27 @@ Known Columns: ${setString(shape.colnames.value)}
 	}
 }
 
-function setString(set:  { readonly min: ReadonlySet<string>, readonly range: ReadonlySet<string> | typeof Top } | typeof Top | typeof Bottom): string {
+function formatSetRange(set: { readonly min: ReadonlySet<string>, readonly range: ReadonlySet<string> | typeof Top } | typeof Top | typeof Bottom): string {
 	if(set === Bottom) {
-		return '⊥';
+		return BottomSymbol;
+	} else if(set === Top || (set.min.size === 0 && set.range === Top)) {
+		return TopSymbol;
 	}
-	if(set === Top) {
-		return '⊤';
+	let txt: string | undefined;
+
+	if(set.min.size === 0) {
+		txt = '*\\<None\\>*';
+	} else {
+		txt = `${set.min.values().toArray().map(entry => '`' + entry + '`').join(', ')}`;
 	}
-	let txt = `${[...set.min].map(f => `\`${f}\``).join(', ')}
-	`;
 	if(set.range === Top) {
-		txt += '(Potential: ⊤)';
+		txt += ' (Potential: ' + TopSymbol + ')';
 	} else if(set.range.size > 0) {
-		txt += '(Potential: ' + [...set.range].map(f => `\`${f}\``).join(', ') + ')';
+		txt += ' (Potential: ' + set.range.values().toArray().map(entry => '`' + entry + '`').join(', ') + ')';
 	}
 	return txt;
 }
-function intLift2Str(val: readonly [number, number] | typeof Bottom): string {
-	if(val === Bottom) {
-		return '⊥';
-	}
-	return `[${val[0]}, ${val[1]}]`;
-}
+
 function valueToHint(cached: ValueInfo[]): vscode.Hover | undefined {
 	if(cached.length === 0) {
 		return undefined;
