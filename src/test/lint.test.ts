@@ -30,8 +30,7 @@ suite('linter', () => {
 
 	// package-only rules (license/tests) are only sensible inside an R package
 	suite('isInRPackage', () => {
-		test
-		('is true for a file inside an R package (DESCRIPTION up the tree)', async() => {
+		test('is true for a file inside an R package (DESCRIPTION up the tree)', async() => {
 			const editor = await openTestFile('pkg-example/R/example.R');
 			assert.ok(await isInRPackage(editor.document));
 		});
