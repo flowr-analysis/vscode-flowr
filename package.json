@@ -805,7 +805,7 @@
         {
           "id": "flowr-dependencies",
           "icon": "$(notebook-template)",
-          "name": "Dependencies"
+          "name": "Overview"
         },
         {
           "id": "flowr-project",

@@ -1,25 +1,12 @@
 import * as vscode from 'vscode';
 import { Settings } from '../../settings';
 import type { PkgDatabase } from '@eagleoutice/flowr/project/plugins/package-version-plugins/pkgdb';
-import { getPackageDatabase } from '../../package-db';
+import { getPackageDatabase, baseRPackages } from '../../package-db';
 
 export const FlowrProjectViewId = 'flowr-project';
 
 /** context key backing the `when` clause that hides the Project tab until a manifest is found */
 const ProjectContextKey = 'vscode-flowr:hasProject';
-
-/**
- * Packages that ship with R itself (the `base` and `recommended` priority packages). They are never part
- * of the CRAN package database, so we must not flag them as "unmatched" - they are simply always present.
- */
-const BaseAndRecommendedPackages = new Set([
-	// base
-	'base', 'compiler', 'datasets', 'grDevices', 'graphics', 'grid', 'methods', 'parallel', 'splines',
-	'stats', 'stats4', 'tcltk', 'tools', 'translations', 'utils',
-	// recommended
-	'boot', 'class', 'cluster', 'codetools', 'foreign', 'KernSmooth', 'lattice', 'MASS', 'Matrix', 'mgcv',
-	'nlme', 'nnet', 'rpart', 'spatial', 'survival'
-]);
 
 /** how a declared library relates to the package database */
 type MatchStatus = 'matched' | 'base' | 'unmatched' | 'db-unavailable';
@@ -34,12 +21,12 @@ interface LibraryMatch {
 type PackageLookup = Pick<PkgDatabase, 'lookup'>;
 
 /**
- * Classifies a declared library against the package database: base/recommended packages (which ship with R
- * and are never in the CRAN database) are recognised up front; otherwise we report whether the database
- * knows the package, or that the database itself was unavailable.
+ * Classifies a declared library against the package database: base packages (part of R itself, never in the
+ * CRAN database) are recognised up front; otherwise we report whether the database knows the package, or that
+ * the database itself was unavailable.
  */
 export function classifyLibrary(name: string, db: PackageLookup | undefined): LibraryMatch {
-	if(BaseAndRecommendedPackages.has(name)) {
+	if(baseRPackages.has(name)) {
 		return { status: 'base' };
 	}
 	if(!db) {
@@ -59,12 +46,16 @@ interface DeclaredLibrary {
 
 interface ProjectManifest {
 	/** absolute path of the manifest file */
-	uri:       vscode.Uri;
+	uri:             vscode.Uri;
 	/** short, human-readable label (relative to the workspace folder) */
-	label:     string;
+	label:           string;
 	/** e.g. `renv`, `DESCRIPTION`, `rv` */
-	kind:      string;
-	libraries: DeclaredLibrary[];
+	kind:            string;
+	/** the package this manifest itself describes (from a `DESCRIPTION`'s `Package:` field), if any */
+	packageName?:    string;
+	/** the version this manifest declares for itself (from a `DESCRIPTION`'s `Version:` field), if any */
+	packageVersion?: string;
+	libraries:       DeclaredLibrary[];
 }
 
 /** the tree is two levels deep: manifests at the top, their libraries below */
@@ -92,7 +83,7 @@ const statusPresentations: Record<MatchStatus, StatusPresentation> = {
 	base: {
 		icon:    'library',
 		badge:   () => 'bundled with R',
-		tooltip: node => `\`${node.library.name}\` is a base/recommended package that ships with R.`
+		tooltip: node => `\`${node.library.name}\` is a base package that is part of R itself.`
 	},
 	unmatched: {
 		icon:    'circle-slash',
@@ -113,8 +104,8 @@ const statusPresentations: Record<MatchStatus, StatusPresentation> = {
  */
 export function registerProjectView(output: vscode.OutputChannel): { dispose: () => void } {
 	const data = new FlowrProjectTreeView(output);
-	const tv = vscode.window.createTreeView(FlowrProjectViewId, { treeDataProvider: data });
-	data.setTreeView(tv);
+	const disposables: vscode.Disposable[] = [];
+	let treeView: vscode.TreeView<ProjectNode> | undefined;
 
 	// re-scan when project manifests appear/change/disappear or the workspace layout changes
 	const watcher = vscode.workspace.createFileSystemWatcher('**/{renv.lock,DESCRIPTION,rv.lock,rproject.toml}');
@@ -122,22 +113,38 @@ export function registerProjectView(output: vscode.OutputChannel): { dispose: ()
 	watcher.onDidCreate(refresh);
 	watcher.onDidChange(refresh);
 	watcher.onDidDelete(refresh);
-	const disposeFolders = vscode.workspace.onDidChangeWorkspaceFolders(refresh);
-	const disposeConfig = vscode.workspace.onDidChangeConfiguration(e => {
-		if(e.affectsConfiguration(Settings.Category)) {
-			refresh();
-		}
-	});
+	disposables.push(
+		watcher,
+		vscode.workspace.onDidChangeWorkspaceFolders(refresh),
+		vscode.workspace.onDidChangeConfiguration(e => {
+			if(e.affectsConfiguration(Settings.Category)) {
+				refresh();
+			}
+		})
+	);
 
-	void data.refresh();
+	// The view is contributed behind a `when: vscode-flowr:hasProject` clause so it stays hidden until a manifest
+	// is found. Some editors (e.g. Positron) do not register a `when`-hidden view yet, so creating the tree view
+	// while the context is unset errors with "No view is registered". We therefore enable the context first, then
+	// create the view, then let refresh() set the real state (hiding it again when there is no project).
+	void (async() => {
+		await vscode.commands.executeCommand('setContext', ProjectContextKey, true);
+		try {
+			treeView = vscode.window.createTreeView(FlowrProjectViewId, { treeDataProvider: data });
+			data.setTreeView(treeView);
+		} catch(e) {
+			output.appendLine(`[Project View] Could not create the tree view: ${(e as Error).message}`);
+		}
+		await data.refresh();
+	})();
 
 	return {
 		dispose: () => {
-			tv.dispose();
-			watcher.dispose();
-			disposeFolders.dispose();
-			disposeConfig.dispose();
+			treeView?.dispose();
 			data.dispose();
+			for(const d of disposables) {
+				d.dispose();
+			}
 		}
 	};
 }
@@ -200,11 +207,16 @@ class FlowrProjectTreeView implements vscode.TreeDataProvider<ProjectNode> {
 }
 
 function manifestTreeItem(manifest: ProjectManifest): vscode.TreeItem {
-	const item = new vscode.TreeItem(manifest.label, vscode.TreeItemCollapsibleState.Expanded);
-	item.description = `${manifest.kind} · ${manifest.libraries.length} librar${manifest.libraries.length === 1 ? 'y' : 'ies'}`;
-	item.iconPath = new vscode.ThemeIcon('project');
+	// when the manifest describes a package itself (a DESCRIPTION), surface that package's name and version
+	const libraryCount = `${manifest.libraries.length} librar${manifest.libraries.length === 1 ? 'y' : 'ies'}`;
+	const item = new vscode.TreeItem(manifest.packageName ?? manifest.label, vscode.TreeItemCollapsibleState.Expanded);
+	item.description = [manifest.packageVersion && `v${manifest.packageVersion}`, manifest.kind, libraryCount].filter(Boolean).join(' · ');
+	item.iconPath = new vscode.ThemeIcon('package');
 	item.resourceUri = manifest.uri;
-	item.tooltip = new vscode.MarkdownString(`Detected ${manifest.kind} manifest\n\n\`${manifest.uri.fsPath}\``);
+	const title = manifest.packageName
+		? `\`${manifest.packageName}\`${manifest.packageVersion ? ` version ${manifest.packageVersion}` : ''} — ${manifest.kind}`
+		: `Detected ${manifest.kind} manifest`;
+	item.tooltip = new vscode.MarkdownString(`${title}\n\n\`${manifest.uri.fsPath}\``);
 	item.command = { command: 'vscode.open', title: 'Open manifest', arguments: [manifest.uri] };
 	return item;
 }
@@ -221,16 +233,18 @@ function libraryTreeItem(node: LibraryNode): vscode.TreeItem {
 
 /* ------------------------------------------------------------------ detection ------------------------------------------------------------------ */
 
-/** binds a manifest file name to the project kind it represents and the parser that reads its libraries */
+/** binds a manifest file name to the project kind it represents and the parsers that read it */
 interface ManifestDetector {
 	file:  string;
 	kind:  string;
 	parse: (content: string) => DeclaredLibrary[];
+	/** optional: extract the package this manifest describes itself (name/version) */
+	meta?: (content: string) => { packageName?: string, packageVersion?: string };
 }
 
 const manifestDetectors: readonly ManifestDetector[] = [
 	{ file: 'renv.lock', kind: 'renv', parse: parseRenvLock },
-	{ file: 'DESCRIPTION', kind: 'DESCRIPTION', parse: parseDescription },
+	{ file: 'DESCRIPTION', kind: 'DESCRIPTION', parse: parseDescription, meta: parseDescriptionMeta },
 	{ file: 'rv.lock', kind: 'rv', parse: parseRvLock },
 	{ file: 'rproject.toml', kind: 'rv', parse: parseRvToml }
 ];
@@ -239,7 +253,7 @@ async function detectManifests(output: vscode.OutputChannel): Promise<ProjectMan
 	const folders = vscode.workspace.workspaceFolders ?? [];
 	const manifests: ProjectManifest[] = [];
 	for(const folder of folders) {
-		for(const { file, kind, parse } of manifestDetectors) {
+		for(const { file, kind, parse, meta } of manifestDetectors) {
 			const uri = vscode.Uri.joinPath(folder.uri, file);
 			let content: string;
 			try {
@@ -248,7 +262,7 @@ async function detectManifests(output: vscode.OutputChannel): Promise<ProjectMan
 				continue; // file does not exist
 			}
 			try {
-				manifests.push({ uri, label: file, kind, libraries: dedupeLibraries(parse(content)) });
+				manifests.push({ uri, label: file, kind, ...meta?.(content), libraries: dedupeLibraries(parse(content)) });
 			} catch(e) {
 				output.appendLine(`[Project View] Failed to parse ${uri.fsPath}: ${(e as Error).message}`);
 				manifests.push({ uri, label: file, kind, libraries: [] });
@@ -282,6 +296,12 @@ export function parseRenvLock(content: string): DeclaredLibrary[] {
 		name:            entry.Package ?? key,
 		declaredVersion: entry.Version
 	}));
+}
+
+/** Extracts the package this `DESCRIPTION` describes itself: its `Package:` name and `Version:`. */
+export function parseDescriptionMeta(content: string): { packageName?: string, packageVersion?: string } {
+	const field = (name: string) => new RegExp(`^${name}\\s*:\\s*(.+)$`, 'm').exec(content.replace(/\r\n/g, '\n'))?.[1].trim();
+	return { packageName: field('Package'), packageVersion: field('Version') };
 }
 
 /** Extracts the packages listed in the `Depends`/`Imports`/`Suggests`/`LinkingTo` fields of a `DESCRIPTION` file. */

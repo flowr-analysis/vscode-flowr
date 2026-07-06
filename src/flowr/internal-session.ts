@@ -404,16 +404,29 @@ export class FlowrInternalSession implements FlowrSession {
 		});
 	}
 
-	public async runRepl(config: Omit<Required<FlowrReplOptions>, 'parser'>) {
+	/**
+	 * Builds the analyzer the REPL runs on (validating the flowR configuration) and the banner shown on start,
+	 * which includes the flowR/engine versions and the active package database. Split out from {@link runRepl}
+	 * so it can be exercised in tests without entering the interactive read loop (which would end the process).
+	 */
+	public async replStartup(): Promise<{ analyzer: FlowrAnalyzer, banner: string } | undefined> {
 		if(!this.parser) {
-			return;
+			return undefined;
 		}
 		const analyzer = await new FlowrAnalyzerBuilder()
 			.setParser(this.parser)
 			.setConfig(VSCodeFlowrConfiguration)
 			.build();
-		(config.output as { stdout: (s: string) => void }).stdout(`${await versionReplString(this.parser)}\n${packageDbSummary()}`);
-		await repl({ analyzer: analyzer, ...config });
+		return { analyzer, banner: `${await versionReplString(this.parser)}\n${packageDbSummary()}` };
+	}
+
+	public async runRepl(config: Omit<Required<FlowrReplOptions>, 'parser'>) {
+		const startup = await this.replStartup();
+		if(!startup) {
+			return;
+		}
+		(config.output as { stdout: (s: string) => void }).stdout(startup.banner);
+		await repl({ analyzer: startup.analyzer, ...config });
 	}
 
 	public static getEngineToUse(): KnownParserName {

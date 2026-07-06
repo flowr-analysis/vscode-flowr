@@ -2,6 +2,15 @@ import { PkgDatabase } from '@eagleoutice/flowr/project/plugins/package-version-
 import { getBundledPackageDbPath } from './extension';
 import { getConfig, Settings } from './settings';
 
+/**
+ * R's base priority packages: part of R itself, available without an explicit `library()`, and never
+ * published on CRAN (so they never appear in the package database).
+ */
+export const baseRPackages = new Set([
+	'base', 'compiler', 'datasets', 'grDevices', 'graphics', 'grid', 'methods', 'parallel',
+	'splines', 'stats', 'stats4', 'tcltk', 'tools', 'translations', 'utils'
+]);
+
 /** cached database, keyed by the file path it was loaded from */
 let cache: { path: string, db: PkgDatabase } | undefined;
 

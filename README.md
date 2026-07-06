@@ -58,6 +58,8 @@ With this extension, you gain access to the following features (as the extension
 
    </details>
 
+7. 📦 [**Package Information**](#package-information): Hover over a call to see which package it comes from and its version from flowR's bundled [package database](#package-database), and get a [Project](#project-view) overview of your declared libraries.
+
 If you notice anything that could be improved, have a feature request, or notice a bug, please [open an issue](#issues-and-feature-requests)!
 
 <details><summary>Reporting an Issue</summary>
@@ -113,7 +115,7 @@ Additionally, we recommend using the [R extension](https://marketplace.visualstu
 
 ### Linting
 
-By default, the extension ships with all linting rules that are available in *flowR*, extensive information about which can be found on the [wiki page](https://github.com/flowr-analysis/flowr/wiki/Linter). Some linters additionally ship with code actions in the form of quick fixes which, once invoked, automatically edit or remove the relevant code snippet.
+By default, the extension enables all linting rules available in *flowR* except `naming-convention` and `roxygen-arguments`; extensive information about the rules can be found on the [wiki page](https://github.com/flowr-analysis/flowr/wiki/Linter). The package-structure rules `software-has-license` and `software-has-tests` are only applied when the file is part of an R package (i.e. a `DESCRIPTION` file is present up the directory tree), so they do not add noise to standalone scripts. You can adjust the enabled rules under `vscode-flowr.linter.enabledRules`. Some linters additionally ship with code actions in the form of quick fixes which, once invoked, automatically edit or remove the relevant code snippet.
 
 To manually invoke the linter, you can use the "Code Quality Analysis (Linter)" command. Additionally, you can modify under what conditions the linter automatically refreshes its results in the extension's settings.
 
@@ -158,7 +160,19 @@ To clear the slice highlighting, use the "Clear Current Slice Presentation" comm
 
 ![A screenshot of a dependency diagram for a piece of code](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/dependencies.png)
 
-Using the extension, the sidebar should contain a flowR icon which holds more information on the current file, listing the libraries loaded, the files read and written, and the sourced scripts. If you expand the respective sections, clicking on the found entries should open them in the editor. The context menu (available with a right click) allows you to [slice](#slicing) for the selected entry.
+Using the extension, the sidebar should contain a flowR icon whose **Overview** view holds more information on the current file, listing the libraries loaded, the files read and written, and the sourced scripts. If you expand the respective sections, clicking on the found entries should open them in the editor. The context menu (available with a right click) allows you to [slice](#slicing) for the selected entry.
+
+### Package Information
+
+Hovering over a call in an R file tells you which package it stems from — for example, hovering over `map` after `library(purrr)` shows *`map` is provided by the `purrr` package*, together with the version recorded in flowR's [package database](#package-database) and a link to the package's CRAN page. Hovering over the package name inside `library(pkg)`/`require(pkg)` shows that package's database version and CRAN link. For locally defined functions and variables, <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+click (Go to Definition) jumps to their definition.
+
+### Project View
+
+When the open workspace contains an R project manifest — a `renv.lock`, a `DESCRIPTION`, or an `rv.lock`/`rproject.toml` — a **Project** tab appears in the flowR sidebar. It lists the libraries each manifest declares and, for every one, whether flowR's [package database](#package-database) knows it: matched (with the database version), a base package bundled with R, unmatched, or unavailable. The tab is hidden when no manifest is detected.
+
+### Package Database
+
+flowR resolves the exports, definitions and versions of external packages from a precomputed *package database* that ships with the extension, so package attribution works out of the box without a local R installation. It powers the [package information](#package-information) hovers, the [project view](#project-view) matching, and dependency resolution. The active database (scope and date) is shown when hovering the flowR status-bar item and in the REPL banner. You can toggle it or point at a custom database under the `vscode-flowr.config.solver.pkgdb.*` settings.
 
 ### Value Resolution
 

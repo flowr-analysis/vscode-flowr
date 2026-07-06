@@ -22,6 +22,37 @@ suite('package info', () => {
 		assert.ok(/provided by/.test(packageHover), `expected the package hover to explain the origin, got: ${packageHover}`);
 	});
 
+	const hoverContentsAt = async(pos: vscode.Position) => {
+		const editor = await openTestFile('package-info-example.R');
+		const result: vscode.Hover[] = await vscode.commands.executeCommand('vscode.executeHoverProvider', editor.document.uri, pos);
+		return (result ?? []).flatMap(h => h.contents).map(c => typeof c === 'string' ? c : (c as vscode.MarkdownString).value ?? '');
+	};
+
+	test('shows the database version when hovering a library() package name', async() => {
+		// `purrr` inside `library(purrr)` on the first line
+		const contents = await hoverContentsAt(new vscode.Position(0, 9));
+		const versionHover = contents.find(v => v.includes('purrr') && /database version/i.test(v));
+		assert.ok(versionHover, `expected a database-version hover for the library name, got: ${JSON.stringify(contents)}`);
+	});
+
+	test('shows the loaded package version when hovering the library function itself', async() => {
+		// hovering `library` in `library(purrr)` should report the package it loads and its database version
+		const contents = await hoverContentsAt(new vscode.Position(0, 2));
+		const loadHover = contents.find(v => /loads the/i.test(v) && v.includes('purrr') && /database version/i.test(v));
+		assert.ok(loadHover, `expected a 'loads the purrr package' hover, got: ${JSON.stringify(contents)}`);
+	});
+
+	test('attributes a base built-in (print) to its base package', async() => {
+		const editor = await openTestFile('hover-bottom-example.R');
+		// `print` on the second line is a base built-in, available without library()
+		const result: vscode.Hover[] = await vscode.commands.executeCommand('vscode.executeHoverProvider', editor.document.uri, new vscode.Position(1, 0));
+		const contents = (result ?? [])
+			.flatMap(h => h.contents)
+			.map(c => typeof c === 'string' ? c : (c as vscode.MarkdownString).value ?? '');
+		const baseHover = contents.find(v => /provided by/.test(v) && v.includes('base'));
+		assert.ok(baseHover, `expected 'print is provided by the base package', got: ${JSON.stringify(contents)}`);
+	});
+
 	test('does not attribute a locally defined function to a package', async() => {
 		const editor = await openTestFile('package-info-example.R');
 		// `myFunction` is defined in this very file, so we must not claim it comes from a package

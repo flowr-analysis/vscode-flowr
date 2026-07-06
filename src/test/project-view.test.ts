@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { classifyLibrary, dedupeLibraries, parseDescription, parseRenvLock, parseRvLock, parseRvToml } from '../flowr/views/project-view';
+import { classifyLibrary, dedupeLibraries, parseDescription, parseDescriptionMeta, parseRenvLock, parseRvLock, parseRvToml } from '../flowr/views/project-view';
 
 suite('project view library matching', () => {
 	// a stub standing in for the flowR package database: only `dplyr` is "known"
@@ -14,15 +14,23 @@ suite('project view library matching', () => {
 		assert.equal(m.exportCount, 3);
 	});
 
-	test('reports base/recommended packages without consulting the database', () => {
-		// `stats`/`MASS` are base/recommended packages - the throwing stub proves the database is not queried for them
+	test('reports base packages without consulting the database', () => {
+		// base packages (part of R itself) are recognised up front - the throwing stub proves the DB isn't queried
 		const throwingDb = {
 			lookup: () => {
 				throw new Error('should not be called for base packages');
 			}
 		} as unknown as Parameters<typeof classifyLibrary>[1];
 		assert.equal(classifyLibrary('stats', throwingDb).status, 'base');
-		assert.equal(classifyLibrary('MASS', throwingDb).status, 'base');
+		assert.equal(classifyLibrary('methods', throwingDb).status, 'base');
+	});
+
+	test('recommended packages (e.g. MASS) are matched via the database, not labelled base', () => {
+		// MASS/rpart ship with R but are ordinary CRAN packages with DB entries, so they must be looked up
+		const db = {
+			lookup: (name: string) => name === 'MASS' ? { version: '7.3-65', exported: [] } : undefined
+		} as unknown as Parameters<typeof classifyLibrary>[1];
+		assert.equal(classifyLibrary('MASS', db).status, 'matched');
 	});
 
 	test('reports an unknown package as unmatched', () => {
@@ -71,6 +79,13 @@ suite('project view manifest parsing', () => {
 		// the version constraint of dplyr should be captured
 		const dplyr = libs.find(l => l.name === 'dplyr');
 		assert.equal(dplyr?.declaredVersion, '>= 1.0.0');
+	});
+
+	test('reads the package name and version a DESCRIPTION describes itself', () => {
+		const desc = 'Package: ggplot2\nType: Package\nVersion: 3.5.1\nImports: rlang\n';
+		const meta = parseDescriptionMeta(desc);
+		assert.equal(meta.packageName, 'ggplot2');
+		assert.equal(meta.packageVersion, '3.5.1');
 	});
 
 	test('parses renv.lock packages', () => {
