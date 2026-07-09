@@ -23,6 +23,9 @@ identifiers:
     value: 10.1145/3691620.3695359
     description: Tool Demonstration at ASE '24
   - type: doi
+    value: 10.1145/3803437.3806402
+    description: Tool Demonstration at FSE '26
+  - type: doi
     value: 10.5281/zenodo.13319290
     description: Underlying flowR
   - type: doi

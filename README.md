@@ -99,6 +99,31 @@ So far, the extension appeared in the following publications:
 
    </details>
 
+* [Tool Demonstration at FSE '26](https://doi.org/10.1145/3803437.3806402)
+  <details><summary>Reference</summary>
+
+   ```bibtex
+   @inproceedings{DBLP:conf/sigsoft/SihlerGPST26,
+      author       = {Florian Sihler and
+                        Oliver Gerstl and
+                        Lars Pfrenger and
+                        Julian Schubert and
+                        Matthias Tichy},
+      title        = {Supporting the Comprehension of Data Analysis Scripts},
+      booktitle    = {Companion Proceedings of the 34th {ACM} International Conference
+                        on the Foundations of Software Engineering, {FSE} 2026},
+      publisher    = {{ACM}},
+      year         = {2026},
+      url          = {https://doi.org/10.1145/3803437.3806402},
+      doi          = {10.1145/3803437.3806402},
+      eprint       = {2604.15963},
+      eprinttype   = {arXiv},
+      eprintclass  = {cs.SE}
+   }
+   ```
+
+   </details>
+
 For general publications on flowR, please check the [main flowR Repository](https://github.com/flowr-analysis/flowr?tab=readme-ov-file#-publications-on-flowr).
 
 
