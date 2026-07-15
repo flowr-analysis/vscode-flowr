@@ -1,14 +1,11 @@
 import * as vscode from 'vscode';
 import { Settings } from '../../settings';
-import type { PkgDatabase } from '@eagleoutice/flowr/project/plugins/package-version-plugins/pkgdb';
-import { getPackageDatabase, baseRPackages } from '../../package-db';
+import { baseRPackages, isSigDbEnabled } from '../../package-db';
 
 export const FlowrProjectViewId = 'flowr-project';
 
-/** context key backing the `when` clause that hides the Project tab until a manifest is found */
 const ProjectContextKey = 'vscode-flowr:hasProject';
 
-/** how a declared library relates to the package database */
 type MatchStatus = 'matched' | 'base' | 'unmatched' | 'db-unavailable';
 
 interface LibraryMatch {
@@ -17,25 +14,15 @@ interface LibraryMatch {
 	exportCount?: number;
 }
 
-/** the minimal slice of a {@link PkgDatabase} the classification needs (kept narrow so it is easy to stub/test) */
-type PackageLookup = Pick<PkgDatabase, 'lookup'>;
-
-/**
- * Classifies a declared library against the package database: base packages (part of R itself, never in the
- * CRAN database) are recognised up front; otherwise we report whether the database knows the package, or that
- * the database itself was unavailable.
- */
-export function classifyLibrary(name: string, db: PackageLookup | undefined): LibraryMatch {
+/** Classify a declared library against base R packages and the signature database */
+export function classifyLibrary(name: string): LibraryMatch {
 	if(baseRPackages.has(name)) {
 		return { status: 'base' };
 	}
-	if(!db) {
+	if(!isSigDbEnabled()) {
 		return { status: 'db-unavailable' };
 	}
-	const info = db.lookup(name);
-	return info
-		? { status: 'matched', dbVersion: info.version, exportCount: info.exported.length }
-		: { status: 'unmatched' };
+	return { status: 'unmatched' };
 }
 
 interface DeclaredLibrary {
@@ -77,8 +64,8 @@ const statusPresentations: Record<MatchStatus, StatusPresentation> = {
 	matched: {
 		icon:    'pass',
 		color:   'testing.iconPassed',
-		badge:   node => `in DB: ${node.dbVersion}`,
-		tooltip: node => `\`${node.library.name}\` is in the package database (version ${node.dbVersion}, ${node.exportCount} exported identifiers).`
+		badge:   node => `in DB: v${node.dbVersion}`,
+		tooltip: node => `\`${node.library.name}\` is in the package database (v${node.dbVersion}, ${node.exportCount} exported identifiers).`
 	},
 	base: {
 		icon:    'library',
@@ -180,7 +167,7 @@ class FlowrProjectTreeView implements vscode.TreeDataProvider<ProjectNode> {
 	}
 
 	private classify(library: DeclaredLibrary): LibraryMatch {
-		return classifyLibrary(library.name, getPackageDatabase(this.output));
+		return classifyLibrary(library.name);
 	}
 
 	getTreeItem(element: ProjectNode): vscode.TreeItem {
@@ -214,7 +201,7 @@ function manifestTreeItem(manifest: ProjectManifest): vscode.TreeItem {
 	item.iconPath = new vscode.ThemeIcon('package');
 	item.resourceUri = manifest.uri;
 	const title = manifest.packageName
-		? `\`${manifest.packageName}\`${manifest.packageVersion ? ` version ${manifest.packageVersion}` : ''} — ${manifest.kind}`
+		? `\`${manifest.packageName}\`${manifest.packageVersion ? ` v${manifest.packageVersion}` : ''} — ${manifest.kind}`
 		: `Detected ${manifest.kind} manifest`;
 	item.tooltip = new vscode.MarkdownString(`${title}\n\n\`${manifest.uri.fsPath}\``);
 	item.command = { command: 'vscode.open', title: 'Open manifest', arguments: [manifest.uri] };

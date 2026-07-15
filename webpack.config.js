@@ -25,24 +25,28 @@ module.exports = env => {
 					{ from: path.resolve(__dirname, 'resources'), to: 'resources' },
 					// ship flowR's bundled package database so package information is available by default
 					// (it lives in node_modules and would otherwise not be part of the packaged extension)
-					{ from: path.resolve(__dirname, 'node_modules/@eagleoutice/flowr/data/pkgdb/pkgdb-latest.json.br'), to: 'pkgdb-latest.json.br' }
+					// ship flowR's bundled signature database so package information is available by default
+					{ from: path.resolve(__dirname, 'node_modules/@eagleoutice/flowr/data/sigdb'), to: 'sigdb' }
 				]
+			}),
+			// webpack 5's node-core externalsPreset does not recognize `node:`-prefixed requests (it treats
+			// `node:` as an unhandled URI scheme instead of a module specifier); rewrite it away to the bare
+			// core-module name before resolution, so `externalsPresets.node` can externalize it as usual.
+			new webpack.NormalModuleReplacementPlugin(/^node:/, resource => {
+				resource.request = resource.request.replace(/^node:/, '');
 			})
 		],
-		externals: {
-			vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
+		externalsPresets: {
+			node: true
 		},
+		externals: [
+			{ vscode: 'commonjs vscode' }
+		],
 		resolve: {
-			// support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader
 			mainFields: ['module', 'main'],
 			extensions: ['.ts', '.js'],
 			alias: {
 				// provides alternate implementation for node module and source files
-			},
-			fallback: {
-				// Webpack 5 no longer polyfills Node.js core modules automatically.
-				// see https://webpack.js.org/configuration/resolve/#resolvefallback
-				// for the list of Node.js core module polyfills.
 			}
 		},
 		module: {
@@ -73,10 +77,10 @@ module.exports = env => {
 		target: 'webworker', // extensions run in a webworker context
 		entry: {
 			extension: './src/extension.ts',
-			// 'test/suite/index': './src/web/test/suite/index.ts' // source of the web extension test runner
+			'test/suite/index': './src/web/test/suite/index.ts'
 		},
 		output: {
-			filename: 'extension.js',
+			filename: '[name].js',
 			path: path.join(__dirname, './dist/web'),
 			libraryTarget: 'commonjs',
 			devtoolModuleFilenameTemplate: '../../[resource-path]'
@@ -95,6 +99,10 @@ module.exports = env => {
 				clipboardy: false,
 				'rotating-file-stream': false,
 				timers: false,
+				https: false,
+				http: false,
+				crypto: false,
+				'stream/promises': false,
 				// `v8` has no web equivalent; provide a shim so heap-pressure checks are no-ops
 				v8: path.resolve(__dirname, 'webpack-shims/v8.js')
 			},
@@ -108,7 +116,7 @@ module.exports = env => {
 				util: require.resolve('util'),
 				os: require.resolve('os-browserify/browser'),
 				url: require.resolve('url'),
-				zlib: require.resolve('browserify-zlib'),
+				zlib: path.resolve(__dirname, 'webpack-shims/zlib.js'),
 				constants: require.resolve('constants-browserify'),
 				buffer: require.resolve('buffer')
 			}
@@ -142,13 +150,20 @@ module.exports = env => {
 				patterns: [
 					{ from: path.resolve(__dirname, 'resources'), to: 'resources' },
 					// ship flowR's bundled package database (see the node config for details)
-					{ from: path.resolve(__dirname, 'node_modules/@eagleoutice/flowr/data/pkgdb/pkgdb-latest.json.br'), to: 'pkgdb-latest.json.br' }
+					// ship flowR's bundled signature database so package information is available by default
+					{ from: path.resolve(__dirname, 'node_modules/@eagleoutice/flowr/data/sigdb'), to: 'sigdb' }
 				]
+			}),
+			// see the node config for why this is needed: webpack treats `node:` as an unhandled URI scheme
+			// otherwise. The sigdb reader/downloader modules aren't usable in a webworker anyway (no fs/https),
+			// so after rewriting we let `resolve.alias` below stub the bare names out to `false`.
+			new webpack.NormalModuleReplacementPlugin(/^node:/, resource => {
+				resource.request = resource.request.replace(/^node:/, '');
 			})
 		],
-		externals: {
-			vscode: 'commonjs vscode' // ignored because it doesn't exist
-		},
+		externals: [
+			{ vscode: 'commonjs vscode' }
+		],
 		performance: {
 			hints: false
 		},

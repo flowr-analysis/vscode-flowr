@@ -10,6 +10,7 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { rangeToVscodeRange, RotaryBuffer } from '../utils';
 import type { DefaultsMaps } from '../../settings';
 import { DependencyViewRefresherConfigKeys, Settings, getConfig, isVerbose } from '../../settings';
+import { resolveSigDbPackageVersion } from '../../package-db';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { ConfigurableRefresher, isRTypeLanguage, RefreshType } from '../../configurable-refresher';
@@ -36,11 +37,14 @@ export function registerDependencyInternalCommands(context: vscode.ExtensionCont
 		const node = dependency.getNodeId();
 		const loc = dependency.getLocation();
 		if(node) {
-			// got to position
+			// go to position - move the cursor there too, not just scroll it into view, so this actually
+			// behaves like a "go to" (the tree item's own click command, `editor.action.goToLocations`, does)
 			const editor = vscode.window.activeTextEditor;
 			if(editor && loc) {
 				setTimeout(() => {
-					editor.revealRange(rangeToVscodeRange(loc), vscode.TextEditorRevealType.InCenter);
+					const range = rangeToVscodeRange(loc);
+					editor.selection = new vscode.Selection(range.start, range.start);
+					editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
 				}, 50);
 			}
 		}
@@ -255,7 +259,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private working = false;
 	/** when the current refresh started, used to recover from a wedged `working` flag (see {@link refresh}) */
 	private workingSince = 0;
-	private textBuffer: RotaryBuffer<[{ content: string, path: string }, { dep: DependenciesQueryResult, loc: LocationMapQueryResult }]> = new RotaryBuffer(0);
+	private textBuffer: RotaryBuffer<[{ content: string, path: string }, { dep: DependenciesQueryResult, loc: LocationMapQueryResult, ast?: NormalizedAst, dfi?: DataflowInformation }]> = new RotaryBuffer(0);
 	private lastText = '';
 	private lastFile = '';
 
@@ -304,12 +308,14 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				}
 				this.activeDependencies = has[1].dep;
 				this.locationMap = has[1].loc;
-				this.makeRootElements();
+				// the cached entry carries the same `ast`/`dfi` a fresh analysis would - reuse them so that
+				// slicing from a dependency entry still works on a cache hit (see `showDependencySlice`)
+				await this.makeRootElements(has[1].dfi, has[1].ast);
 				this._onDidChangeTreeData.fire(undefined);
 				return;
 			}
 			await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
-				return this.getDependenciesForActiveFile(document).then(res => {
+				return this.getDependenciesForActiveFile(document).then(async res => {
 					if(res === 'error') {
 						if(getConfig().get<boolean>(Settings.DependencyViewKeepOnError, Defaults.DependencyViewKeepOnError)) {
 							// keep the old tree but forget the fingerprint, so the next edit re-analyzes instead of being deduped
@@ -318,7 +324,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 						} else {
 							this.activeDependencies = emptyDependencies;
 							this.locationMap = emptyLocationMap;
-							this.makeRootElements();
+							await this.makeRootElements();
 							this._onDidChangeTreeData.fire(undefined);
 							return;
 						}
@@ -326,7 +332,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					this.activeDependencies = res.dep;
 					this.locationMap = res.loc;
 					this.textBuffer.push([{ content: text, path: document?.uri.fsPath ?? '' }, res]);
-					this.makeRootElements(res.dfi, res.ast);
+					await this.makeRootElements(res.dfi, res.ast);
 					this._onDidChangeTreeData.fire(undefined);
 				}).catch(e => {
 					this.output.appendLine(`[Dependency View] Error: ${(e as Error).message}`);
@@ -372,24 +378,32 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		return element.getParent();
 	}
 
-	private makeRootElements(dfi?: DataflowInformation, ast?: NormalizedAst) {
+	/** the signature database's resolved version for every distinctly-named `library()`/`require()` dependency, keyed by package name */
+	private async resolveLibraryVersions(): Promise<Map<string, string>> {
+		const names = new Set((this.activeDependencies.library as DependencyInfo[] | undefined)?.map(l => l.value).filter((v): v is string => !!v && v !== Unknown));
+		const resolved = await Promise.all([...names].map(async name => [name, await resolveSigDbPackageVersion(name)] as const));
+		return new Map(resolved.filter((e): e is [string, string] => e[1] !== undefined));
+	}
+
+	private async makeRootElements(dfi?: DataflowInformation, ast?: NormalizedAst) {
+		const libraryVersions = await this.resolveLibraryVersions();
 		const uniqueIds = new Set<string>();
 		this.rootElements = Object.entries(dependencyDisplayInfo).map(([d, i]) => {
 			const result = this.activeDependencies[d] as DependencyInfo[];
-			return this.makeDependency(i.name, i.verb, result, new vscode.ThemeIcon(i.icon), d, i, dfi, ast).enforceUniqueIds(uniqueIds);
+			return this.makeDependency(i.name, i.verb, result, new vscode.ThemeIcon(i.icon), d, i, dfi, ast, libraryVersions).enforceUniqueIds(uniqueIds);
 		});
 	}
 
-	private makeDependency(label: string, verb: string, elements: DependencyInfo[], themeIcon: vscode.ThemeIcon, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency {
-		const parent = new Dependency({ label, category, categoryInfo, icon: themeIcon, root: true, verb, children: this.makeChildren(elements, verb, category, categoryInfo, dfi, ast), ast, dfi, allInfos: elements });
+	private makeDependency(label: string, verb: string, elements: DependencyInfo[], themeIcon: vscode.ThemeIcon, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst, libraryVersions?: Map<string, string>): Dependency {
+		const parent = new Dependency({ label, category, categoryInfo, icon: themeIcon, root: true, verb, children: this.makeChildren(elements, verb, category, categoryInfo, dfi, ast, libraryVersions), ast, dfi, allInfos: elements, libraryVersions });
 		parent.children?.forEach(c => c.setParent(parent));
 		return parent;
 	}
 
-	private makeChildren(elements: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency[] {
+	private makeChildren(elements: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst, libraryVersions?: Map<string, string>): Dependency[] {
 		// we exclude dependency infos that are already displayed through the useReverseLinks setting
 		const elementsToShow = categoryInfo.useReverseLinks ? elements.filter(i => !i.linkedIds) : elements;
-		return makeGroupedElements(this.locationMap, elementsToShow, elements, verb, category, categoryInfo, dfi, ast);
+		return makeGroupedElements(this.locationMap, elementsToShow, elements, verb, category, categoryInfo, dfi, ast, libraryVersions);
 	}
 
 	public dispose() {
@@ -415,6 +429,7 @@ interface DependenciesParams {
 	readonly ast?:              NormalizedAst;
 	readonly category:          DependencyCategoryName;
 	readonly categoryInfo:      DependencyCategoryInfo;
+	readonly libraryVersions?:  Map<string, string>;
 }
 
 export class Dependency extends vscode.TreeItem {
@@ -440,7 +455,7 @@ export class Dependency extends vscode.TreeItem {
 	}
 
 	constructor(
-		{ label, root = false, children = [], info, icon, locationMap, collapsibleState, parent, verb, dfi, ast, category, categoryInfo, allInfos }: DependenciesParams
+		{ label, root = false, children = [], info, icon, locationMap, collapsibleState, parent, verb, dfi, ast, category, categoryInfo, allInfos, libraryVersions }: DependenciesParams
 	) {
 		collapsibleState ??= children.length === 0 ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Collapsed;
 		super(label, collapsibleState);
@@ -456,9 +471,11 @@ export class Dependency extends vscode.TreeItem {
 		if(info) {
 			const functionName = renderFunctionName(info.functionName);
 			this.loc = locationMap?.map.ids[info.nodeId]?.[1];
+			// the signature database's resolved version for a `library()`/`require()` dependency, if known
+			const version = category === 'library' && info.value ? libraryVersions?.get(info.value) : undefined;
 			// if the value is undefined or unknown, we already display the function name as the label (see unknownGuardedName)
-			this.description = `${info.value && info.value !== Unknown ? `by "${functionName}" ` : ''}in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}`;
-			this.tooltip = `${verb} "${info.value ?? Unknown}" with the "${functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'} (right-click for more)`;
+			this.description = `${info.value && info.value !== Unknown ? `by "${functionName}" ` : ''}in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}${version ? ` — v${version}` : ''}`;
+			this.tooltip = `${verb} "${info.value ?? Unknown}" with the "${functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'}${version ? ` (signature database: v${version})` : ''} (right-click for more)`;
 			this.id = (parent?.id ?? '') + label + info.nodeId + JSON.stringify(this.loc) + functionName + this.linkedIds();
 			if(this.loc && vscode.window.activeTextEditor) {
 				const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
@@ -574,7 +591,7 @@ function unknownGuardedName(e: DependencyInfo): string {
 	return value;
 };
 
-function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow: DependencyInfo[], allInfos: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst): Dependency[] {
+function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow: DependencyInfo[], allInfos: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst, libraryVersions?: Map<string, string>): Dependency[] {
 	/* first group by name */
 	const grouped = new Map<string, DependencyInfo[]>();
 	for(const e of elementsToShow.toSorted((a, b) => compareByLocation(locationMap, a.nodeId, b.nodeId))) {
@@ -586,7 +603,7 @@ function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow
 	}
 	return Array.from(grouped.entries()).map(([name, group]) => {
 		if(group.length === 1) {
-			return new Dependency({ label: unknownGuardedName(group[0]), info: group[0], locationMap, verb, dfi, ast, category, categoryInfo, allInfos });
+			return new Dependency({ label: unknownGuardedName(group[0]), info: group[0], locationMap, verb, dfi, ast, category, categoryInfo, allInfos, libraryVersions });
 		}
 		const res = new Dependency({
 			label:    name,
@@ -596,9 +613,9 @@ function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow
 				verb,
 				label: unknownGuardedName(e),
 				info:  e,
-				dfi, ast, category, categoryInfo, allInfos, locationMap
+				dfi, ast, category, categoryInfo, allInfos, locationMap, libraryVersions
 			})),
-			dfi, ast, category, categoryInfo, allInfos, locationMap
+			dfi, ast, category, categoryInfo, allInfos, locationMap, libraryVersions
 		});
 		res.children?.forEach(c => c.setParent(res));
 		return res;

@@ -22,7 +22,7 @@ import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto
 import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { FlowrAnalyzerBuilder } from '@eagleoutice/flowr/project/flowr-analyzer-builder';
-import { packageDbSummary } from '../package-db';
+import { sigDbSummary } from '../package-db';
 import type { PipelinePerStepMetaInformation } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
 import { FlowrInlineTextFile } from '@eagleoutice/flowr/project/context/flowr-file';
 import type { FlowrAnalyzer } from '@eagleoutice/flowr/project/flowr-analyzer';
@@ -212,7 +212,10 @@ export class FlowrInternalSession implements FlowrSession {
 					clearTimeout(handle);
 					if(!version){
 						const seeDoc = 'See documentation';
-						void vscode.window.showErrorMessage('The R version could not be determined. R needs to be installed and part of your PATH environment variable.', seeDoc)
+						const sandboxHint = typeof process !== 'undefined' && process.env?.FLATPAK_ID
+							? ` VS Code is running inside a Flatpak sandbox (${process.env.FLATPAK_ID}); R must either be installed inside the sandbox or the sandbox needs host filesystem access to it (e.g. "flatpak override --filesystem=host" or granting access to R's install location), and the resulting path set as vscode-flowr's "r.executable" setting.`
+							: '';
+						void vscode.window.showErrorMessage(`The R version could not be determined. R needs to be installed and part of your PATH environment variable.${sandboxHint}`, seeDoc)
 							.then(s => {
 								if(s === seeDoc){
 									void vscode.env.openExternal(vscode.Uri.parse('https://github.com/flowr-analysis/vscode-flowr/blob/main/README.md#using'));
@@ -353,6 +356,8 @@ export class FlowrInternalSession implements FlowrSession {
 	// takes the analyzer from its caller's withAnalyzer scope (opening its own would deadlock the queue)
 	private async extractSlice(analyzer: FlowrAnalyzer, progress: ProgressReporter, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
 		const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
+		const includeCallees = getConfig().get<boolean>(Settings.SliceIncludeCallees, false);
+		const inlineSources = getConfig().get<boolean>(Settings.SliceInlineSources, false);
 		if(!info) {
 			info = await dataflowWithProgress(analyzer, progress);
 		}
@@ -364,16 +369,22 @@ export class FlowrInternalSession implements FlowrSession {
 			ast:  info.ast,
 			ids:  SlicingCriteria.convertAll(criteria, info.ast.idMap),
 			direction,
-			threshold
+			threshold,
+			includeCallees
 		}).result;
 		const sliceMs = Date.now() - sliceStart;
 
 		progress.report({ message: 'Reconstructing…' });
 		const reconstructStart = Date.now();
 		const sliceElements = makeSliceElements(elements, id => info.ast.idMap.get(id)?.location);
-		const code = reconstructToCode(info.ast, { nodes: new Set(elements) }, makeMagicCommentHandler(doNotAutoSelect)).code;
+		const sliceSelection: Parameters<typeof reconstructToCode>[1] = { nodes: new Set(elements) };
+		if(inlineSources) {
+			sliceSelection.inlineSources = true;
+			sliceSelection.reconstructFiles = [0];
+		}
+		const result = reconstructToCode(info.ast, sliceSelection, makeMagicCommentHandler(doNotAutoSelect));
+		const code = typeof result.code === 'string' ? result.code : result.code.join('\n');
 
-		// one compact line per slice
 		this.outputChannel.appendLine(`[Slice] ${elements.size} node${elements.size === 1 ? '' : 's'} (slice ${sliceMs}ms, reconstruct ${Date.now() - reconstructStart}ms)${isVerbose() ? ` ids=${JSON.stringify([...elements])}` : ''}`);
 
 		return {
@@ -417,7 +428,7 @@ export class FlowrInternalSession implements FlowrSession {
 			.setParser(this.parser)
 			.setConfig(VSCodeFlowrConfiguration)
 			.build();
-		return { analyzer, banner: `${await versionReplString(this.parser)}\n${packageDbSummary()}` };
+		return { analyzer, banner: `${await versionReplString(this.parser)}\n${sigDbSummary()}` };
 	}
 
 	public async runRepl(config: Omit<Required<FlowrReplOptions>, 'parser'>) {

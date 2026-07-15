@@ -58,7 +58,9 @@ With this extension, you gain access to the following features (as the extension
 
    </details>
 
-7. 📦 [**Package Information**](#package-information): Hover over a call to see which package it comes from and its version from flowR's bundled [package database](#package-database), and get a [Project](#project-view) overview of your declared libraries.
+7. 📦 [**Package Information**](#package-information): Hover over a call to see which package it comes from and its version from flowR's [signature database](#signature-database), jump straight to its real source, and get a [Project](#project-view) overview of your declared libraries.
+
+8. ✨ [**Autocompletion**](#autocompletion): Get function-name and argument suggestions, plus signature help, for packages loaded via `library()`, backed by the same signature database.
 
 If you notice anything that could be improved, have a feature request, or notice a bug, please [open an issue](#issues-and-feature-requests)!
 
@@ -189,15 +191,33 @@ Using the extension, the sidebar should contain a flowR icon whose **Overview** 
 
 ### Package Information
 
-Hovering over a call in an R file tells you which package it stems from — for example, hovering over `map` after `library(purrr)` shows *`map` is provided by the `purrr` package*, together with the version recorded in flowR's [package database](#package-database) and a link to the package's CRAN page. Hovering over the package name inside `library(pkg)`/`require(pkg)` shows that package's database version and CRAN link. For locally defined functions and variables, <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+click (Go to Definition) jumps to their definition.
+Hovering over a call in an R file tells you which package it stems from — for example, hovering over `map` after `library(purrr)` shows *`map` is provided by the `purrr` package*, together with details resolved from flowR's [signature database](#signature-database): its recorded version, a link to its real source and documentation, and whether it is deprecated, can throw, or is an S3 generic. Hovering over the package name inside `library(pkg)`/`require(pkg)` shows that package's database version, function count, and CRAN link.
+
+<kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+click (Go to Definition) resolves to: a locally defined function or variable's own definition; a package function's exact source line on GitHub (e.g. `ggplot()` opens `github.com/cran/ggplot2/blob/<version>/R/plot.R#L106`); or a `library(pkg)`/`require(pkg)` name's CRAN page.
+
+### Autocompletion
+
+Once a script `library()`s a package the [signature database](#signature-database) knows, the extension suggests that package's exported functions as you type, and — once you're inside a call's parentheses — its documented argument names (already-supplied named arguments are excluded). A signature-help tooltip, triggered by `(` and `,`, shows the full parameter list as you fill in a call. Suggestions are labeled with their originating package, and note on hover that they come from flowR's signature database.
+
+This is skipped automatically whenever the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) is installed and active, since it already provides richer, R-evaluated completions and this extension would otherwise offer duplicate/conflicting suggestions.
 
 ### Project View
 
-When the open workspace contains an R project manifest — a `renv.lock`, a `DESCRIPTION`, or an `rv.lock`/`rproject.toml` — a **Project** tab appears in the flowR sidebar. It lists the libraries each manifest declares and, for every one, whether flowR's [package database](#package-database) knows it: matched (with the database version), a base package bundled with R, unmatched, or unavailable. The tab is hidden when no manifest is detected.
+When the open workspace contains an R project manifest — a `renv.lock`, a `DESCRIPTION`, or an `rv.lock`/`rproject.toml` — a **Project** tab appears in the flowR sidebar. It lists the libraries each manifest declares and, for every one, whether flowR's [signature database](#signature-database) knows it: matched (with the database version), a base package bundled with R, unmatched, or unavailable. The tab is hidden when no manifest is detected. The [dependency view](#dependency-view)'s **Libraries** category similarly annotates every `library()`/`require()` call it finds with the resolved database version, once known.
 
-### Package Database
+### Signature Database
 
-flowR resolves the exports, definitions and versions of external packages from a precomputed *package database* that ships with the extension, so package attribution works out of the box without a local R installation. It powers the [package information](#package-information) hovers, the [project view](#project-view) matching, and dependency resolution. The active database (scope and date) is shown when hovering the flowR status-bar item and in the REPL banner. You can toggle it or point at a custom database under the `vscode-flowr.config.solver.pkgdb.*` settings.
+flowR resolves the exports, definitions, versions and dependencies of R packages from a precomputed *signature database*, so [hovers, go-to-definition](#package-information) and [autocompletion](#autocompletion) work out of the box without a local R installation. It also backs the [project view](#project-view)'s manifest matching and dependency resolution during slicing.
+
+The **Signature DB** tab in the flowR sidebar shows what is actually downloaded, browsable down to individual packages, versions and functions:
+
+* **Base R** — the packages that ship with R itself (`base`, `stats`, `utils`, …). Required for any symbol resolution to work at all, and cannot be removed once downloaded (it can still be re-synced).
+* **Current CRAN** — the latest version of every current CRAN package. Its data is split into shards you can download independently: the top (most-used) packages only, for a fast/small download, or the full set. It also embeds its own copy of the Base R data, so it can resolve base symbols on its own.
+* **Full CRAN History** — every historical version of every CRAN package, for cases where a script pins an older version.
+
+Use the download icon on the view's title bar to sync everything that is missing, or the download/remove icons on an individual scope's row to fetch or delete just that one — for **Current CRAN** you are asked which shard(s) you want. Nothing is downloaded automatically unless `vscode-flowr.config.solver.sigdb.autoSync` is enabled. The search icon (on the title bar, or on a specific scope's row to search only within it) looks up a package or function directly, and understands the same syntax as flowR's own `:signature` REPL query: a bare package name, `pkg::fn`, `pkg@version`, `pkg@version::fn`, and `*`/`?` glob wildcards in any part (e.g. `ggplot2@3.*::ggp*`); searching for a bare function name looks across every downloaded package. You can also point the extension at an additional local database directory via `vscode-flowr.config.solver.sigdb.customPath`.
+
+The active database (which scopes are downloaded) is shown when hovering the flowR status-bar item and in the REPL banner.
 
 ### Value Resolution
 

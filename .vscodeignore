@@ -2,6 +2,7 @@
 .vscode-test
 .vscode-test-web
 node_modules
+dist/web/test/
 out/
 src/
 tsconfig.json

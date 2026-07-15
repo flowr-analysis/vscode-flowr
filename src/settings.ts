@@ -19,6 +19,8 @@ export enum Settings {
 
 	SliceAutomaticReconstruct = 'slice.automaticReconstruct',
 	SliceRevisitThreshold = 'slice.revisitThreshold',
+	SliceIncludeCallees = 'slice.includeCallees',
+	SliceInlineSources = 'slice.inlineSources',
 
 	TreeSitterTimeout = 'tree-sitter.timeout',
 	TreeSitterLax = 'tree-sitter.lax',
@@ -46,10 +48,10 @@ export enum Settings {
 	BuiltInsDefinitions = 'config.overwriteBuiltIns.definitions',
 	IgnoreSourceCalls = 'config.ignoreSourceCalls',
 
-	PackageDbEnabled = 'config.solver.pkgdb.enabled',
-	PackageDbEagerlyLoad = 'config.solver.pkgdb.eagerlyLoad',
-	PackageDbEagerlyLoadExports = 'config.solver.pkgdb.eagerlyLoadExports',
-	PackageDbCustomPath = 'config.solver.pkgdb.customPath',
+	SigDbEnabled = 'config.solver.sigdb.enabled',
+	SigDbAutoSync = 'config.solver.sigdb.autoSync',
+	SigDbEagerlyLoad = 'config.solver.sigdb.eagerlyLoad',
+	SigDbCustomPath = 'config.solver.sigdb.customPath',
 
 	ErrorMessageTimer = 'errorMessage.Timer',
 

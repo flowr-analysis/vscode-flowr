@@ -15,7 +15,7 @@
     "email": "florian.sihler@uni-ulm.de"
   },
   "license": "GPL-3.0",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "engines": {
     "vscode": "^1.92.0"
   },
@@ -220,6 +220,48 @@
         "category": "flowR",
         "icon": "$(bug)",
         "enablement": "vscode-flowr.hasTelemetry"
+      },
+      {
+        "command": "vscode-flowr.sigdb.refresh",
+        "title": "Refresh Signature DB List",
+        "category": "flowR",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "vscode-flowr.sigdb.search",
+        "title": "Search Signatures",
+        "category": "flowR",
+        "icon": "$(search)"
+      },
+      {
+        "command": "vscode-flowr.sigdb.download",
+        "title": "Sync Signature Databases",
+        "category": "flowR",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "vscode-flowr.sigdb.searchScope",
+        "title": "Search This Signature Database",
+        "category": "flowR",
+        "icon": "$(search)"
+      },
+      {
+        "command": "vscode-flowr.sigdb.downloadScope",
+        "title": "Download This Signature Database",
+        "category": "flowR",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "vscode-flowr.sigdb.removeScope",
+        "title": "Remove This Signature Database",
+        "category": "flowR",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "vscode-flowr.sigdb.settings.open",
+        "title": "Open Signature DB Settings",
+        "category": "flowR",
+        "icon": "$(gear)"
       }
     ],
     "configuration": {
@@ -323,6 +365,16 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Do you want to automatically view the reconstruction of every slice (i.e., see the standalone slice in an extra window)?"
+        },
+        "vscode-flowr.slice.includeCallees": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "When slicing backward, include the definitions and call sites of functions that are called in the slice. When enabled, the slice continues past function-definition boundaries."
+        },
+        "vscode-flowr.slice.inlineSources": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Inline resolvable `source()` calls into the slice reconstruction so the result is a single self-contained R text."
         },
         "vscode-flowr.dependencyView.autoReveal": {
           "type": "integer",
@@ -496,25 +548,25 @@
           "default": [],
           "markdownDescription": "When overwriting the builtin definitions of flowR, the set of additional definitions to load. For more info on how these need to be formatted, see [the wiki](https://github.com/flowr-analysis/flowr/wiki/Interface#%EF%B8%8F-configuring-flowr)."
         },
-        "vscode-flowr.config.solver.pkgdb.enabled": {
+        "vscode-flowr.config.solver.sigdb.enabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Resolve `library()`/`use()` exports from flowR's package database (`flowr-pkgdb`, bundled with the extension) so that package and function information is available by default. This lets flowR know which package a function such as `map` originates from (e.g. `purrr::map` vs. the `maps` plotting function) and improves dependency categorization and the `undefined-symbol` linting rule. When `false`, no database is consulted."
+          "markdownDescription": "Enable the flowR signature database to resolve package exports and function signatures. When enabled, flowr loads precomputed signature databases for base R and CRAN packages."
         },
-        "vscode-flowr.config.solver.pkgdb.eagerlyLoad": {
+        "vscode-flowr.config.solver.sigdb.autoSync": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Parse the package database up front rather than lazily on the first `library()`/`use()` call (ignored if the database is disabled). Enabling this makes the very first analysis that uses a package slightly faster at the cost of some work during startup."
+          "markdownDescription": "Automatically check for and download changed signature database shards in the background on startup. Off by default since it requires network access; use \"Sync Signature Databases\" in the Signature DB view to sync manually."
         },
-        "vscode-flowr.config.solver.pkgdb.eagerlyLoadExports": {
+        "vscode-flowr.config.solver.sigdb.eagerlyLoad": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Add a dataflow vertex for every package export on load rather than on demand. Leaving this off (default) keeps the dataflow graph small for large packages."
+          "markdownDescription": "Load all base R packages and most-downloaded packages from the signature database up front. Enabling this makes the very first analysis slightly faster at the cost of some work during startup."
         },
-        "vscode-flowr.config.solver.pkgdb.customPath": {
+        "vscode-flowr.config.solver.sigdb.customPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Optional path (or `http(s)` URL) to a custom flowR package database (`flowr-pkgdb`) file to use **in addition to** the one bundled with the extension. Leave empty to only use the shipped database. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Analyzer)."
+          "markdownDescription": "Optional path to a custom signature database file or directory to use **in addition to** the bundled default (flowR's `solver.sigdb.additionalPaths`). Leave empty to only use the shipped database. Automatically set after using \"Sync Signature Databases\" in the Signature DB view."
         },
         "vscode-flowr.dependencyView.query.ignoreDefaults": {
           "type": "boolean",
@@ -753,6 +805,36 @@
           "command": "vscode-flowr.internal.enable-disable.dependency",
           "when": "view == flowr-dependencies && viewItem == category",
           "group": "inline"
+        },
+        {
+          "command": "vscode-flowr.sigdb.downloadScope",
+          "when": "view == flowr-sigdb && viewItem =~ /^sigdb-scope-.+-missing$/",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-flowr.sigdb.downloadScope",
+          "when": "view == flowr-sigdb && viewItem =~ /^sigdb-scope-.+-missing$/",
+          "group": "flowR"
+        },
+        {
+          "command": "vscode-flowr.sigdb.searchScope",
+          "when": "view == flowr-sigdb && viewItem =~ /^sigdb-scope-.+-downloaded$/",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-flowr.sigdb.searchScope",
+          "when": "view == flowr-sigdb && viewItem =~ /^sigdb-scope-.+-downloaded$/",
+          "group": "flowR"
+        },
+        {
+          "command": "vscode-flowr.sigdb.removeScope",
+          "when": "view == flowr-sigdb && viewItem =~ /^sigdb-scope-(current|history)-downloaded$/",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-flowr.sigdb.removeScope",
+          "when": "view == flowr-sigdb && viewItem =~ /^sigdb-scope-(current|history)-downloaded$/",
+          "group": "flowR"
         }
       ],
       "view/title": [
@@ -774,6 +856,26 @@
         {
           "command": "vscode-flowr.settings.open",
           "when": "view == flowr-dependencies",
+          "group": "navigation@4"
+        },
+        {
+          "command": "vscode-flowr.sigdb.download",
+          "when": "view == flowr-sigdb && !isWeb",
+          "group": "navigation"
+        },
+        {
+          "command": "vscode-flowr.sigdb.search",
+          "when": "view == flowr-sigdb && !isWeb",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vscode-flowr.sigdb.refresh",
+          "when": "view == flowr-sigdb",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vscode-flowr.sigdb.settings.open",
+          "when": "view == flowr-sigdb",
           "group": "navigation@4"
         }
       ],
@@ -806,6 +908,11 @@
           "id": "flowr-dependencies",
           "icon": "$(notebook-template)",
           "name": "Overview"
+        },
+        {
+          "id": "flowr-sigdb",
+          "icon": "$(database)",
+          "name": "Signature Database"
         },
         {
           "id": "flowr-project",
@@ -846,7 +953,7 @@
     "prewatch-telemetry": "npm run copy-wasm-node",
     "watch-telemetry": "webpack --watch --env HAS_TELEMETRY",
     "lint": "npx eslint src/",
-    "compile-tests": "npm run compile && tsc -p . --outDir out",
+    "compile-tests": "npm run compile && tsc -p . --outDir out && mkdir -p out/sigdb && cp node_modules/@eagleoutice/flowr/data/sigdb/sigdb.remote.json out/sigdb/",
     "pretest": "npm run compile-tests && npm run lint",
     "test": "vscode-test --extensionDevelopmentPath=. .",
     "generate-changelog": "git log ...$(git tag | tail -n 1) --pretty=format:'- %s' --reverse",
@@ -860,7 +967,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.11.1",
+    "@eagleoutice/flowr": "^2.12.3",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
@@ -889,6 +996,7 @@
     "@vscode/test-web": "^0.0.80",
     "copy-webpack-plugin": "^14.0.0",
     "ifdef-loader": "^2.3.2",
+    "mocha": "^11.7.6",
     "ts-essentials": "^10.2.0",
     "ts-loader": "^9.6.0",
     "typescript": "^5.6.2",

@@ -2,43 +2,16 @@ import assert from 'assert';
 import { classifyLibrary, dedupeLibraries, parseDescription, parseDescriptionMeta, parseRenvLock, parseRvLock, parseRvToml } from '../flowr/views/project-view';
 
 suite('project view library matching', () => {
-	// a stub standing in for the flowR package database: only `dplyr` is "known"
-	const stubDb = {
-		lookup: (name: string) => name === 'dplyr' ? { version: '1.1.4', exported: ['filter', 'mutate', 'select'] } : undefined
-	} as unknown as Parameters<typeof classifyLibrary>[1];
-
-	test('matches a package that the database knows', () => {
-		const m = classifyLibrary('dplyr', stubDb);
-		assert.equal(m.status, 'matched');
-		assert.equal(m.dbVersion, '1.1.4');
-		assert.equal(m.exportCount, 3);
+	test('reports base packages as base', () => {
+		assert.equal(classifyLibrary('stats').status, 'base');
+		assert.equal(classifyLibrary('methods').status, 'base');
+		assert.equal(classifyLibrary('base').status, 'base');
 	});
 
-	test('reports base packages without consulting the database', () => {
-		// base packages (part of R itself) are recognised up front - the throwing stub proves the DB isn't queried
-		const throwingDb = {
-			lookup: () => {
-				throw new Error('should not be called for base packages');
-			}
-		} as unknown as Parameters<typeof classifyLibrary>[1];
-		assert.equal(classifyLibrary('stats', throwingDb).status, 'base');
-		assert.equal(classifyLibrary('methods', throwingDb).status, 'base');
-	});
-
-	test('recommended packages (e.g. MASS) are matched via the database, not labelled base', () => {
-		// MASS/rpart ship with R but are ordinary CRAN packages with DB entries, so they must be looked up
-		const db = {
-			lookup: (name: string) => name === 'MASS' ? { version: '7.3-65', exported: [] } : undefined
-		} as unknown as Parameters<typeof classifyLibrary>[1];
-		assert.equal(classifyLibrary('MASS', db).status, 'matched');
-	});
-
-	test('reports an unknown package as unmatched', () => {
-		assert.equal(classifyLibrary('notARealPackage', stubDb).status, 'unmatched');
-	});
-
-	test('reports db-unavailable when there is no database', () => {
-		assert.equal(classifyLibrary('dplyr', undefined).status, 'db-unavailable');
+	test('reports other packages as unmatched when sigdb is disabled', () => {
+		assert.equal(classifyLibrary('dplyr').status, 'unmatched');
+		assert.equal(classifyLibrary('MASS').status, 'unmatched');
+		assert.equal(classifyLibrary('notARealPackage').status, 'unmatched');
 	});
 });
 

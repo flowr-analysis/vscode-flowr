@@ -228,6 +228,8 @@ export class FlowrServerSession implements FlowrSession {
 
 	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument): Promise<SliceReturn> {
 		const response = await this.requestFileAnalysis(document);
+		const includeCallees = getConfig().get<boolean>(Settings.SliceIncludeCallees, false);
+		const inlineSources = getConfig().get<boolean>(Settings.SliceInlineSources, false);
 		// now we want to collect all ids from response in a map again (id -> location)
 		const idToLocation = new Map<NodeId, SourceRange>();
 		const nodes = response.results.normalize.ast.files.map(f => f.root);
@@ -249,7 +251,9 @@ export class FlowrServerSession implements FlowrSession {
 			query:       [{
 				type:      'static-slice',
 				criteria:  criteria,
-				direction: direction
+				direction: direction,
+				includeCallees,
+				inlineSources
 			}]
 		});
 		const result = Object.values(sliceResponse.results['static-slice'].results)[0] as PipelineOutput<typeof DEFAULT_SLICING_PIPELINE>;

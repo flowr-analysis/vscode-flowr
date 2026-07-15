@@ -96,12 +96,14 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 			this.output.appendLine(`    [Hover Values] Using cached value for ${document.uri.toString()}:${pos.line + 1}:${pos.character + 1} (${JSON.stringify(cached.map(c => c.value), builtInEnvJsonReplacer)})`);
 			return valueToHint(cached);
 		}
-		const query: Writable<Queries<'resolve-value' | 'df-shape'>> = [];
+		const query: Writable<Queries<'resolve-value' | 'absint'>> = [];
 		if(getConfig().get<boolean>(Settings.ValuesHoverResolve, true)) {
 			query.push({ type: 'resolve-value', criteria: [criteria] } as const);
 		}
 		if(getConfig().get<boolean>(Settings.ValuesHoverDataFrames, true)) {
-			query.push({ type: 'df-shape', criterion: criteria } as const);
+			// dataframe shape inference moved under the general "absint" (abstract interpretation) query as the
+			// 'df-shape' inference, rather than being its own top-level query type
+			query.push({ type: 'absint', inference: 'df-shape', criteria: [criteria] } as const);
 		}
 		let valQuer;
 		try {
@@ -120,7 +122,7 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 			.filter(v => !isTop(v) && !isBottom(v))
 			.map(r => ({ value: r, textRep: stringifyValue(r), criteria }))
 			.filter(v => v.textRep.length > 0 && v.textRep !== BottomSymbol && v.textRep !== TopSymbol);
-		const dfShape = valQuer.result['df-shape'].domains;
+		const dfShape = valQuer.result['absint']?.result;
 		if(dfShape instanceof Map) {
 			for(const e of dfShape.entries()) {
 				const [, shape] = e;
