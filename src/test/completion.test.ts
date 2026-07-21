@@ -1,12 +1,22 @@
 import assert from 'assert';
-import type * as vscode from 'vscode';
+import * as vscode from 'vscode';
 import { loadedPackagesIn, callBeforeCursor, packageArgumentCompletions, resolveArgNameAgainst, resolveCallArgs } from '../completion';
+import { activateExtension, ensureSigDbCurrentDownloaded } from './test-util';
+import { getConfig, Settings } from '../settings';
 
 function labelOf(item: vscode.CompletionItem): string {
 	return typeof item.label === 'string' ? item.label : item.label.label;
 }
 
 suite('completion', () => {
+	// packageArgumentCompletions needs real signature-database package names (ggplot2, dplyr, ...) - a fresh
+	// checkout/CI runner has none of this synced yet, unlike a machine that has already used the extension
+	suiteSetup(async function() {
+		this.timeout(60000);
+		await activateExtension();
+		await ensureSigDbCurrentDownloaded();
+	});
+
 	suite('loadedPackagesIn', () => {
 		test('finds packages loaded via library()/require(), quoted or bare', () => {
 			assert.deepStrictEqual(loadedPackagesIn('library(dplyr)\nrequire("ggplot2")\nlibrary(\'purrr\')'), new Set(['dplyr', 'ggplot2', 'purrr']));
@@ -120,6 +130,90 @@ suite('completion', () => {
 		test('does not partial-match a formal declared after `...` (R requires an exact name there)', () => {
 			assert.strictEqual(resolveArgNameAgainst('en', ['data', '...', 'environment']), undefined);
 			assert.strictEqual(resolveArgNameAgainst('environment', ['data', '...', 'environment']), 'environment');
+		});
+	});
+
+	suite('FlowrSigDbCompletionProvider (real editor)', () => {
+		async function completionsIn(content: string, position: vscode.Position): Promise<vscode.CompletionItem[]> {
+			const doc = await vscode.workspace.openTextDocument({ language: 'r', content });
+			await vscode.window.showTextDocument(doc, { preview: false });
+			const list = await vscode.commands.executeCommand<vscode.CompletionList>('vscode.executeCompletionItemProvider', doc.uri, position);
+			return list?.items ?? [];
+		}
+
+		// regression test: functions from R's always-loaded packages (stats, utils, ...) used to only complete
+		// once the package was named in a library()/require() call in the same file
+		test('completes a function from a default-loaded package without any library() call', async() => {
+			const items = await completionsIn('ac', new vscode.Position(0, 2));
+			assert.ok(items.some(i => labelOf(i) === 'acf'), `expected 'acf' (from stats) to be suggested, got: ${items.map(labelOf).join(', ')}`);
+		});
+
+		test('completes a pkg::partial call from a package that is not loaded at all', async() => {
+			const items = await completionsIn('dplyr::mut', new vscode.Position(0, 10));
+			assert.ok(items.some(i => labelOf(i) === 'mutate'), `expected 'mutate' (from dplyr::) to be suggested, got: ${items.map(labelOf).join(', ')}`);
+		});
+
+		test('pkg:::partial also offers non-exported functions', async() => {
+			const items = await completionsIn('dplyr:::', new vscode.Position(0, 8));
+			assert.ok(items.length > 0, 'expected at least one dplyr internal function to be suggested');
+		});
+
+		// regression test: the always-available package set must be user-configurable, not hardcoded
+		test('vscode-flowr.completion.alwaysAvailablePackages is configurable', async() => {
+			const config = getConfig();
+			const previous = config.get<string[]>(Settings.CompletionAlwaysAvailablePackages);
+			await config.update(Settings.CompletionAlwaysAvailablePackages, ['base'], vscode.ConfigurationTarget.Global);
+			try {
+				const items = await completionsIn('ac', new vscode.Position(0, 2));
+				assert.ok(!items.some(i => labelOf(i) === 'acf'), 'expected acf (from stats) to no longer be suggested once only base is configured');
+			} finally {
+				await config.update(Settings.CompletionAlwaysAvailablePackages, previous, vscode.ConfigurationTarget.Global);
+			}
+		});
+
+		// regression test: dotted names (mostly S3 methods, e.g. print.data.frame) used to clutter completion of
+		// their generic's bare prefix - flowR's `s3-method` prop is populated inconsistently across packages
+		// (present on base's print.data.frame, absent on stats' print.acf), so name shape plus what the user
+		// actually typed is what gates this, not that unreliable metadata
+		test('hides dotted names (e.g. print.data.frame, print.acf) until the user types the dot themselves', async() => {
+			const items = await completionsIn('print', new vscode.Position(0, 5));
+			assert.ok(!items.some(i => labelOf(i) === 'print.data.frame'), `did not expect print.data.frame to be suggested, got: ${items.map(labelOf).join(', ')}`);
+			assert.ok(!items.some(i => labelOf(i) === 'print.acf'), `did not expect print.acf to be suggested, got: ${items.map(labelOf).join(', ')}`);
+		});
+
+		test('shows dotted names once the user has typed the dot themselves', async() => {
+			const items = await completionsIn('print.', new vscode.Position(0, 6));
+			assert.ok(items.some(i => labelOf(i) === 'print.data.frame'), `expected print.data.frame to be suggested, got: ${items.map(labelOf).join(', ')}`);
+		});
+
+		// regression test: VS Code's default word pattern excludes `.`, so without an explicit range on each
+		// item, it tracks "what's been typed" itself and resets to empty right after the dot - showing every
+		// completion (abbreviate, abline, ...) unfiltered instead of narrowing to print.* as the user types
+		test('sets an explicit range covering the dot, so VS Code filters/replaces against what was actually typed', async() => {
+			const items = await completionsIn('print.', new vscode.Position(0, 6));
+			const printDataFrame = items.find(i => labelOf(i) === 'print.data.frame');
+			assert.ok(printDataFrame, 'expected print.data.frame to be suggested');
+			const range = printDataFrame.range as vscode.Range;
+			assert.ok(range, `expected an explicit range on the completion item, got: ${JSON.stringify(printDataFrame.range)}`);
+			assert.strictEqual(range.start.character, 0, `expected the range to start at the beginning of "print.", got: ${JSON.stringify(range)}`);
+			assert.strictEqual(range.end.character, 6, `expected the range to end at the cursor, got: ${JSON.stringify(range)}`);
+		});
+
+		test('vscode-flowr.completion.showS3Methods re-enables them even before the dot is typed', async() => {
+			const config = getConfig();
+			const previous = config.get<boolean>(Settings.CompletionShowS3Methods);
+			await config.update(Settings.CompletionShowS3Methods, true, vscode.ConfigurationTarget.Global);
+			try {
+				const items = await completionsIn('print', new vscode.Position(0, 5));
+				assert.ok(items.some(i => labelOf(i) === 'print.data.frame'), `expected print.data.frame to be suggested once S3 methods are enabled, got: ${items.map(labelOf).join(', ')}`);
+			} finally {
+				await config.update(Settings.CompletionShowS3Methods, previous, vscode.ConfigurationTarget.Global);
+			}
+		});
+
+		test('does not hide an S3 generic itself (e.g. print), only its dotted methods', async() => {
+			const items = await completionsIn('prin', new vscode.Position(0, 4));
+			assert.ok(items.some(i => labelOf(i) === 'print'), `expected print (the generic) to still be suggested, got: ${items.map(labelOf).join(', ')}`);
 		});
 	});
 

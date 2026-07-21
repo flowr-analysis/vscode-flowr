@@ -5,6 +5,8 @@ import * as assert from 'assert';
 import * as path from 'path';
 import type { FlowrInternalSession } from '../flowr/internal-session';
 import type { FlowrExtensionApi } from '../extension';
+import { downloadSigDbScope, readSigDbRemotePointer } from '../package-db';
+import { refreshSigDbConfig } from '../extension';
 
 /**
  * Activate the extension and return its {@link FlowrExtensionApi}
@@ -39,5 +41,29 @@ export async function openTestFile(name: string, selection?: vscode.Selection): 
 		editor.selection = selection;
 	}
 	return editor;
+}
+
+let sigDbCurrentEnsured: Promise<void> | undefined;
+
+/**
+ * Downloads the full `current` and `history` scopes into the default cache dir, for tests that need real
+ * signature-database data (package suggestions, source links, per-version evidence) - a fresh checkout/CI
+ * runner has none of this synced yet, unlike a machine that has already used the extension for a while.
+ * `current` alone only carries each package's *latest* version - even a currently-maintained package's full
+ * per-version history (needed for evidence like "parameter X only exists since version Y") lives in `history`.
+ * Memoized so repeated calls across suites only download once per test run. A no-op (not a skip) when no
+ * release pointer is bundled in this build.
+ */
+export function ensureSigDbCurrentDownloaded(): Promise<void> {
+	sigDbCurrentEnsured ??= (async() => {
+		if(!readSigDbRemotePointer()) {
+			return;
+		}
+		await Promise.all([downloadSigDbScope('current'), downloadSigDbScope('history')]);
+		// a flowR session may already be alive (e.g. from an earlier activateExtension() call) with its sigdb
+		// mount paths baked in from before this download - rebuild it now so it actually sees what just landed
+		refreshSigDbConfig();
+	})();
+	return sigDbCurrentEnsured;
 }
 

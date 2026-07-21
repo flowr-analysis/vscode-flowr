@@ -62,16 +62,47 @@ export function makeUri(authority: string, path: string){
 }
 
 /**
+ * Waits until `doc`'s live buffer actually reflects the content most recently written to the reconstruction
+ * provider for its URI. Reusing an already-visible editor (see {@link showUri}) skips `openTextDocument`, whose
+ * first read is otherwise what picks up a just-written update synchronously; VS Code instead refetches an
+ * already-open virtual document asynchronously in response to `onDidChange`, so without this wait, a caller
+ * could observe the previous (possibly stale/empty) content for one more event-loop turn.
+ */
+async function waitForFreshContent(doc: vscode.TextDocument): Promise<void> {
+	const expected = getReconstructionContentProvider().contents.get(doc.uri.toString()) ?? '';
+	if(doc.getText() === expected){
+		return;
+	}
+	await new Promise<void>(resolve => {
+		const timeout = setTimeout(() => {
+			dispo.dispose();
+			resolve();
+		}, 2000);
+		const dispo = vscode.workspace.onDidChangeTextDocument(e => {
+			if(e.document === doc && doc.getText() === expected){
+				clearTimeout(timeout);
+				dispo.dispose();
+				resolve();
+			}
+		});
+	});
+}
+
+/**
  *
  */
 export async function showUri(uri: vscode.Uri, language: string = 'r', viewColumn: vscode.ViewColumn = vscode.ViewColumn.Beside): Promise<Thenable<vscode.TextEditor>> {
 	for(const editor of vscode.window.visibleTextEditors){
 		if(editor.document.uri.toString() === uri.toString()){
+			await waitForFreshContent(editor.document);
 			return editor;
 		}
 	}
 	const doc = await vscode.workspace.openTextDocument(uri);
 	await vscode.languages.setTextDocumentLanguage(doc, language);
+	// covers a document that is already open (cached from an earlier, now non-visible tab) but not yet showing
+	// the latest write - the same async-refetch race as the already-visible branch above
+	await waitForFreshContent(doc);
 	const editor = await vscode.window.showTextDocument(doc, {
 		viewColumn:    viewColumn,
 		preserveFocus: true,

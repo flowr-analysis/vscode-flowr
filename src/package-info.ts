@@ -10,7 +10,7 @@ import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
 import { VertexType, isVariableDefinitionVertex } from '@eagleoutice/flowr/dataflow/graph/vertex';
 import { DfEdge, EdgeType } from '@eagleoutice/flowr/dataflow/graph/edge';
 import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
-import { baseRPackages, getSigDbScopeState, findSigDbPackageSource, resolveSigDbPackageVersion, rMajorVersionPageUrl, allKnownPackageNames, closestPackageNames, cranPageUrl } from './package-db';
+import { baseRPackages, defaultLoadedPackages, getSigDbScopeState, findSigDbPackageSource, resolveSigDbPackageVersion, rMajorVersionPageUrl, allKnownPackageNames, closestPackageNames, cranPageUrl } from './package-db';
 import { getHelpDoc, getInstalledVersion } from './installed-packages';
 import type { SignatureFunctionView, SignaturePackageView, SignatureQueryResult, SignatureDependencyView, SignatureParameterView } from '@eagleoutice/flowr/queries/catalog/signature-query/signature-query-format';
 import {
@@ -98,19 +98,16 @@ async function formatFunctionView(fn: SignatureFunctionView, scope?: string): Pr
 	if(installed) {
 		parts.push(`installed \`v${installed}\``);
 	}
-	let helpTitle: string | undefined;
-	if(wantsHelpDoc) {
-		helpTitle = helpDoc?.title;
-		parts.push(`[documentation](${fn.docUrl})`);
-	}
 	const flags = [
 		fn.properties.includes('deprecated') ? '⚠ deprecated' : undefined,
 		fn.properties.includes('can-throw') ? '⚠ can throw' : undefined,
 		fn.s3generic ? '🔀 S3 generic' : undefined,
 		fn.s3method ? `🔀 S3 method for \`${fn.s3method.generic}\` (\`${fn.s3method.package}\`), class \`${fn.s3method.class}\`` : undefined
 	].filter((f): f is string => !!f);
-	const summary = [helpTitle && `**${helpTitle}**`, parts.join(' · ')].filter(Boolean).join('\n\n');
-	return flags.length > 0 ? `${signature}\n\n${summary}\n\n${flags.join(' • ')}` : `${signature}\n\n${summary}`;
+	// the documentation link leads, large (a heading), rather than being buried at the end of the inline summary
+	const docLink = wantsHelpDoc ? `#### 📖 Documentation: [${helpDoc?.title ?? fn.name}](${fn.docUrl})\n\n` : '';
+	const body = [signature, parts.join(' · '), flags.length > 0 ? flags.join(' • ') : undefined].filter(Boolean).join('\n\n');
+	return `${docLink}${body}`;
 }
 
 function formatPackageView(pkg: SignaturePackageView, scope?: string): string {
@@ -347,6 +344,17 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 			return `**\`${fnName}\`** is provided by the ${pkgLabel} package${version ? ` \`v${version}\`` : ''}`;
 		}
 
+		// case 3b: a bare call (no library()/`::`) to a function from one of R's *other* default-loaded packages
+		// (e.g. `acf` -> stats) - flowR has no special dataflow handling for these (unlike case 3's builtins), so
+		// only the signature database can attribute them
+		if(fnName) {
+			const defaultLoaded = await this.resolveDefaultLoadedFunction(document, fnName);
+			if(defaultLoaded) {
+				const scope = await resolveSigDbScopeLabel(defaultLoaded.pkg);
+				return `**\`${fnName}\`** is provided by the \`${defaultLoaded.pkg}\` package (loaded by default)\n\n${await formatFunctionView(defaultLoaded.fn, scope)}`;
+			}
+		}
+
 		// case 4: flowR pre-registers some non-base functions (e.g. `ggplot`) as built-ins; if the sigdb also knows a
 		// real package for the name, surface it too - re-query the top wildcard hit by exact name for the full view
 		if(fnName && nonBaseBuiltinNames.has(fnName) && anySigDbScopeDownloaded()) {
@@ -363,7 +371,7 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 		return undefined;
 	}
 
-	/** the sigdb function view a call is attributed to (mirrors {@link resolveSigDbInfo}'s cases 1/4), for its `sourceUrl` */
+	/** the sigdb function view a call is attributed to (mirrors {@link resolveSigDbInfo}'s cases 1/3b/4), for its `sourceUrl` */
 	private async resolveAttributedFunction(resolved: ResolvedNode, document: vscode.TextDocument): Promise<SignatureFunctionView | undefined> {
 		const origins = originsForNode(resolved.graph, resolved.ast, resolved.id)?.origins;
 		const qualified = origins && Identifier.toQualified(origins);
@@ -373,6 +381,12 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 			return result?.function;
 		}
 		const fnName = functionNameAt(resolved.ast, resolved.id);
+		if(fnName) {
+			const defaultLoaded = await this.resolveDefaultLoadedFunction(document, fnName);
+			if(defaultLoaded) {
+				return defaultLoaded.fn;
+			}
+		}
 		if(fnName && nonBaseBuiltinNames.has(fnName) && anySigDbScopeDownloaded()) {
 			const wildcard = await runSignatureQuery(document, undefined, fnName, this.output);
 			const hit = wildcard?.matches?.[0];
@@ -380,6 +394,17 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 			return result?.function;
 		}
 		return undefined;
+	}
+
+	/** the {@link defaultLoadedPackages} package exporting `fnName` (a bare call, no library()/`::` needed), if exactly one does */
+	private async resolveDefaultLoadedFunction(document: vscode.TextDocument, fnName: string): Promise<{ fn: SignatureFunctionView, pkg: string } | undefined> {
+		if(!anySigDbScopeDownloaded()) {
+			return undefined;
+		}
+		const results = await Promise.all(defaultLoadedPackages.map(pkg => runSignatureQuery(document, pkg, fnName, this.output)));
+		const hitIdx = results.findIndex(r => r?.function);
+		const fn = hitIdx >= 0 ? results[hitIdx]?.function : undefined;
+		return fn ? { fn, pkg: defaultLoadedPackages[hitIdx] } : undefined;
 	}
 
 	async provideHover(document: vscode.TextDocument, pos: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover | undefined> {

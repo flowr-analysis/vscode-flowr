@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as assert from 'assert';
-import { activateExtension, openTestFile } from './test-util';
+import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile } from './test-util';
 import type { Dependency } from '../flowr/views/dependency-view';
 import { downloadSigDbScope } from '../package-db';
 import { refreshSigDbConfig } from '../extension';
@@ -42,9 +42,13 @@ async function verifyDependencies(expected: DependencyDisplay[]) {
 }
 
 suite('dependencies', () => {
-	suiteSetup(async() => {
+	suiteSetup(async function() {
+		this.timeout(60000);
 		await activateExtension();
 		await vscode.commands.executeCommand('flowr-dependencies.focus');
+		// several guess-dep-versions tests below need real signature-database data (ggplot2, dplyr, ...) -
+		// a fresh checkout/CI runner has none of this synced yet
+		await ensureSigDbCurrentDownloaded();
 	});
 
 	test('vapply', async() => {

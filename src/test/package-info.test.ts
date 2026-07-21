@@ -1,10 +1,14 @@
 import * as vscode from 'vscode';
-import { activateExtension, openTestFile } from './test-util';
+import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile } from './test-util';
 import assert from 'assert';
 
 suite('package info', () => {
-	suiteSetup(async() => {
+	suiteSetup(async function() {
+		this.timeout(60000);
 		await activateExtension();
+		// the package-function source-link tests below need real signature-database data (ggplot2) - a fresh
+		// checkout/CI runner has none of this synced yet
+		await ensureSigDbCurrentDownloaded();
 	});
 
 	test('attributes a base built-in (print) to its base package', async() => {
@@ -16,6 +20,21 @@ suite('package info', () => {
 			.map(c => typeof c === 'string' ? c : (c as vscode.MarkdownString).value ?? '');
 		const baseHover = contents.find(v => /provided by/.test(v) && v.includes('base'));
 		assert.ok(baseHover, `expected 'print is provided by the base package', got: ${JSON.stringify(contents)}`);
+	});
+
+	// regression test: `acf` (from `stats`) has no special dataflow handling in flowR (unlike `print`), so it
+	// isn't in the small builtin-name set case 3 used to rely on exclusively - a bare call with no library()/`::`
+	// must still be attributed via the signature database, checking R's other default-loaded packages directly
+	test('attributes a bare call to a function from a default-loaded package (stats::acf) without library()', async() => {
+		const doc = await vscode.workspace.openTextDocument({ language: 'r', content: 'acf(1:10)\n' });
+		await vscode.window.showTextDocument(doc, { preview: false });
+		const result = await vscode.commands.executeCommand<vscode.Hover[]>('vscode.executeHoverProvider', doc.uri, new vscode.Position(0, 1));
+		const contents = (result ?? [])
+			.flatMap(h => h.contents)
+			.map(c => typeof c === 'string' ? c : (c as vscode.MarkdownString).value ?? '');
+		const hover = contents.find(v => /provided by/.test(v) && v.includes('stats'));
+		assert.ok(hover, `expected 'acf is provided by the stats package', got: ${JSON.stringify(contents)}`);
+		assert.ok(hover.includes('📖'), `expected a prominent documentation link, got: ${hover}`);
 	});
 
 	test('does not attribute a locally defined function to a package', async() => {

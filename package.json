@@ -459,6 +459,27 @@
           "default": true,
           "markdownDescription": "Whether flowR suggests completions and signature help for functions of loaded packages, backed by the signature database. Disable if it gets in the way of your usual completions."
         },
+        "vscode-flowr.completion.alwaysAvailablePackages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "base",
+            "stats",
+            "utils",
+            "grDevices",
+            "graphics",
+            "datasets",
+            "methods"
+          ],
+          "markdownDescription": "Packages whose functions are always suggested, even without a `library()`/`require()` call in the file. Defaults to `base` and R's other default-loaded packages."
+        },
+        "vscode-flowr.completion.showS3Methods": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Whether to suggest dotted function names (e.g. `print.data.frame`, usually S3 methods) before you've typed the dot yourself. Off by default, so typing `print` only suggests `print` itself; typing `print.` still suggests `print.data.frame`."
+        },
         "vscode-flowr.recording.enabled": {
           "type": "boolean",
           "default": false,

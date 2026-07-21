@@ -54,6 +54,8 @@ export enum Settings {
 	SigDbCustomPath = 'config.solver.sigdb.customPath',
 
 	CompletionEnabled = 'completion.enabled',
+	CompletionAlwaysAvailablePackages = 'completion.alwaysAvailablePackages',
+	CompletionShowS3Methods = 'completion.showS3Methods',
 
 	RecordingEnabled = 'recording.enabled',
 	RecordingAcronym = 'recording.acronym',

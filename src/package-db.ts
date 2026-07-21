@@ -17,6 +17,9 @@ export const baseRPackages = new Set([
 	'splines', 'stats', 'stats4', 'tcltk', 'tools', 'translations', 'utils'
 ]);
 
+/** R's actual default-loaded packages besides `base` (`getOption("defaultPackages")`); other ship-with-R packages (`tools`, `grid`, `parallel`, ...) still need an explicit library()/`::` */
+export const defaultLoadedPackages = ['stats', 'utils', 'grDevices', 'graphics', 'datasets', 'methods'];
+
 /** Whether the signature database is enabled via configuration */
 export function isSigDbEnabled(): boolean {
 	return getConfig().get<boolean>(Settings.SigDbEnabled, true);

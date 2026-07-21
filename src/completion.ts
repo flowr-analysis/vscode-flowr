@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
-import { allKnownPackageNames, findSigDbPackageSource, resolveSigDbPackageVersion, safeFunctionsOf, safeLatestVersionStr, safeSigDbCall } from './package-db';
+import { allKnownPackageNames, defaultLoadedPackages, findSigDbPackageSource, resolveSigDbPackageVersion, safeFunctionsOf, safeLatestVersionStr, safeSigDbCall } from './package-db';
 import { getInstalledVersion } from './installed-packages';
 import { getConfig, Settings } from './settings';
 import type { PackageSignatureSource } from '@eagleoutice/flowr/project/sigdb/reader';
+import type { DecodedFunction } from '@eagleoutice/flowr/project/sigdb/decode';
 import { LibraryFunctions } from '@eagleoutice/flowr/queries/catalog/dependencies-query/function-info/library-functions';
 import type { FunctionInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/function-info/function-info';
 import { findByPrefixIfUnique } from '@eagleoutice/flowr/util/prefix';
@@ -26,6 +27,19 @@ export function loadedPackagesIn(text: string): Set<string> {
 /** the document's text up to (not including) `position` - so completion only ever sees `library()` calls the cursor has actually reached, not ones later in the file */
 function textBeforePosition(document: vscode.TextDocument, position: vscode.Position): string {
 	return document.getText(new vscode.Range(new vscode.Position(0, 0), position));
+}
+
+/**
+ * The range of the identifier (an R name, which may contain `.`) ending at `position`. VS Code has no built-in
+ * notion of R's word boundaries - its default word pattern doesn't include `.` - so without an explicit range,
+ * it tracks "what's been typed so far" itself and resets to empty right after a `.`, showing every completion
+ * unfiltered instead of narrowing to what was actually typed (e.g. `print.` would suggest `abbreviate`,
+ * `abline`, ... alongside `print.data.frame`). Passing this range on every item makes VS Code filter/replace
+ * against the real typed text instead.
+ */
+function identifierRange(document: vscode.TextDocument, position: vscode.Position): vscode.Range {
+	const match = /[A-Za-z0-9._]*$/.exec(textBeforePosition(document, position));
+	return new vscode.Range(position.translate(0, -(match?.[0].length ?? 0)), position);
 }
 
 /** sort rank: plain names first, S3-method-shaped names next, operator/subscript names last */
@@ -54,30 +68,93 @@ async function findFunctionInLoadedPackages(fnName: string, packages: Iterable<s
 	return undefined;
 }
 
+/** packages whose functions are completable without any `library()`/`require()`, user-configurable via {@link Settings.CompletionAlwaysAvailablePackages} */
+function alwaysAvailablePackages(): string[] {
+	return getConfig().get<string[]>(Settings.CompletionAlwaysAvailablePackages, ['base', ...defaultLoadedPackages]);
+}
+
+/** whether dotted names (e.g. `print.data.frame`) should be offered before the user has typed the dot themselves - off by default, since most dotted names are S3 methods better reached by typing their generic (`print`) first */
+function showS3Methods(): boolean {
+	return getConfig().get<boolean>(Settings.CompletionShowS3Methods, false);
+}
+
+/**
+ * Whether `fn` should be excluded from function-name completion because it's a dotted name (`print.data.frame`,
+ * `print.acf`, ...) the user hasn't asked for yet. Not every such name is a registered S3 method in the
+ * signature database - flowR's `s3-method` prop is populated inconsistently across packages (e.g. base's
+ * `print.data.frame` carries it, stats' `print.acf` doesn't) - so name shape plus what the user actually typed
+ * is the only reliable signal: once they've typed the dot themselves (`typedHasDot`), or {@link showS3Methods}
+ * is on, a dotted name is exactly as intentional as any other completion.
+ */
+function isHiddenDottedName(fn: DecodedFunction, typedHasDot: boolean): boolean {
+	return fn.name.includes('.') && !typedHasDot && !showS3Methods();
+}
+
+/** matches a `pkg::partial` / `pkg:::partial` at the very end of the text before the cursor (`partial` may be empty) */
+const NamespacedCallPattern = /\b([A-Za-z][A-Za-z0-9.]*):(:{1,2})([A-Za-z0-9._]*)$/;
+
+/** a function-name completion item, shared by loaded/always-available and `pkg::`-namespaced completions */
+function functionCompletionItem(fn: DecodedFunction, pkg: string, version: string | undefined, range: vscode.Range): vscode.CompletionItem {
+	const params = fn.signature.map(p => p.name).join(', ');
+	const item = new vscode.CompletionItem(
+		{ label: fn.name, detail: `(${params})`, description: pkg },
+		vscode.CompletionItemKind.Function
+	);
+	item.documentation = new vscode.MarkdownString(`\`\`\`r\n${fn.name}(${params})\n\`\`\`\n\nfrom \`${pkg}\`${version ? ` v${version}` : ''}\n\n*via flowR's signature database*`);
+	item.insertText = new vscode.SnippetString(`${fn.name}($0)`);
+	item.sortText = `${completionRank(fn.name)}${fn.name}`;
+	item.range = range;
+	return item;
+}
+
 class FlowrSigDbCompletionProvider implements vscode.CompletionItemProvider {
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.CompletionItem[]> {
 		if(!completionEnabled()) {
 			return [];
 		}
 		const textBefore = textBeforePosition(document, position);
-		const packageArgItems = await packageArgumentCompletions(textBefore);
+
+		const range = identifierRange(document, position);
+
+		const namespaced = await this.namespacedFunctionCompletions(textBefore, range);
+		if(namespaced) {
+			return token.isCancellationRequested ? [] : namespaced;
+		}
+
+		const packageArgItems = await packageArgumentCompletions(textBefore, range);
 		if(packageArgItems) {
 			return token.isCancellationRequested ? [] : packageArgItems;
 		}
 
-		const packages = loadedPackagesIn(textBefore);
-		if(packages.size === 0) {
-			return [];
-		}
-
+		const packages = new Set([...loadedPackagesIn(textBefore), ...alwaysAvailablePackages()]);
+		const typedHasDot = (/[A-Za-z][A-Za-z0-9._]*$/.exec(textBefore)?.[0] ?? '').includes('.');
 		const [functionItems, argumentItems] = await Promise.all([
-			this.functionNameCompletions(packages),
-			this.argumentNameCompletions(document, position, packages)
+			this.functionNameCompletions(packages, typedHasDot, range),
+			this.argumentNameCompletions(document, position, packages, range)
 		]);
 		return token.isCancellationRequested ? [] : [...argumentItems, ...functionItems];
 	}
 
-	private async functionNameCompletions(packages: Set<string>): Promise<vscode.CompletionItem[]> {
+	/** completions for a `pkg::partial`/`pkg:::partial` call, from that specific package regardless of whether it is loaded, or `undefined` if the cursor isn't in one */
+	private async namespacedFunctionCompletions(textBefore: string, range: vscode.Range): Promise<vscode.CompletionItem[] | undefined> {
+		const match = NamespacedCallPattern.exec(textBefore);
+		if(!match) {
+			return undefined;
+		}
+		const [, pkg, colons, partial] = match;
+		const found = await findSigDbPackageSource(pkg);
+		if(!found) {
+			return [];
+		}
+		const version = safeLatestVersionStr(found.source, pkg);
+		const includeInternal = colons === ':::';
+		const typedHasDot = partial.includes('.');
+		return safeFunctionsOf(found.source, pkg, version)
+			.filter(fn => (includeInternal || fn.exported) && fn.name.startsWith(partial) && !isHiddenDottedName(fn, typedHasDot))
+			.map(fn => functionCompletionItem(fn, pkg, version, range));
+	}
+
+	private async functionNameCompletions(packages: Set<string>, typedHasDot: boolean, range: vscode.Range): Promise<vscode.CompletionItem[]> {
 		const perPackage = await Promise.all([...packages].map(async pkg => {
 			const found = await findSigDbPackageSource(pkg);
 			if(!found) {
@@ -85,23 +162,13 @@ class FlowrSigDbCompletionProvider implements vscode.CompletionItemProvider {
 			}
 			const version = safeLatestVersionStr(found.source, pkg);
 			const functions = safeFunctionsOf(found.source, pkg, version);
-			return functions.filter(fn => fn.exported).map(fn => {
-				const params = fn.signature.map(p => p.name).join(', ');
-				const item = new vscode.CompletionItem(
-					{ label: fn.name, detail: `(${params})`, description: pkg },
-					vscode.CompletionItemKind.Function
-				);
-				item.documentation = new vscode.MarkdownString(`\`\`\`r\n${fn.name}(${params})\n\`\`\`\n\nfrom \`${pkg}\`${version ? ` v${version}` : ''}\n\n*via flowR's signature database*`);
-				item.insertText = new vscode.SnippetString(`${fn.name}($0)`);
-				item.sortText = `${completionRank(fn.name)}${fn.name}`;
-				return item;
-			});
+			return functions.filter(fn => fn.exported && !isHiddenDottedName(fn, typedHasDot)).map(fn => functionCompletionItem(fn, pkg, version, range));
 		}));
 		return perPackage.flat();
 	}
 
 	/** right after ( or , (not after name =), suggest the function's own remaining parameter names first */
-	private async argumentNameCompletions(document: vscode.TextDocument, position: vscode.Position, packages: Set<string>): Promise<vscode.CompletionItem[]> {
+	private async argumentNameCompletions(document: vscode.TextDocument, position: vscode.Position, packages: Set<string>, range: vscode.Range): Promise<vscode.CompletionItem[]> {
 		const call = callBeforeCursor(document.getText(new vscode.Range(new vscode.Position(0, 0), position)));
 		if(!call || call.inValuePosition) {
 			return [];
@@ -124,6 +191,7 @@ class FlowrSigDbCompletionProvider implements vscode.CompletionItemProvider {
 			item.insertText = new vscode.SnippetString(`${p.name} = $0`);
 			item.documentation = new vscode.MarkdownString(`parameter of \`${call.fnName}\` from \`${found.pkg}\`\n\n*via flowR's signature database*`);
 			item.sortText = `00${p.name}`; // ahead of function-name completions
+			item.range = range;
 			return item;
 		});
 	}
@@ -272,24 +340,29 @@ async function isAtPackageArgPosition(call: { rawSegments: string[], inValuePosi
 	return resolveCallArgs(call.rawSegments, paramNames).current === info.argName;
 }
 
-function packageNameCompletionItem(label: string, insertText: string): vscode.CompletionItem {
+function packageNameCompletionItem(label: string, insertText: string, range: vscode.Range | undefined): vscode.CompletionItem {
 	const item = new vscode.CompletionItem({ label, description: 'package' }, vscode.CompletionItemKind.Module);
 	item.insertText = insertText;
 	item.sortText = label;
+	// some real CRAN package names contain a dot (e.g. R.utils) - without an explicit range, VS Code's default
+	// (dot-excluding) word pattern would reset its filter right after the dot, same as function-name completion
+	if(range) {
+		item.range = range;
+	}
 	return item;
 }
 
 /** completions for a `library(...)`/`attach(...)`/... package-name argument, or `undefined` if the cursor isn't in one */
-export async function packageArgumentCompletions(textBeforeCursor: string): Promise<vscode.CompletionItem[] | undefined> {
+export async function packageArgumentCompletions(textBeforeCursor: string, range?: vscode.Range): Promise<vscode.CompletionItem[] | undefined> {
 	const call = callBeforeCursor(textBeforeCursor);
 	const info = call && PackageArgFunctions.get(call.fnName);
 	if(!call || !info || !await isAtPackageArgPosition(call, info)) {
 		return undefined;
 	}
 	const names = [...await allKnownPackageNames()].sort((a, b) => a.localeCompare(b));
-	const items = names.map(pkg => packageNameCompletionItem(pkg, pkg));
+	const items = names.map(pkg => packageNameCompletionItem(pkg, pkg, range));
 	if(PackageColonForms.has(call.fnName)) {
-		items.push(...names.map(pkg => packageNameCompletionItem(`package:${pkg}`, `package:${pkg}`)));
+		items.push(...names.map(pkg => packageNameCompletionItem(`package:${pkg}`, `package:${pkg}`, range)));
 	}
 	return items;
 }
@@ -343,7 +416,7 @@ export function registerCompletion(): vscode.Disposable {
 	}
 	const selectors: vscode.DocumentSelector[] = [{ language: 'r' }, { language: 'rmd' }];
 	return vscode.Disposable.from(
-		...selectors.map(selector => vscode.languages.registerCompletionItemProvider(selector, new FlowrSigDbCompletionProvider(), '(', ',', ' ', '"', '\'')),
+		...selectors.map(selector => vscode.languages.registerCompletionItemProvider(selector, new FlowrSigDbCompletionProvider(), '(', ',', ' ', '"', '\'', ':')),
 		...selectors.map(selector => vscode.languages.registerSignatureHelpProvider(selector, new FlowrSigDbSignatureHelpProvider(), '(', ','))
 	);
 }

@@ -11,6 +11,12 @@
 - Fix Signature DB sync failing due to a wrong release tag and picking a shard codec this runtime can't decompress
 - Warn when guessing dependency versions without the full CRAN history scope downloaded
 - Support spaces and --param/--required filters in the Signature DB search, matching flowR's own query syntax
+- Make the documentation link in the function hover more prominent
+- Attribute bare calls to functions from R's other default-loaded packages (e.g. stats::acf) on hover, not just base
+- Autocomplete functions from base and other default-loaded packages even without a library() call, and for pkg:: calls to any package, with the loaded-by-default package list configurable
+- Hide dotted names like print.data.frame from autocompletion until you type the dot yourself, configurable via a new setting
+- Fix a race where reopening the reconstructed slice editor could briefly show stale or empty content
+- Fix autocompletion showing every function unfiltered right after typing a dot, instead of narrowing to what was typed
 
 # Version 0.8.1 (2026-07-15)
 - Update to flowR 2.12.3, various sigdb improvements
