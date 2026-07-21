@@ -10,10 +10,12 @@ import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { rangeToVscodeRange, RotaryBuffer } from '../utils';
 import type { DefaultsMaps } from '../../settings';
 import { DependencyViewRefresherConfigKeys, Settings, getConfig, isVerbose } from '../../settings';
-import { resolveSigDbPackageVersion } from '../../package-db';
+import { resolveSigDbPackageVersion, getSigDbScopeState } from '../../package-db';
+import { getInstalledPackageVersions } from '../../installed-packages';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { ConfigurableRefresher, isRTypeLanguage, RefreshType } from '../../configurable-refresher';
+import type { GuessDepVersionsQueryResult, GuessEvidenceSource } from '@eagleoutice/flowr/queries/catalog/guess-dep-versions-query/guess-dep-versions-query-format';
 
 
 const FlowrDependencyViewId = 'flowr-dependencies';
@@ -29,16 +31,13 @@ const Defaults = {
 } satisfies DefaultsMaps;
 
 
-/**
- *
- */
+/** registers the Dependency View's internal commands (go-to, enable/disable category, guess versions) */
 export function registerDependencyInternalCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	registerCommand(context, 'vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {
 		const node = dependency.getNodeId();
 		const loc = dependency.getLocation();
 		if(node) {
-			// go to position - move the cursor there too, not just scroll it into view, so this actually
-			// behaves like a "go to" (the tree item's own click command, `editor.action.goToLocations`, does)
+			// move the cursor there too, not just scroll into view, so this behaves like a real "go to"
 			const editor = vscode.window.activeTextEditor;
 			if(editor && loc) {
 				setTimeout(() => {
@@ -63,6 +62,85 @@ export function registerDependencyInternalCommands(context: vscode.ExtensionCont
 		output.appendLine(`Toggling dependency category ${dependency.category}, new value ${[...values].join(', ')}`);
 		getConfig().update(Settings.DependenciesQueryEnabledCategories, [...values]);
 	});
+	registerCommand(context, 'vscode-flowr.dependencyView.guessVersions', async() => {
+		const doc = vscode.window.activeTextEditor?.document;
+		if(!doc || !isRTypeLanguage(doc)) {
+			vscode.window.showWarningMessage('Open an R file to guess its dependency versions.');
+			return;
+		}
+		try {
+			const session = await getFlowrSession();
+			const { result, hasError } = await session.retrieveQuery(doc, [{ type: 'guess-dep-versions' }]);
+			if(hasError || !result['guess-dep-versions']) {
+				throw new Error('query returned no result');
+			}
+			// without the full CRAN history scope, guesses can only be checked against currently-available
+			// versions - a package that needs an older release to satisfy a constraint would look unsatisfiable
+			const historyDownloaded = !!getSigDbScopeState('history').manifest;
+			if(!historyDownloaded) {
+				vscode.window.showWarningMessage(
+					'The full CRAN history signature database isn\'t downloaded - guessed versions may miss older releases. Sync it from the Signature DB view for more accurate results.'
+				);
+			}
+			const file = await vscode.workspace.openTextDocument({ language: 'markdown', content: formatGuessVersionsReport(result['guess-dep-versions'], historyDownloaded) });
+			await vscode.window.showTextDocument(file, { preview: true });
+			await vscode.commands.executeCommand('markdown.showPreview', file.uri);
+		} catch(e) {
+			output.appendLine(`[Dependency View] guess-dep-versions failed: ${e instanceof Error ? e.message : String(e)}`);
+			vscode.window.showErrorMessage('Failed to guess dependency versions (see the flowR output channel).');
+		}
+	});
+}
+
+// mirrors the executor's own `reallyConstrained` predicate (guess-dep-versions-query-executor.js): a dependency only
+// becomes a counted factor in runnableCombinations/possibleCombinations if evidence actually narrows it - date/available
+// bounds alone don't count. If nothing in the whole result qualifies, the product is the empty-product identity (1/1),
+// not a real "1 of N combinations survive" - showing that as "100%" next to per-package counts in the hundreds reads as
+// a contradiction, so report it as N/A instead of a misleading percentage.
+const ReallyConstrainingSources = new Set<GuessEvidenceSource>(['declared', 'transitive', 'signature', 'indirect']);
+
+/** a Markdown report of a `guess-dep-versions` query result, reusing flowR's own human-readable evidence `detail` strings */
+function formatGuessVersionsReport(result: GuessDepVersionsQueryResult, historyDownloaded: boolean): string {
+	const lines = [
+		'# Guessed Dependency Versions',
+		'',
+		[result.rVersion && `R ${result.rVersion}`, result.dateCutoff && `up to ${result.dateCutoff}`, `${result.dependencies.length} dependencies`].filter(Boolean).join(' · '),
+		''
+	];
+	if(!historyDownloaded) {
+		lines.push('> ⚠ The full CRAN history signature database isn\'t downloaded - only currently-available versions were considered, so an older release that would satisfy a constraint may be missing or reported as unsatisfiable. Sync it from the Signature DB view for more accurate results.', '');
+	}
+	if(result.message) {
+		lines.push(`> ${result.message}`, '');
+	}
+	if(result.runnableCombinations !== undefined && result.possibleCombinations) {
+		const hasConstrainingEvidence = result.dependencies.some(dep => dep.evidence.some(ev => ReallyConstrainingSources.has(ev.source)));
+		if(hasConstrainingEvidence) {
+			const pct = Math.round(result.runnableCombinations / result.possibleCombinations * 100);
+			lines.push(`**Runnable combinations:** ${result.runnableCombinations} / ${result.possibleCombinations} (${pct}%)`, '');
+		} else {
+			lines.push('**Runnable combinations:** N/A (no constraining evidence found)', '');
+		}
+	}
+	for(const group of result.linkedGroups ?? []) {
+		lines.push(`**Linked:** ${group.join(' + ')}`, '');
+	}
+	for(const dep of result.dependencies) {
+		const tag = dep.base ? ' _(base)_' : dep.used === false ? ' _(not used)_' : '';
+		lines.push(`## ${dep.package}${tag}`, '');
+		lines.push(dep.unsatisfiable ? '**Unsatisfiable** - no version satisfies every constraint.' : `**Range:** \`${dep.range}\``);
+		if(dep.totalVersions !== undefined) {
+			lines.push(`(${dep.candidateCount}/${dep.totalVersions} versions survive)`);
+		}
+		lines.push('');
+		for(const ev of dep.evidence) {
+			lines.push(`- ${ev.detail}`);
+		}
+		if(dep.evidence.length > 0) {
+			lines.push('');
+		}
+	}
+	return lines.join('\n');
 }
 
 /** returns disposer */
@@ -151,19 +229,23 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	};
 }
 
-const emptyDependencies: DependenciesQueryResult = { library: [], source: [], read: [], write: [], visualize: [], test: [], '.meta': { timing: -1 } } as unknown as DependenciesQueryResult;
+const emptyDependencies: DependenciesQueryResult = {
+	library: [], source: [], read: [], write: [], visualize: [], test: [], undeclared: [], unused: [], '.meta': { timing: -1 }
+} as unknown as DependenciesQueryResult;
 const emptyLocationMap: LocationMapQueryResult = { map: {
 	files: [],
 	ids:   {}
 }, '.meta': { timing: -1 } };
 interface DependencyCategoryInfo { name: string, verb: string, icon: string, useReverseLinks?: boolean };
 const dependencyDisplayInfo: Record<DefaultDependencyCategoryName, DependencyCategoryInfo> = {
-	'library':   { name: 'Libraries', verb: 'loads the library', icon: 'library' },
-	'read':      { name: 'Imported Data', verb: 'imports the data', icon: 'file-text' },
-	'source':    { name: 'Sourced Scripts', verb: 'sources the script', icon: 'file-code' },
-	'write':     { name: 'Outputs', verb: 'produces the output', icon: 'new-file' },
-	'visualize': { name: 'Visualizations', verb: 'visualizes the data', icon: 'graph', useReverseLinks: true },
-	'test':      { name: 'Tests', verb: 'tests for', icon: 'beaker' }
+	'library':    { name: 'Libraries', verb: 'loads the library', icon: 'library' },
+	'read':       { name: 'Imported Data', verb: 'imports the data', icon: 'file-text' },
+	'source':     { name: 'Sourced Scripts', verb: 'sources the script', icon: 'file-code' },
+	'write':      { name: 'Outputs', verb: 'produces the output', icon: 'new-file' },
+	'visualize':  { name: 'Visualizations', verb: 'visualizes the data', icon: 'graph', useReverseLinks: true },
+	'test':       { name: 'Tests', verb: 'tests for', icon: 'beaker' },
+	'undeclared': { name: 'Undeclared Dependencies', verb: 'uses the undeclared package', icon: 'warning' },
+	'unused':     { name: 'Unused Dependencies', verb: 'declares the unused package', icon: 'circle-slash' }
 };
 type Update = Dependency | undefined | null;
 class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
@@ -280,8 +362,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			}
 			return;
 		}
-		// capture the active document once; every step below uses it so an editor switch mid-analysis can't
-		// mix up which file the results belong to
+		// capture the active document once so an editor switch mid-analysis can't mix up which file the results belong to
 		const document = vscode.window.activeTextEditor?.document;
 		const text = this.textFingerprint(document?.getText());
 		const file = document?.uri.fsPath;
@@ -308,8 +389,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				}
 				this.activeDependencies = has[1].dep;
 				this.locationMap = has[1].loc;
-				// the cached entry carries the same `ast`/`dfi` a fresh analysis would - reuse them so that
-				// slicing from a dependency entry still works on a cache hit (see `showDependencySlice`)
+				// the cached entry carries the same ast/dfi a fresh analysis would, so slicing still works on a cache hit
 				await this.makeRootElements(has[1].dfi, has[1].ast);
 				this._onDidChangeTreeData.fire(undefined);
 				return;
@@ -378,11 +458,15 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		return element.getParent();
 	}
 
-	/** the signature database's resolved version for every distinctly-named `library()`/`require()` dependency, keyed by package name */
-	private async resolveLibraryVersions(): Promise<Map<string, string>> {
+	/** the signature database's resolved version and the locally installed version for every distinctly-named `library()`/`require()` dependency */
+	private async resolveLibraryVersions(): Promise<Map<string, LibraryVersionInfo>> {
 		const names = new Set((this.activeDependencies.library as DependencyInfo[] | undefined)?.map(l => l.value).filter((v): v is string => !!v && v !== Unknown));
-		const resolved = await Promise.all([...names].map(async name => [name, await resolveSigDbPackageVersion(name)] as const));
-		return new Map(resolved.filter((e): e is [string, string] => e[1] !== undefined));
+		const installedVersions = await getInstalledPackageVersions();
+		const resolved = await Promise.all([...names].map(async name => [name, {
+			db:        await resolveSigDbPackageVersion(name),
+			installed: installedVersions === undefined ? undefined : installedVersions.get(name) ?? null
+		}] as const));
+		return new Map(resolved.filter(([, info]) => info.db !== undefined || info.installed !== undefined));
 	}
 
 	private async makeRootElements(dfi?: DataflowInformation, ast?: NormalizedAst) {
@@ -394,13 +478,13 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		});
 	}
 
-	private makeDependency(label: string, verb: string, elements: DependencyInfo[], themeIcon: vscode.ThemeIcon, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst, libraryVersions?: Map<string, string>): Dependency {
+	private makeDependency(label: string, verb: string, elements: DependencyInfo[], themeIcon: vscode.ThemeIcon, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst, libraryVersions?: Map<string, LibraryVersionInfo>): Dependency {
 		const parent = new Dependency({ label, category, categoryInfo, icon: themeIcon, root: true, verb, children: this.makeChildren(elements, verb, category, categoryInfo, dfi, ast, libraryVersions), ast, dfi, allInfos: elements, libraryVersions });
 		parent.children?.forEach(c => c.setParent(parent));
 		return parent;
 	}
 
-	private makeChildren(elements: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst, libraryVersions?: Map<string, string>): Dependency[] {
+	private makeChildren(elements: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst, libraryVersions?: Map<string, LibraryVersionInfo>): Dependency[] {
 		// we exclude dependency infos that are already displayed through the useReverseLinks setting
 		const elementsToShow = categoryInfo.useReverseLinks ? elements.filter(i => !i.linkedIds) : elements;
 		return makeGroupedElements(this.locationMap, elementsToShow, elements, verb, category, categoryInfo, dfi, ast, libraryVersions);
@@ -429,7 +513,14 @@ interface DependenciesParams {
 	readonly ast?:              NormalizedAst;
 	readonly category:          DependencyCategoryName;
 	readonly categoryInfo:      DependencyCategoryInfo;
-	readonly libraryVersions?:  Map<string, string>;
+	readonly libraryVersions?:  Map<string, LibraryVersionInfo>;
+}
+
+export interface LibraryVersionInfo {
+	/** the signature database's resolved version */
+	db?:        string;
+	/** the locally installed version; `null` when R was reachable but the package is not installed */
+	installed?: string | null;
 }
 
 export class Dependency extends vscode.TreeItem {
@@ -471,11 +562,15 @@ export class Dependency extends vscode.TreeItem {
 		if(info) {
 			const functionName = renderFunctionName(info.functionName);
 			this.loc = locationMap?.map.ids[info.nodeId]?.[1];
-			// the signature database's resolved version for a `library()`/`require()` dependency, if known
-			const version = category === 'library' && info.value ? libraryVersions?.get(info.value) : undefined;
+			// the signature database's resolved version and local installation state for a `library()`/`require()` dependency
+			const versions = category === 'library' && info.value ? libraryVersions?.get(info.value) : undefined;
+			const versionBadge = [
+				versions?.db && `v${versions.db}`,
+				versions?.installed === null ? 'not installed' : versions?.installed && `installed ${versions.installed}`
+			].filter(Boolean).join(', ');
 			// if the value is undefined or unknown, we already display the function name as the label (see unknownGuardedName)
-			this.description = `${info.value && info.value !== Unknown ? `by "${functionName}" ` : ''}in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}${version ? ` — v${version}` : ''}`;
-			this.tooltip = `${verb} "${info.value ?? Unknown}" with the "${functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'}${version ? ` (signature database: v${version})` : ''} (right-click for more)`;
+			this.description = `${info.value && info.value !== Unknown ? `by "${functionName}" ` : ''}in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}${versionBadge ? ` — ${versionBadge}` : ''}`;
+			this.tooltip = `${verb} "${info.value ?? Unknown}" with the "${functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'}${versions?.db ? ` (signature database: v${versions.db})` : ''}${versions?.installed === null ? ' (not installed locally)' : versions?.installed ? ` (installed locally: v${versions.installed})` : ''} (right-click for more)`;
 			this.id = (parent?.id ?? '') + label + info.nodeId + JSON.stringify(this.loc) + functionName + this.linkedIds();
 			if(this.loc && vscode.window.activeTextEditor) {
 				const start = new vscode.Position(this.loc[0] - 1, this.loc[1] - 1);
@@ -591,7 +686,7 @@ function unknownGuardedName(e: DependencyInfo): string {
 	return value;
 };
 
-function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow: DependencyInfo[], allInfos: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst, libraryVersions?: Map<string, string>): Dependency[] {
+function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow: DependencyInfo[], allInfos: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst, libraryVersions?: Map<string, LibraryVersionInfo>): Dependency[] {
 	/* first group by name */
 	const grouped = new Map<string, DependencyInfo[]>();
 	for(const e of elementsToShow.toSorted((a, b) => compareByLocation(locationMap, a.nodeId, b.nodeId))) {

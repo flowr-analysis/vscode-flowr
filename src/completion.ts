@@ -1,6 +1,15 @@
 import * as vscode from 'vscode';
-import { findSigDbPackageSource } from './package-db';
+import { allKnownPackageNames, findSigDbPackageSource, resolveSigDbPackageVersion, safeFunctionsOf, safeLatestVersionStr, safeSigDbCall } from './package-db';
+import { getInstalledVersion } from './installed-packages';
+import { getConfig, Settings } from './settings';
 import type { PackageSignatureSource } from '@eagleoutice/flowr/project/sigdb/reader';
+import { LibraryFunctions } from '@eagleoutice/flowr/queries/catalog/dependencies-query/function-info/library-functions';
+import type { FunctionInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/function-info/function-info';
+import { findByPrefixIfUnique } from '@eagleoutice/flowr/util/prefix';
+
+function completionEnabled(): boolean {
+	return getConfig().get<boolean>(Settings.CompletionEnabled, true);
+}
 
 /** matches `library(pkg)` / `require(pkg)`, quoted or bare */
 const LibraryCallPattern = /\b(?:library|require)\s*\(\s*['"]?([A-Za-z][A-Za-z0-9._]*)/g;
@@ -19,10 +28,7 @@ function textBeforePosition(document: vscode.TextDocument, position: vscode.Posi
 	return document.getText(new vscode.Range(new vscode.Position(0, 0), position));
 }
 
-/**
- * sort rank prefix for a function name: plain names first, S3-method-shaped names (`print.data.frame`) next,
- *  operator/subscript names (`[`, `[[`, `$`, `+`, ...) last - so the more broadly useful names surface first
- */
+/** sort rank: plain names first, S3-method-shaped names next, operator/subscript names last */
 function completionRank(name: string): '0' | '1' | '2' {
 	if(!/^[A-Za-z.]/.test(name)) {
 		return '2';
@@ -40,8 +46,8 @@ async function findFunctionInLoadedPackages(fnName: string, packages: Iterable<s
 		if(!found) {
 			continue;
 		}
-		const version = found.source.latestVersion(pkg)?.str;
-		if(found.source.functions(pkg, version)?.some(f => f.name === fnName)) {
+		const version = safeLatestVersionStr(found.source, pkg);
+		if(safeSigDbCall(() => found.source.functionByName(pkg, fnName, version))) {
 			return { pkg, source: found.source, version };
 		}
 	}
@@ -49,8 +55,17 @@ async function findFunctionInLoadedPackages(fnName: string, packages: Iterable<s
 }
 
 class FlowrSigDbCompletionProvider implements vscode.CompletionItemProvider {
-	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.CompletionItem[]> {
-		const packages = loadedPackagesIn(textBeforePosition(document, position));
+	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.CompletionItem[]> {
+		if(!completionEnabled()) {
+			return [];
+		}
+		const textBefore = textBeforePosition(document, position);
+		const packageArgItems = await packageArgumentCompletions(textBefore);
+		if(packageArgItems) {
+			return token.isCancellationRequested ? [] : packageArgItems;
+		}
+
+		const packages = loadedPackagesIn(textBefore);
 		if(packages.size === 0) {
 			return [];
 		}
@@ -59,7 +74,7 @@ class FlowrSigDbCompletionProvider implements vscode.CompletionItemProvider {
 			this.functionNameCompletions(packages),
 			this.argumentNameCompletions(document, position, packages)
 		]);
-		return [...argumentItems, ...functionItems];
+		return token.isCancellationRequested ? [] : [...argumentItems, ...functionItems];
 	}
 
 	private async functionNameCompletions(packages: Set<string>): Promise<vscode.CompletionItem[]> {
@@ -68,8 +83,8 @@ class FlowrSigDbCompletionProvider implements vscode.CompletionItemProvider {
 			if(!found) {
 				return [];
 			}
-			const version = found.source.latestVersion(pkg)?.str;
-			const functions = found.source.functions(pkg, version) ?? [];
+			const version = safeLatestVersionStr(found.source, pkg);
+			const functions = safeFunctionsOf(found.source, pkg, version);
 			return functions.filter(fn => fn.exported).map(fn => {
 				const params = fn.signature.map(p => p.name).join(', ');
 				const item = new vscode.CompletionItem(
@@ -85,11 +100,7 @@ class FlowrSigDbCompletionProvider implements vscode.CompletionItemProvider {
 		return perPackage.flat();
 	}
 
-	/**
-	 * when the cursor sits at the start of an (empty or partially-typed) argument name - right after `(` or a
-	 * `,`, not after that argument's own `name = ` - suggest the function's own remaining parameter names
-	 * (`data = `, `mapping = `, ...) ahead of general function-name completions
-	 */
+	/** right after ( or , (not after name =), suggest the function's own remaining parameter names first */
 	private async argumentNameCompletions(document: vscode.TextDocument, position: vscode.Position, packages: Set<string>): Promise<vscode.CompletionItem[]> {
 		const call = callBeforeCursor(document.getText(new vscode.Range(new vscode.Position(0, 0), position)));
 		if(!call || call.inValuePosition) {
@@ -99,11 +110,13 @@ class FlowrSigDbCompletionProvider implements vscode.CompletionItemProvider {
 		if(!found) {
 			return [];
 		}
-		const fn = found.source.functions(found.pkg, found.version)?.find(f => f.name === call.fnName);
+		const fn = safeSigDbCall(() => found.source.functionByName(found.pkg, call.fnName, found.version));
 		if(!fn) {
 			return [];
 		}
-		return fn.signature.filter(p => p.name !== '...' && !call.usedArgs.has(p.name)).map(p => {
+		// resolved against the real parameter list so a partially-typed name (`dat = ` for `data`) still excludes it
+		const { filled } = resolveCallArgs(call.rawSegments, fn.signature.map(p => p.name));
+		return fn.signature.filter(p => p.name !== '...' && !filled.has(p.name)).map(p => {
 			const item = new vscode.CompletionItem(
 				{ label: p.name, detail: p.default !== undefined ? ` = ${p.default}` : '', description: `${call.fnName} argument` },
 				vscode.CompletionItemKind.Variable
@@ -114,16 +127,29 @@ class FlowrSigDbCompletionProvider implements vscode.CompletionItemProvider {
 			return item;
 		});
 	}
+
+	/** fills in a package's version lazily, since resolving all of CRAN's versions per keystroke would be far too slow */
+	async resolveCompletionItem(item: vscode.CompletionItem, token: vscode.CancellationToken): Promise<vscode.CompletionItem> {
+		if(item.kind !== vscode.CompletionItemKind.Module || typeof item.label === 'string') {
+			return item;
+		}
+		const pkg = item.label.label.startsWith('package:') ? item.label.label.slice('package:'.length) : item.label.label;
+		const [dbVersion, installed] = await Promise.all([resolveSigDbPackageVersion(pkg), getInstalledVersion(pkg)]);
+		if(token.isCancellationRequested) {
+			return item;
+		}
+		const parts = [dbVersion && `v${dbVersion}`, installed && installed !== dbVersion ? `installed v${installed}` : undefined].filter((s): s is string => !!s);
+		if(parts.length > 0) {
+			item.label = { ...item.label, detail: ` — ${parts.join(', ')}` };
+		}
+		return item;
+	}
 }
 
 const NamedArgPattern = /^\s*([A-Za-z.][A-Za-z0-9._]*)\s*=(?!=)/;
 
-/**
- * the top-level (depth-0) comma-separated argument index, the set of already-named arguments, and whether the
- * cursor is past the current (last) argument's own `name = ` - i.e. typing that argument's *value*, where
- * suggesting further argument names would be wrong - in `argsText` (the text between a call's `(` and the cursor)
- */
-function parseCallArgs(argsText: string): { argIndex: number, usedArgs: Set<string>, inValuePosition: boolean } {
+/** parses argsText (between a call's `(` and the cursor) into its argument index, raw segments, and value-position state */
+function parseCallArgs(argsText: string): { argIndex: number, rawSegments: string[], inValuePosition: boolean } {
 	const segments: string[] = [];
 	let depth = 0;
 	let segStart = 0;
@@ -140,18 +166,12 @@ function parseCallArgs(argsText: string): { argIndex: number, usedArgs: Set<stri
 	}
 	segments.push(argsText.slice(segStart));
 
-	const usedArgs = new Set<string>();
-	for(const seg of segments) {
-		const m = NamedArgPattern.exec(seg);
-		if(m) {
-			usedArgs.add(m[1]);
-		}
-	}
-	return { argIndex: segments.length - 1, usedArgs, inValuePosition: NamedArgPattern.test(segments[segments.length - 1]) };
+	const inValuePosition = NamedArgPattern.test(segments[segments.length - 1]);
+	return { argIndex: segments.length - 1, rawSegments: segments, inValuePosition };
 }
 
 /** matches the innermost open call `fnName(args, so, far` immediately before the cursor, to drive signature help */
-export function callBeforeCursor(text: string): { fnName: string, argIndex: number, usedArgs: Set<string>, inValuePosition: boolean } | undefined {
+export function callBeforeCursor(text: string): { fnName: string, argIndex: number, rawSegments: string[], inValuePosition: boolean } | undefined {
 	let depth = 0;
 	for(let i = text.length - 1; i >= 0; i--) {
 		const c = text[i];
@@ -171,17 +191,123 @@ export function callBeforeCursor(text: string): { fnName: string, argIndex: numb
 	return undefined;
 }
 
+/** resolves a typed name against real parameter names via R's own pmatch rule: exact match wins, else an unambiguous prefix before `...`; undefined if unknown or ambiguous */
+export function resolveArgNameAgainst(typed: string, paramNames: readonly string[]): string | undefined {
+	return findByPrefixIfUnique(typed, paramNames);
+}
+
+/** resolves every argument of a call via R's three-pass matching: named args claim their formal first, then unnamed args fill remaining formals in order, stopping at `...` */
+export function resolveCallArgs(rawSegments: readonly string[], paramNames: readonly string[]): { filled: Set<string>, current?: string } {
+	const namedAt = rawSegments.map(seg => NamedArgPattern.exec(seg)?.[1]);
+	const resolvedNamedAt = namedAt.map(name => name !== undefined ? resolveArgNameAgainst(name, paramNames) : undefined);
+	const filled = new Set(resolvedNamedAt.filter((name): name is string => name !== undefined));
+
+	let positionalIdx = 0;
+	// the next formal reachable positionally; `...` is returned and never advanced past once reached
+	const nextPositionalFormal = (): string | undefined => {
+		while(positionalIdx < paramNames.length) {
+			const name = paramNames[positionalIdx];
+			if(name === '...') {
+				return '...';
+			}
+			positionalIdx++;
+			if(!filled.has(name)) {
+				return name;
+			}
+		}
+		return undefined;
+	};
+
+	let current: string | undefined;
+	for(let i = 0; i < rawSegments.length; i++) {
+		const isLast = i === rawSegments.length - 1;
+		if(namedAt[i] !== undefined) {
+			if(isLast) {
+				current = resolvedNamedAt[i];
+			}
+			continue;
+		}
+		const formal = nextPositionalFormal();
+		if(isLast) {
+			current = formal;
+		} else if(formal !== undefined && formal !== '...') {
+			filled.add(formal);
+		}
+	}
+	return { filled, current };
+}
+
+/** `detach` mirrors `attach`'s "package:<pkg>" argument but loads nothing, so flowR's {@link LibraryFunctions} omits it */
+const ExtraPackageArgFunctions: FunctionInfo[] = [
+	{ package: 'base', name: 'detach', argIdx: 0, argName: 'name', resolveValue: true }
+];
+
+/** every call flowR (plus {@link ExtraPackageArgFunctions}) recognizes as taking a package name argument, by function name */
+const PackageArgFunctions: Map<string, FunctionInfo> = new Map(
+	[...LibraryFunctions, ...ExtraPackageArgFunctions].map(info => [info.name, info])
+);
+
+/** functions whose package argument is also commonly given in `package:<pkg>` form - the name R itself puts on the search path */
+const PackageColonForms = new Set(['attach', 'detach']);
+
+/** a function's real, ordered parameter names from flowR's signature database, or `undefined` if unresolvable (package not synced/found, or the function isn't in it) */
+async function sigDbParamNames(pkg: string, fnName: string): Promise<string[] | undefined> {
+	const found = await findSigDbPackageSource(pkg);
+	if(!found) {
+		return undefined;
+	}
+	const fn = safeSigDbCall(() => found.source.functionByName(pkg, fnName));
+	return fn?.signature.map(p => p.name);
+}
+
+/** whether the cursor sits at `info`'s package-name argument; prefers the real sigdb signature, falls back to `info.argName` alone */
+async function isAtPackageArgPosition(call: { rawSegments: string[], inValuePosition: boolean }, info: FunctionInfo): Promise<boolean> {
+	if(info.argIdx === 'unnamed') {
+		return !call.inValuePosition;
+	}
+	if(info.argName === undefined) {
+		return false;
+	}
+	const paramNames = (info.package && await sigDbParamNames(info.package, info.name)) || [info.argName];
+	return resolveCallArgs(call.rawSegments, paramNames).current === info.argName;
+}
+
+function packageNameCompletionItem(label: string, insertText: string): vscode.CompletionItem {
+	const item = new vscode.CompletionItem({ label, description: 'package' }, vscode.CompletionItemKind.Module);
+	item.insertText = insertText;
+	item.sortText = label;
+	return item;
+}
+
+/** completions for a `library(...)`/`attach(...)`/... package-name argument, or `undefined` if the cursor isn't in one */
+export async function packageArgumentCompletions(textBeforeCursor: string): Promise<vscode.CompletionItem[] | undefined> {
+	const call = callBeforeCursor(textBeforeCursor);
+	const info = call && PackageArgFunctions.get(call.fnName);
+	if(!call || !info || !await isAtPackageArgPosition(call, info)) {
+		return undefined;
+	}
+	const names = [...await allKnownPackageNames()].sort((a, b) => a.localeCompare(b));
+	const items = names.map(pkg => packageNameCompletionItem(pkg, pkg));
+	if(PackageColonForms.has(call.fnName)) {
+		items.push(...names.map(pkg => packageNameCompletionItem(`package:${pkg}`, `package:${pkg}`)));
+	}
+	return items;
+}
+
 class FlowrSigDbSignatureHelpProvider implements vscode.SignatureHelpProvider {
-	async provideSignatureHelp(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.SignatureHelp | undefined> {
+	async provideSignatureHelp(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.SignatureHelp | undefined> {
+		if(!completionEnabled()) {
+			return undefined;
+		}
 		const call = callBeforeCursor(document.getText(new vscode.Range(new vscode.Position(0, 0), position)));
 		if(!call) {
 			return undefined;
 		}
 		const found = await findFunctionInLoadedPackages(call.fnName, loadedPackagesIn(textBeforePosition(document, position)));
-		if(!found) {
+		if(!found || token.isCancellationRequested) {
 			return undefined;
 		}
-		const fn = found.source.functions(found.pkg, found.version)?.find(f => f.name === call.fnName);
+		const fn = safeSigDbCall(() => found.source.functionByName(found.pkg, call.fnName, found.version));
 		if(!fn) {
 			return undefined;
 		}
@@ -191,35 +317,33 @@ class FlowrSigDbSignatureHelpProvider implements vscode.SignatureHelpProvider {
 		info.parameters = paramLabels.map(label => new vscode.ParameterInformation(label));
 		info.documentation = new vscode.MarkdownString(`from \`${found.pkg}\`${found.version ? ` v${found.version}` : ''}\n\n*via flowR's signature database*`);
 
+		// resolved against the real parameter list so a named or out-of-order argument highlights its actual target
+		const paramNames = fn.signature.map(p => p.name);
+		const resolved = resolveCallArgs(call.rawSegments, paramNames).current;
+		const resolvedIdx = resolved !== undefined ? paramNames.indexOf(resolved) : -1;
+
 		const help = new vscode.SignatureHelp();
 		help.signatures = [info];
 		help.activeSignature = 0;
-		help.activeParameter = Math.min(call.argIndex, Math.max(paramLabels.length - 1, 0));
+		help.activeParameter = resolvedIdx >= 0 ? resolvedIdx : Math.min(call.argIndex, Math.max(paramLabels.length - 1, 0));
 		return help;
 	}
 }
 
-/**
- * whether the official R language server extension (REditorSupport.r) is installed and active - if so, it
- *  already provides richer, R-evaluated completions/signature help, so we stay out of its way
- */
+/** whether REditorSupport.r is active - it already provides richer, R-evaluated completions, so we stay out of its way */
 function rLanguageServerActive(): boolean {
 	const ext = vscode.extensions.getExtension('reditorsupport.r');
 	return !!ext?.isActive;
 }
 
-/**
- * Registers R/Rmd completion + signature help for functions of packages the current document `library()`s,
- *  backed by whichever signature-database scopes are actually downloaded. Skipped entirely when the official
- *  R language server extension is active, to avoid duplicate/conflicting suggestions.
- */
+/** registers R/Rmd completion + signature help for `library()`d packages, backed by whichever sigdb scopes are downloaded; skipped if REditorSupport.r is active */
 export function registerCompletion(): vscode.Disposable {
 	if(rLanguageServerActive()) {
 		return new vscode.Disposable(() => { /* nothing registered */ });
 	}
 	const selectors: vscode.DocumentSelector[] = [{ language: 'r' }, { language: 'rmd' }];
 	return vscode.Disposable.from(
-		...selectors.map(selector => vscode.languages.registerCompletionItemProvider(selector, new FlowrSigDbCompletionProvider(), '(', ',', ' ')),
+		...selectors.map(selector => vscode.languages.registerCompletionItemProvider(selector, new FlowrSigDbCompletionProvider(), '(', ',', ' ', '"', '\'')),
 		...selectors.map(selector => vscode.languages.registerSignatureHelpProvider(selector, new FlowrSigDbSignatureHelpProvider(), '(', ','))
 	);
 }

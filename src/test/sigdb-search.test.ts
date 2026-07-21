@@ -8,31 +8,80 @@ import { downloadSigDbScope, readSigDbRemotePointer } from '../package-db';
 
 suite('SigDB search', () => {
 	suite('parseSigDbSearchQuery', () => {
+		// every case includes `parameters`/`requiredParameters` explicitly (as `undefined` when unused), since
+		// `deepStrictEqual` treats a present-but-undefined key differently from an absent one
+		const noParamFilter = { parameters: undefined, requiredParameters: undefined };
+
 		test('parses a plain package', () => {
-			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2'), { pkg: 'ggplot2', version: undefined, fnName: undefined });
+			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2'), { pkg: 'ggplot2', version: undefined, fnName: undefined, ...noParamFilter });
 		});
 
 		test('parses pkg::fn', () => {
-			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2::ggplot'), { pkg: 'ggplot2', version: undefined, fnName: 'ggplot' });
+			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2::ggplot'), { pkg: 'ggplot2', version: undefined, fnName: 'ggplot', ...noParamFilter });
 		});
 
 		test('parses pkg@version', () => {
-			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2@3.5.0'), { pkg: 'ggplot2', version: '3.5.0', fnName: undefined });
+			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2@3.5.0'), { pkg: 'ggplot2', version: '3.5.0', fnName: undefined, ...noParamFilter });
 		});
 
 		test('parses pkg@version::fn', () => {
-			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2@3.5.0::ggplot'), { pkg: 'ggplot2', version: '3.5.0', fnName: 'ggplot' });
+			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2@3.5.0::ggplot'), { pkg: 'ggplot2', version: '3.5.0', fnName: 'ggplot', ...noParamFilter });
 		});
 
 		test('parses glob patterns in every part', () => {
-			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2@3.*::ggp*'), { pkg: 'ggplot2', version: '3.*', fnName: 'ggp*' });
+			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2@3.*::ggp*'), { pkg: 'ggplot2', version: '3.*', fnName: 'ggp*', ...noParamFilter });
 		});
 
-		test('trims whitespace around "@" and "::"', () => {
-			assert.deepStrictEqual(parseSigDbSearchQuery('  dplyr  @ 1.1.0  ::  mutate  '), { pkg: 'dplyr', version: '1.1.0', fnName: 'mutate' });
+		// mirrors flowR's own `:signature query` REPL syntax exactly (signatureQueryLineParser in
+		// signature-query-format.js): a second whitespace-separated token is the function name, whether or
+		// not the first token also carries a version
+		test('a space works as the pkg/fn separator too, like "::"', () => {
+			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2 ggplot'), { pkg: 'ggplot2', version: undefined, fnName: 'ggplot', ...noParamFilter });
 		});
 
-		test('rejects an empty or package-less query', () => {
+		test('a space after "pkg@version" still separates the function name', () => {
+			assert.deepStrictEqual(parseSigDbSearchQuery('ggplot2@3.5.0 ggplot'), { pkg: 'ggplot2', version: '3.5.0', fnName: 'ggplot', ...noParamFilter });
+		});
+
+		test('extra whitespace between tokens is ignored', () => {
+			assert.deepStrictEqual(parseSigDbSearchQuery('  ggplot2   ggplot  '), { pkg: 'ggplot2', version: undefined, fnName: 'ggplot', ...noParamFilter });
+		});
+
+		// `pkg@version` must be one contiguous token, exactly like flowR's own parser - spaces around "@" are
+		// not a supported alternative spelling, so this is expected to misparse rather than to be handled leniently
+		test('"@" only works as part of a single pkg@version token, not with spaces around it', () => {
+			assert.deepStrictEqual(parseSigDbSearchQuery('dplyr @ 1.1.0'), { pkg: 'dplyr', version: undefined, fnName: '@', ...noParamFilter });
+		});
+
+		test('parses --param (repeatable, comma-separable)', () => {
+			assert.deepStrictEqual(
+				parseSigDbSearchQuery('ggplot2::ggplot --param x,y* --param z'),
+				{ pkg: 'ggplot2', version: undefined, fnName: 'ggplot', parameters: ['x', 'y*', 'z'], requiredParameters: undefined }
+			);
+		});
+
+		test('parses --required', () => {
+			assert.deepStrictEqual(
+				parseSigDbSearchQuery('mutate --required 2'),
+				{ pkg: 'mutate', version: undefined, fnName: undefined, parameters: undefined, requiredParameters: 2 }
+			);
+		});
+
+		test('-p and --req are accepted as short forms', () => {
+			assert.deepStrictEqual(
+				parseSigDbSearchQuery('ggplot2::ggplot -p x --req 2'),
+				{ pkg: 'ggplot2', version: undefined, fnName: 'ggplot', parameters: ['x'], requiredParameters: 2 }
+			);
+		});
+
+		test('a bare --param with no package searches every package', () => {
+			assert.deepStrictEqual(
+				parseSigDbSearchQuery('--param mapping'),
+				{ pkg: '*', version: undefined, fnName: undefined, parameters: ['mapping'], requiredParameters: undefined }
+			);
+		});
+
+		test('rejects an empty query, or one that is only flags with no filter value', () => {
 			assert.strictEqual(parseSigDbSearchQuery(''), undefined);
 			assert.strictEqual(parseSigDbSearchQuery('::mutate'), undefined);
 		});
@@ -129,6 +178,27 @@ suite('SigDB search', () => {
 
 			const noMatch = await findSigDbMatches({ pkg: 'this-package-does-not-exist' }, output, 'base');
 			assert.deepStrictEqual(noMatch, []);
+		});
+
+		test('filters by --param (glob, position-independent) and --required, against a real function', async function() {
+			this.timeout(30000);
+			if(!readSigDbRemotePointer()) {
+				this.skip();
+				return;
+			}
+			await downloadSigDbScope('base');
+
+			// base::grepl(pattern, x, ignore.case, perl, fixed, useBytes) has a stable `ignore.case` parameter,
+			// taken directly (not deferred to an S3 default method, unlike e.g. mean/mean.default)
+			const byParam = await findSigDbMatches({ pkg: 'base', fnName: 'grepl', parameters: ['ignore.*'] }, output, 'base');
+			assert.ok(byParam.some(m => m.fnName === 'grepl'), 'expected base::grepl to match an "ignore.*" parameter glob');
+
+			const byMissingParam = await findSigDbMatches({ pkg: 'base', fnName: 'grepl', parameters: ['this-param-does-not-exist'] }, output, 'base');
+			assert.deepStrictEqual(byMissingParam, []);
+
+			// a bare --param search (no package/function given) must still search every package, like flowR's own `pkg: '*'`
+			const bareParam = await findSigDbMatches({ pkg: '*', parameters: ['ignore.case'] }, output, 'base');
+			assert.ok(bareParam.some(m => m.fnName === 'grepl' && m.pkg === 'base'), 'expected a bare --param search to still find base::grepl');
 		});
 	});
 });

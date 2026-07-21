@@ -72,7 +72,7 @@ export class ConfigurableRefresher {
 	private debounceTimer:                    NodeJS.Timeout | undefined;
 	private disposables:                      vscode.Disposable[] = [];
 	private readonly spec:                    ConfigurableRefresherConstructor;
-	private lastDocumentVersion?:             number;
+	private lastRefreshedDocument?:           string;
 	private static documentChangedDisposable: vscode.Disposable | undefined;
 	private static onChangeRefreshers:        ConfigurableRefresher[] = [];
 
@@ -131,23 +131,34 @@ export class ConfigurableRefresher {
 	 * Can be overriden by {@link ConfigurableRefresherConstructor.shouldUpdateHook}
 	 */
 	private shouldUpdate(): boolean {
-		if(!vscode.window.activeTextEditor) {
+		const document = vscode.window.activeTextEditor?.document;
+		if(!document) {
 			return false;
 		}
 
 		// optionaly, run specified hook instead of default behaviour
 		if(this.spec.shouldUpdateHook) {
-			return this.spec.shouldUpdateHook(vscode.window.activeTextEditor.document);
+			return this.spec.shouldUpdateHook(document);
 		}
 
-		const update = this.lastDocumentVersion == undefined || vscode.window.activeTextEditor.document.version > this.lastDocumentVersion;
-		this.lastDocumentVersion = vscode.window.activeTextEditor.document.version;
+		// dedupe on document *identity* and version: the same unchanged document never re-triggers (editor
+		// transitions can re-fire events for it), while switching to a different R document always does
+		const key = `${document.uri.toString()}@${document.version}`;
+		const update = this.lastRefreshedDocument !== key;
+		this.lastRefreshedDocument = key;
 		return update;
 	}
 
 	private runRefreshCallback() {
-		if(!isRTypeLanguage(vscode.window.activeTextEditor?.document)) {
-			this.lastDocumentVersion = undefined;
+		const document = vscode.window.activeTextEditor?.document;
+		if(!document) {
+			// editor transitions (preview-tab replacement, open/close churn) briefly report *no* active editor;
+			// resetting the dedupe state here would double-count the refresh once the same R editor re-fires
+			void this.spec.clearCallback?.();
+			return false;
+		}
+		if(!isRTypeLanguage(document)) {
+			this.lastRefreshedDocument = undefined;
 			void this.spec.clearCallback?.();
 			return false;
 		}

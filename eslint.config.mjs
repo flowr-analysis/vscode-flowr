@@ -19,6 +19,4 @@ export default[...compat.extends('@eagleoutice/eslint-config-flowr'), {
 			},
 		},
 	},
-
-	rules: {},
 }];

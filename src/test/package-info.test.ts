@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { activateExtension, openTestFile } from './test-util';
 import assert from 'assert';
-import { remoteLinkRedirectUri } from '../package-info';
 
 suite('package info', () => {
 	suiteSetup(async() => {
@@ -30,20 +29,17 @@ suite('package info', () => {
 		assert.ok(!contents.some(v => /provided by/.test(v)), `did not expect a package hover for a local function, got: ${JSON.stringify(contents)}`);
 	});
 
-	test('jumps to the definition of a locally defined function', async() => {
+	// regression test: a call's origins include both the closure and its binding; VS Code can't label multiple results, so this must collapse to the function body alone
+	test('jumps to the definition of a locally defined function (a single location, not also its own binding)', async() => {
 		const editor = await openTestFile('package-info-example.R');
 		// the call `myFunction(2)` on the last line should resolve to its definition on line 3 (index 2)
 		const pos = new vscode.Position(5, 3);
 		const result: vscode.Location[] = await vscode.commands.executeCommand('vscode.executeDefinitionProvider', editor.document.uri, pos);
-		assert.ok(result && result.length > 0, 'expected at least one definition location');
-		assert.ok(
-			result.some(loc => loc.range.start.line === 2),
-			`expected a definition on line 3 (index 2), got lines: ${result.map(l => l.range.start.line).join(', ')}`
-		);
+		assert.strictEqual(result?.length, 1, `expected exactly one (unambiguous) definition location, got: ${JSON.stringify(result?.map(l => l.range))}`);
+		assert.strictEqual(result[0].range.start.line, 2, `expected the definition on line 3 (index 2), got line ${result[0].range.start.line}`);
 	});
 
-	// regression test: clicking a variable/function at its own definition (not a use of it) has no dataflow
-	// "origin" to resolve - it is not a read of anything - so it must not come up empty ("no references found")
+	// regression test: clicking a definition itself has no dataflow origin to resolve, so it must not come up empty
 	test('clicking a local function definition itself resolves to its own location, not nothing', async() => {
 		const editor = await openTestFile('package-info-example.R');
 		// `myFunction` on line 3 (index 2) is the definition itself, not a use of it
@@ -67,9 +63,7 @@ suite('package info', () => {
 		);
 	});
 
-	// regression test: "Find All References" on a local definition used to always say "No references found" -
-	// no ReferenceProvider was registered at all, so VS Code's own fallback (with nothing to ask) always came
-	// up empty, even though flowR's dataflow graph already knows every use via `Reads` edges
+	// regression test: "Find All References" used to always report nothing, since no ReferenceProvider was registered at all
 	test('finds all references to a local variable, including its own definition', async() => {
 		const editor = await openTestFile('definition-self-example.R');
 		// `df` is defined on line 5 (index 4) and used on line 6 (index 5)
@@ -79,22 +73,82 @@ suite('package info', () => {
 		assert.deepStrictEqual(lines, [4, 5], `expected references on both the definition (line 5) and its use (line 6), got lines: ${lines.join(', ')}`);
 	});
 
-	// regression test for the redirect mechanism behind Ctrl+click on a remote-only target (e.g. ggplot's
-	// GitHub source, or a library()'s CRAN page): opening it must show explanatory placeholder content and
-	// then close its own tab automatically, rather than leaving a permanent fake document open in the editor
-	test('opening a remote-link redirect URI shows placeholder content and closes its own tab', async() => {
-		const target = 'https://example.com/vscode-flowr-test-link';
-		const uri = remoteLinkRedirectUri(target);
+	/**
+	 * Simulates a real Ctrl+click at `pos` (via the actual "go to definition" command, not just resolving the
+	 * provider) and reports what external URL, if any, it opened - intercepting `vscode.env.openExternal` rather
+	 * than reading a DocumentLink, since package/function links are now real (redirect) Definitions: no permanent
+	 * underline (only while Ctrl is held, like any other go-to-definition target), but still reliably click-through.
+	 */
+	async function simulateClickAndCaptureExternalOpen(editor: vscode.TextEditor, pos: vscode.Position): Promise<string | undefined> {
+		const original = vscode.env.openExternal;
+		let openedUrl: string | undefined;
+		try {
+			(vscode.env as { openExternal: typeof vscode.env.openExternal }).openExternal = (uri: vscode.Uri) => {
+				openedUrl = uri.toString(true);
+				return Promise.resolve(true);
+			};
+			editor.selection = new vscode.Selection(pos, pos);
+			await vscode.window.showTextDocument(editor.document, { selection: editor.selection });
+			await vscode.commands.executeCommand('editor.action.revealDefinition');
+			await new Promise(resolve => setTimeout(resolve, 1000));
+			return openedUrl;
+		} finally {
+			(vscode.env as { openExternal: typeof vscode.env.openExternal }).openExternal = original;
+		}
+	}
 
-		const doc = await vscode.workspace.openTextDocument(uri);
-		assert.ok(doc.getText().includes(target), `expected the placeholder content to mention the target, got: ${doc.getText()}`);
+	// regression test: the old fake-Location trick for Ctrl+click-to-CRAN also opened the browser on mere Ctrl+hover.
+	// Merely resolving the provider's Definition (what a hover-preview needs) must not open anything by itself -
+	// only an actual navigation (a real tab opening) may trigger `openExternal` - see the redirect mechanism in
+	// package-info.ts (`registerExternalRedirect`/`redirectUri`) for how this is kept structurally impossible.
+	test('merely resolving a definition does not open anything - only a real click may', async() => {
+		const editor = await openTestFile('definition-self-example.R'); // `library(ggplot2)` on line 1
+		const original = vscode.env.openExternal;
+		let called = false;
+		try {
+			(vscode.env as { openExternal: typeof vscode.env.openExternal }).openExternal = () => {
+				called = true;
+				return Promise.resolve(true);
+			};
+			await vscode.commands.executeCommand('vscode.executeDefinitionProvider', editor.document.uri, new vscode.Position(0, 9));
+			await new Promise(resolve => setTimeout(resolve, 500));
+		} finally {
+			(vscode.env as { openExternal: typeof vscode.env.openExternal }).openExternal = original;
+		}
+		assert.strictEqual(called, false, 'merely resolving the definition must not have opened anything');
+	});
 
-		await vscode.window.showTextDocument(doc);
-		await new Promise(resolve => setTimeout(resolve, 500));
+	test('a real click on library()\'s package name opens its CRAN page, without leaving a stray tab open', async() => {
+		const editor = await openTestFile('definition-self-example.R'); // `library(ggplot2)` on line 1
+		const opened = await simulateClickAndCaptureExternalOpen(editor, new vscode.Position(0, 9));
+		assert.strictEqual(opened, 'https://cran.r-project.org/package=ggplot2');
+		const redirectTabs = vscode.window.tabGroups.all.flatMap(g => g.tabs).filter(t => t.input instanceof vscode.TabInputText && t.input.uri.scheme === 'vscode-flowr-open-external');
+		assert.strictEqual(redirectTabs.length, 0, `expected no leftover redirect tab, got: ${JSON.stringify(redirectTabs.map(t => t.label))}`);
+	});
 
-		const stillOpen = vscode.window.tabGroups.all
-			.flatMap(g => g.tabs)
-			.some(t => t.input instanceof vscode.TabInputText && t.input.uri.toString() === uri.toString());
-		assert.ok(!stillOpen, 'expected the placeholder tab to have closed itself');
+	// a base R package (shipped with R itself, e.g. `stats`) has no CRAN page - clicking it must not open anything
+	test('a real click on a base R package loaded via library() does not open anything (it has no CRAN page)', async() => {
+		const editor = await openTestFile('library-base-example.R'); // `library(stats)`
+		const opened = await simulateClickAndCaptureExternalOpen(editor, new vscode.Position(0, 9));
+		assert.strictEqual(opened, undefined, 'did not expect a CRAN link for the base package `stats`');
+	});
+
+	// a call to a package function has never had any click-through before; it must not be underlined in the
+	// source (no DocumentLink), but a real click should still open its source, via the same redirect mechanism
+	test('a real click on a call to a package function opens its source', async() => {
+		const editor = await openTestFile('definition-self-example.R'); // `ggplot()` on line 3
+		const opened = await simulateClickAndCaptureExternalOpen(editor, new vscode.Position(2, 2));
+		assert.ok(opened?.startsWith('https://github.com/cran/ggplot2/'), `expected a ggplot2 GitHub source link, got: ${opened}`);
+	});
+
+	// regression test: `library(ggplot)` is a plausible typo of `ggplot2` - the hover must offer a "did you mean" guess, not just report unknown
+	test('hovering an unresolved library() package suggests a close match when one exists', async() => {
+		const editor = await openTestFile('library-typo-example.R');
+		const result: vscode.Hover[] = await vscode.commands.executeCommand('vscode.executeHoverProvider', editor.document.uri, new vscode.Position(0, 9));
+		const contents = (result ?? [])
+			.flatMap(h => h.contents)
+			.map(c => typeof c === 'string' ? c : (c as vscode.MarkdownString).value ?? '');
+		const hint = contents.find(v => v.includes('ggplot'));
+		assert.ok(hint?.includes('did you mean') && hint.includes('ggplot2'), `expected a "did you mean ggplot2" hint, got: ${JSON.stringify(contents)}`);
 	});
 });

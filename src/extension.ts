@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { FlowrInternalSession } from './flowr/internal-session';
 import { FlowrServerSession } from './flowr/server-session';
 import { getConfig, Settings } from './settings';
@@ -8,27 +9,24 @@ import { registerDiagramCommands } from './flowr/diagrams/diagram';
 import type { FlowrSession } from './flowr/utils';
 import { selectionSlicer } from './selection-slicer';
 import { positionSlicers } from './position-slicer';
-import { flowrVersion } from '@eagleoutice/flowr/util/version';
+import { version as flowrPackageVersion } from '@eagleoutice/flowr/package.json';
 import { registerDependencyInternalCommands, registerDependencyView } from './flowr/views/dependency-view';
 import { DropPathsOption, FlowrConfig, InferWorkingDirectory, VariableResolve  } from '@eagleoutice/flowr/config';
 import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environments/built-in-config';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
-import { NoTelemetry, registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
+import { NoTelemetry, RecordingTelemetry, registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
 import { registerHoverOverValues } from './hover-values';
 import { registerPackageInfo } from './package-info';
 import { registerCompletion } from './completion';
 import { registerProjectView } from './flowr/views/project-view';
 import { registerSigDbView } from './flowr/views/sigdb-view';
 import { registerSigDbNotifications } from './sigdb-notifications';
-import { sigDbSummary, getSigDbMountPaths } from './package-db';
+import { sigDbSummary, getSigDbMountPaths, isSigDbEnabled, shouldSigDbAutoSync, getDownloadedShardGroups, getSigDbScopeState, downloadSigDbScope, invalidateSigDbPackageNamesCache } from './package-db';
 import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/tree-sitter-executor';
 import { showRepl } from './flowr/terminals/flowr-repl';
 
-/**
- * Public-facing API for the flowR extension, which includes a variety of helpful utilities.
- * Currently, items exposed by the public-facing API are required and used for unit tests.
- */
+/** public-facing API for the flowR extension; currently required and used for unit tests */
 export interface FlowrExtensionApi {
 	flowrConfig: () => FlowrConfig
 }
@@ -49,7 +47,7 @@ let sessionInitPromise: Promise<FlowrSession> | undefined;
 export async function activate(context: vscode.ExtensionContext): Promise<FlowrExtensionApi> {
 	extensionContext = context;
 	outputChannel = vscode.window.createOutputChannel('flowR');
-	outputChannel.appendLine(`flowR extension activated (ships with flowR v${flowrVersion().toString()}, web: ${isWeb()})`);
+	outputChannel.appendLine(`flowR extension activated (ships with flowR v${flowrPackageVersion}, web: ${isWeb()})`);
 
 	registerDiagramCommands(context, outputChannel);
 	registerSliceCommands(context, outputChannel);
@@ -57,6 +55,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<FlowrE
 	registerDependencyInternalCommands(context, outputChannel);
 	registerTelemetry(context, outputChannel);
 
+	// web only: readies the brotli WASM decompressor and the bundled sigdb's virtual-fs copy before any sigdb read
+	await initSigDbForWeb();
 	// make flowR's bundled signature database discoverable before the first analysis runs
 	configureSigDb();
 	updateFlowrConfig();
@@ -64,6 +64,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FlowrE
 	void predownloadBaseRSignatures();
 	vscode.workspace.onDidChangeConfiguration(e => {
 		if(e.affectsConfiguration(Settings.Category)) {
+			invalidateSigDbPackageNamesCache();
 			configureSigDb();
 			updateFlowrConfig();
 		}
@@ -104,7 +105,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FlowrE
 
 <!-- Automatically generated issue metadata, please do not edit or delete content below this line -->
 ---
-flowR version: ${flowrVersion().toString()}  
+flowR version: ${flowrPackageVersion}  
 Extension version: ${(extensionContext.extension.packageJSON as { version: string }).version} (${vscode.ExtensionMode[extensionContext.extensionMode]} mode)  
 VS Code version: ${vscode.version} (web ${isWeb()})  
 Session: ${flowrSession ? `${flowrSession instanceof FlowrServerSession ? 'server' : 'internal'} (${flowrSession instanceof FlowrServerSession ? flowrSession.state : (flowrSession as FlowrInternalSession)?.state})` : 'none'}  
@@ -179,8 +180,7 @@ export async function getFlowrSession() {
 	if(flowrSession) {
 		return flowrSession;
 	}
-	// initialize a default session if none is active (tree-sitter backend on the web, where we can't run R),
-	// coalescing concurrent callers onto a single init
+	// initialize a default session if none is active, coalescing concurrent callers onto a single init
 	sessionInitPromise ??= establishInternalSession().finally(() => {
 		sessionInitPromise = undefined;
 	});
@@ -209,6 +209,10 @@ export function destroySession() {
  *
  */
 export function updateStatusBar() {
+	// telemetry/recording may sync from settings before the status bar exists; activate() refreshes it right after creation
+	if(!statusBarItem) {
+		return;
+	}
 	const text: string[] = [];
 	const tooltip: string[] = [];
 
@@ -225,7 +229,7 @@ export function updateStatusBar() {
 		const active = flowrSession.state === 'active';
 		text.push(`$(console) flowR ${flowrSession.state}${active && flowrSession.rVersion ? ` (R ${flowrSession.rVersion})` : ''}`);
 		if(active) {
-			let info = `R version ${flowrSession.rVersion}  \nflowR version ${flowrVersion().toString()}  \nEngine ${flowrSession.parser?.name}`;
+			let info = `R version ${flowrSession.rVersion}  \nflowR version ${flowrPackageVersion}  \nEngine ${flowrSession.parser?.name}`;
 			if(flowrSession.parser instanceof TreeSitterExecutor) {
 				info += ` version ${flowrSession.parser.treeSitterVersion()}`;
 			}
@@ -259,7 +263,10 @@ export function updateStatusBar() {
 		}
 	}
 
-	if(!(telemetry instanceof NoTelemetry)){
+	if(telemetry instanceof RecordingTelemetry){
+		text.push('$(record) Recording');
+		tooltip.push(`Recording this session to ${telemetry.filePath}`);
+	} else if(!(telemetry instanceof NoTelemetry)){
 		text.push('$(record) Telemetry active');
 	}
 
@@ -272,12 +279,8 @@ export function updateStatusBar() {
 	}
 }
 
-/**
- *
- */
+/** whether running in VS Code Web; uiKind alone still reports desktop inside Desktop's fake-browser mode, see https://code.visualstudio.com/updates/v1_101#_web-environment-detection */
 export function isWeb() {
-	// uiKind doesn't do the check we want here, since it still returns the desktop environment if we're in the vscode desktop fake browser version
-	// also, this is the recommended check according to https://code.visualstudio.com/updates/v1_101#_web-environment-detection
 	return !(typeof process === 'object' && process.versions.node);
 }
 
@@ -308,36 +311,79 @@ export function registerCommand(context: vscode.ExtensionContext, command: strin
 	}, thisArg));
 }
 
-/**
- * The absolute path to the signature database that we ship inside the extension bundle
- * (copied into `dist/node` by webpack). Returns `undefined` on the web.
- */
+/** virtual-fs path key for the bundled sigdb on web - not a real URL, so path.join stays safe */
+const WebBundledSigDbVirtualPath = '/virtual/bundled-sigdb';
+
+/** path to the bundled signature database (virtual fs path on web, real path on desktop) */
 export function getBundledSigDbPath(): string | undefined {
 	if(isWeb()) {
-		return undefined;
+		// the virtual fs has no directory concept - existsSync only ever matches an exact file key
+		return fs.existsSync(`${WebBundledSigDbVirtualPath}/sigdb.remote.json`) ? WebBundledSigDbVirtualPath : undefined;
 	}
 	return path.join(getWasmRootPath(), 'sigdb');
 }
 
-/** Log whether flowR will auto-sync the signature database in the background (see `sigDbConfigFromSettings`) */
-function predownloadBaseRSignatures(): void {
-	if(isWeb() || typeof process === 'undefined' || !process.env) {
+/** copies the bundled dist/web/sigdb/* files into the virtual fs so the sync sigdb reader can open them */
+async function hydrateBundledSigDbForWeb(): Promise<void> {
+	if(!isWeb()) {
 		return;
 	}
-	const config = getConfig();
-	if(!config.get<boolean>(Settings.SigDbEnabled, true) || !config.get<boolean>(Settings.SigDbAutoSync, false)) {
-		return;
+	try {
+		const sourceDir = vscode.Uri.joinPath(extensionContext.extensionUri, 'dist', 'web', 'sigdb');
+		const entries = await vscode.workspace.fs.readDirectory(sourceDir);
+		await Promise.all(entries.map(async([name, type]) => {
+			if(type !== vscode.FileType.File) {
+				return;
+			}
+			const virtualPath = `${WebBundledSigDbVirtualPath}/${name}`;
+			if(fs.existsSync(virtualPath)) {
+				return;
+			}
+			const bytes = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(sourceDir, name));
+			fs.writeFileSync(virtualPath, Buffer.from(bytes));
+		}));
+	} catch(e) {
+		outputChannel?.appendLine(`[flowR] could not load the bundled signature database in the web build: ${e instanceof Error ? e.message : String(e)}`);
 	}
-	outputChannel?.appendLine('[flowR] SigDB auto-sync enabled - checking for changed shards in the background');
 }
 
-/**
- * Re-reads the signature-database settings and on-disk state (`FLOWR_SIGDB`/`additionalPaths`) and destroys the
- * active flowR session, so the next feature call builds a fresh one that actually mounts what is now on disk.
- * Without this, downloading/removing a scope from the Signature DB view had no effect on an already-running
- * session - `configureSigDb()`/`updateFlowrConfig()` only ever ran at activation and on a settings change, and
- * even a re-run alone would not help an *already-constructed* session, which bakes the sigdb paths in once.
- */
+/** web-only: readies WASM brotli, restores the virtual fs from IndexedDB, hydrates the bundled sigdb */
+async function initSigDbForWeb(): Promise<void> {
+	if(!isWeb()) {
+		return;
+	}
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const zlibShim = require('zlib') as { initBrotliSync: (bytes: Uint8Array) => void };
+	const wasmUri = vscode.Uri.joinPath(extensionContext.extensionUri, 'dist', 'web', 'wasm', 'brotli_dec_wasm_bg.wasm');
+	zlibShim.initBrotliSync(await vscode.workspace.fs.readFile(wasmUri));
+	const virtualFs = (fs as unknown as { __vscodeFlowrVirtualFs?: { restoreFromIndexedDb: () => Promise<void> } }).__vscodeFlowrVirtualFs;
+	await virtualFs?.restoreFromIndexedDb();
+	await hydrateBundledSigDbForWeb();
+}
+
+/** with auto-sync on, downloads the current-R-version Base R shard on first activation so base symbol resolution works out of the box */
+export async function predownloadBaseRSignatures(): Promise<void> {
+	if(typeof process === 'undefined' || !process.env) {
+		return;
+	}
+	if(!isSigDbEnabled() || !shouldSigDbAutoSync() || getDownloadedShardGroups('base').has('current')) {
+		return;
+	}
+	// base signatures may already ship inside the bundle (the web build always does; browsers can't download GitHub assets anyway)
+	if(getSigDbScopeState('base').manifest) {
+		return;
+	}
+	outputChannel?.appendLine('[flowR] SigDB auto-sync enabled - downloading Base R signatures in the background');
+	try {
+		await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: 'Downloading Base R signatures' }, () =>
+			downloadSigDbScope('base', msg => outputChannel?.appendLine(`[flowR] ${msg}`), undefined, ['base-current']));
+		refreshSigDbConfig();
+	} catch(e) {
+		outputChannel?.appendLine(`[flowR] Base R signature pre-download failed: ${e instanceof Error ? e.message : String(e)}`);
+	}
+}
+
+/** re-reads sigdb settings/on-disk state and destroys the active session, so the next feature call mounts what is now on disk */
 export function refreshSigDbConfig() {
 	configureSigDb();
 	updateFlowrConfig();
@@ -345,7 +391,7 @@ export function refreshSigDbConfig() {
 }
 
 function configureSigDb() {
-	if(isWeb() || typeof process === 'undefined' || !process.env) {
+	if(typeof process === 'undefined' || !process.env) {
 		return;
 	}
 	const config = getConfig();
@@ -363,15 +409,7 @@ function configureSigDb() {
 	}
 }
 
-/**
- * Every real, on-disk signature-database source beyond the bundled default: the synced bundle's non-overlapping
- * manifest files (see `getSigDbMountPaths` - mounting `base` *and* `current` together duplicates every base
- * package and crashes flowR's own dependency resolution) plus the user's own configured `customPath`. Shared
- * by `configureSigDb()` (which feeds it to the `FLOWR_SIGDB` env var the sigdb plugin reads directly) and
- * `sigDbConfigFromSettings()` (which feeds the *same* list into `FlowrConfig.solver.sigdb.additionalPaths`), so
- * every flowR-backed feature - the REPL, hover/definition, dependency view, linting - sees identical sigdb
- * sources regardless of which of the two mechanisms it happens to consult.
- */
+/** every sigdb source beyond the bundled default (see {@link getSigDbMountPaths}) plus the user's customPath, shared by both env-var and FlowrConfig wiring */
 function sigDbAdditionalSources(config = getConfig()): string[] {
 	const sources = getSigDbMountPaths();
 	const custom = config.get<string>(Settings.SigDbCustomPath, '')?.trim();
@@ -381,20 +419,12 @@ function sigDbAdditionalSources(config = getConfig()): string[] {
 	return sources;
 }
 
-// we never want to access the default flowR config on accident,
-// so we set it to undefined by default until it is loaded during extension initialization
+// undefined until extension initialization loads it, so we never access the default flowR config by accident
 export let VSCodeFlowrConfiguration: FlowrConfig = undefined as unknown as FlowrConfig;
 
-/**
- * Reads the signature-database settings into the shape flowR expects under `solver.sigdb` (`enabled`,
- * `autoSync`, `eagerlyLoad`, `additionalPaths`). Without this, those VS Code settings only ever reached
- * flowR indirectly through the `FLOWR_SIGDB`/`FLOWR_DISABLE_DEFAULT_SIGDB` env vars set by
- * `configureSigDb()` - `autoSync`'s opt-in background re-sync and `eagerlyLoad`'s upfront database mount
- * (both real flowR features, see `flowr-analyzer-builder.js`/`flowr-analyzer-package-versions-sigdb-plugin.js`)
- * were never actually triggered because nothing set them on the real `FlowrConfig` object.
- */
+/** reads the sigdb settings into the shape flowR expects under `solver.sigdb`, so autoSync/eagerlyLoad actually reach the real FlowrConfig */
 function sigDbConfigFromSettings(config = getConfig()): {
-	sigdb?: { enabled: boolean, autoSync: boolean, eagerlyLoad: boolean, additionalPaths: string[] }
+	sigdb?: { enabled: boolean, autoSync: boolean, eagerlyLoad: boolean, additionalPaths: string[], assumedRVersion?: string }
 } {
 	const solverDefaults = FlowrConfig.default().solver as object | undefined;
 	if(!solverDefaults || !('sigdb' in solverDefaults)) {
@@ -405,9 +435,24 @@ function sigDbConfigFromSettings(config = getConfig()): {
 			enabled:         config.get<boolean>(Settings.SigDbEnabled, true),
 			autoSync:        config.get<boolean>(Settings.SigDbAutoSync, false),
 			eagerlyLoad:     config.get<boolean>(Settings.SigDbEagerlyLoad, false),
-			additionalPaths: isWeb() ? [] : sigDbAdditionalSources(config)
+			additionalPaths: sigDbAdditionalSources(config),
+			...(projectDeclaredRVersion ? { assumedRVersion: projectDeclaredRVersion } : {})
 		}
 	};
+}
+
+let projectDeclaredRVersion: string | undefined;
+
+/** pins flowR's assumed R version to what the project declares, instead of flowR's auto-detection/default; only an actual change rebuilds the session */
+export function setProjectDeclaredRVersion(version: string | undefined): void {
+	if(version === projectDeclaredRVersion) {
+		return;
+	}
+	projectDeclaredRVersion = version;
+	outputChannel?.appendLine(version
+		? `[flowR] Using the project's declared R version ${version} as the assumed R version`
+		: '[flowR] No project-declared R version - falling back to flowR\'s assumed R version detection');
+	refreshSigDbConfig();
 }
 
 function updateFlowrConfig() {

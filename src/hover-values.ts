@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { getFlowrSession } from './extension';
 import { makeSlicingCriteriaForPositions } from './flowr/utils';
-import { Bottom, BottomSymbol, Top, TopSymbol } from '@eagleoutice/flowr/abstract-interpretation/domains/lattice';
+import { BottomSymbol, Top, TopSymbol } from '@eagleoutice/flowr/abstract-interpretation/domains/lattice';
+import type { SetRangeDomain } from '@eagleoutice/flowr/abstract-interpretation/domains/set-range-domain';
 import { isBottom, isTop, stringifyValue } from '@eagleoutice/flowr/dataflow/eval/values/r-value';
 import { getConfig, Settings } from './settings';
 import { ConfigurableRefresher, RefreshType } from './configurable-refresher';
@@ -10,9 +11,7 @@ import type { Writable } from 'ts-essentials';
 import { builtInEnvJsonReplacer } from '@eagleoutice/flowr/dataflow/environments/environment';
 import type { SlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse';
 
-/**
- *
- */
+/** registers the hover-over-values provider for R/Rmd */
 export function registerHoverOverValues(output: vscode.OutputChannel): vscode.Disposable[] {
 	const provider = new FlowrHoverProvider(output);
 	return [vscode.languages.registerHoverProvider(
@@ -101,8 +100,7 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 			query.push({ type: 'resolve-value', criteria: [criteria] } as const);
 		}
 		if(getConfig().get<boolean>(Settings.ValuesHoverDataFrames, true)) {
-			// dataframe shape inference moved under the general "absint" (abstract interpretation) query as the
-			// 'df-shape' inference, rather than being its own top-level query type
+			// dataframe shape inference now lives under the general "absint" query as 'df-shape', not its own top-level query
 			query.push({ type: 'absint', inference: 'df-shape', criteria: [criteria] } as const);
 		}
 		let valQuer;
@@ -132,7 +130,7 @@ class FlowrHoverProvider implements vscode.HoverProvider {
 						textRep: `
 Dataframe Shape:
 
-*Columns*: ${formatSetRange(shape.colnames.value)}\\
+*Columns*: ${formatSetRange(shape.colnames)}\\
 *Cols*: ${shape.cols.toString()}\\
 *Rows*: ${shape.rows.toString()}
 					`.trim(),
@@ -157,23 +155,27 @@ Dataframe Shape:
 	}
 }
 
-function formatSetRange(set: { readonly min: ReadonlySet<string>, readonly range: ReadonlySet<string> | typeof Top } | typeof Top | typeof Bottom): string {
-	if(set === Bottom) {
+/** `set-range-domain`'s `must`/`may` field names (formerly `min`/`range`) - see {@link SetRangeDomain} */
+function formatSetRange(set: SetRangeDomain<string>): string {
+	if(set.isBottom()) {
 		return BottomSymbol;
-	} else if(set === Top || (set.min.size === 0 && set.range === Top)) {
+	}
+	if(!set.isValue()) {
 		return TopSymbol;
 	}
-	let txt: string | undefined;
+	const must = set.must;
+	const may = set.may;
+	let txt: string;
 
-	if(set.min.size === 0) {
+	if(must.size === 0) {
 		txt = '*\\<None\\>*';
 	} else {
-		txt = `${set.min.values().toArray().map(entry => '`' + entry + '`').join(', ')}`;
+		txt = `${[...must].map(entry => '`' + entry + '`').join(', ')}`;
 	}
-	if(set.range === Top) {
+	if(may === Top) {
 		txt += ' (Potential: ' + TopSymbol + ')';
-	} else if(set.range.size > 0) {
-		txt += ' (Potential: ' + set.range.values().toArray().map(entry => '`' + entry + '`').join(', ') + ')';
+	} else if(may.size > 0) {
+		txt += ' (Potential: ' + [...may].map(entry => '`' + entry + '`').join(', ') + ')';
 	}
 	return txt;
 }

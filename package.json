@@ -109,6 +109,12 @@
         "icon": "$(sync)"
       },
       {
+        "command": "vscode-flowr.dependencyView.guessVersions",
+        "title": "Guess Dependency Versions",
+        "category": "flowR",
+        "icon": "$(versions)"
+      },
+      {
         "command": "vscode-flowr.repl",
         "title": "Launch a new flowR REPL",
         "icon": "$(terminal)",
@@ -448,6 +454,26 @@
           "default": true,
           "markdownDescription": "Whether to use flowR's more advanced data frame shape inference."
         },
+        "vscode-flowr.completion.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Whether flowR suggests completions and signature help for functions of loaded packages, backed by the signature database. Disable if it gets in the way of your usual completions."
+        },
+        "vscode-flowr.recording.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Records a timeline of everything you do (edits, selections, opened files, commands, diagnostics, ...) into a local JSON file, e.g. to capture minimal working examples for bug reports or to trace user behavior in studies. The recording is **only ever stored locally** and never uploaded. Disabling this setting finishes the current recording."
+        },
+        "vscode-flowr.recording.acronym": {
+          "type": "string",
+          "default": "flowr",
+          "markdownDescription": "The acronym (e.g., a participant pseudonym) recordings are filed under: each recording is written to `<acronym>-<timestamp>.json`. Applies when the next recording starts."
+        },
+        "vscode-flowr.recording.directory": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The local directory recordings are written to. If empty, the first workspace folder is used."
+        },
         "vscode-flowr.verboseLog": {
           "type": "boolean",
           "default": false,
@@ -593,7 +619,9 @@
               "source",
               "write",
               "visualize",
-              "test"
+              "test",
+              "undeclared",
+              "unused"
             ],
             "enumDescriptions": [
               "Libraries",
@@ -601,7 +629,9 @@
               "Sourced Scripts",
               "Outputs",
               "Visualizations",
-              "Tests"
+              "Tests",
+              "Undeclared Dependencies (used in code but not declared in DESCRIPTION/a lockfile)",
+              "Unused Dependencies (declared but never actually used)"
             ]
           },
           "default": [
@@ -679,7 +709,7 @@
         "vscode-flowr.linter.ruleConfigs": {
           "type": "object",
           "default": {},
-          "markdownDescription": "Custom configurations for enabled linting rules. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their configurations. Entries should use rule names as keys and configurations as vaules, for example: `{ \"naming-convention\": { \"caseing\": \"snake_case\" } }`."
+          "markdownDescription": "Custom configurations for enabled linting rules. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their configurations. Entries should use rule names as keys and configurations as values, for example: `{ \"naming-convention\": { \"caseing\": \"snake_case\" } }`."
         },
         "vscode-flowr.linter.updateType": {
           "type": "string",
@@ -758,6 +788,36 @@
       }
     },
     "menus": {
+      "commandPalette": [
+        {
+          "command": "vscode-flowr.internal.goto.dependency",
+          "when": "false"
+        },
+        {
+          "command": "vscode-flowr.internal.enable-disable.dependency",
+          "when": "false"
+        },
+        {
+          "command": "vscode-flowr.internal.slice.dependency",
+          "when": "false"
+        },
+        {
+          "command": "vscode-flowr.internal.forward-slice.dependency",
+          "when": "false"
+        },
+        {
+          "command": "vscode-flowr.sigdb.searchScope",
+          "when": "false"
+        },
+        {
+          "command": "vscode-flowr.sigdb.downloadScope",
+          "when": "false"
+        },
+        {
+          "command": "vscode-flowr.sigdb.removeScope",
+          "when": "false"
+        }
+      ],
       "editor/context": [
         {
           "command": "vscode-flowr.slice.position",
@@ -839,24 +899,29 @@
       ],
       "view/title": [
         {
+          "command": "vscode-flowr.dependencyView.guessVersions",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@1"
+        },
+        {
           "command": "vscode-flowr.repl",
           "when": "view == flowr-dependencies && !isWeb",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "vscode-flowr.dependencyView.update",
           "when": "view == flowr-dependencies",
-          "group": "navigation@2"
+          "group": "navigation@3"
         },
         {
           "command": "vscode-flowr.feedback",
           "when": "view == flowr-dependencies",
-          "group": "navigation@3"
+          "group": "navigation@4"
         },
         {
           "command": "vscode-flowr.settings.open",
           "when": "view == flowr-dependencies",
-          "group": "navigation@4"
+          "group": "navigation@5"
         },
         {
           "command": "vscode-flowr.sigdb.download",
@@ -916,9 +981,10 @@
         },
         {
           "id": "flowr-project",
-          "icon": "$(project)",
+          "icon": "resources/flowR.svg",
+          "contextualTitle": "flowR Project",
           "name": "Project",
-          "when": "vscode-flowr:hasProject"
+          "visibility": "collapsed"
         }
       ]
     },
@@ -960,15 +1026,18 @@
     "prebrowser": "npm run package-web",
     "browser": "vscode-test-web --extensionDevelopmentPath=. example",
     "precompile-web": "npm run copy-wasm-web",
-    "compile-web": "webpack",
+    "compile-web": "webpack --config-name web && node scripts/fetch-web-sigdb.mjs",
+    "pretest-web": "npm run compile-web",
+    "test-web": "vscode-test-web --extensionDevelopmentPath=. --extensionTestsPath=$PWD/dist/web/test/suite/index.js --headless example",
     "prepackage-web": "npm run copy-wasm-web",
-    "package-web": "webpack --mode production --devtool hidden-source-map",
+    "package-web": "webpack --mode production --devtool hidden-source-map --config-name web && node scripts/fetch-web-sigdb.mjs",
     "prewatch-web": "npm run copy-wasm-web",
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.12.3",
+    "@eagleoutice/flowr": "^2.13.1",
     "assert": "^2.1.0",
+    "brotli-dec-wasm": "^2.3.2",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
     "os-browserify": "^0.3.0",

@@ -53,6 +53,12 @@ export enum Settings {
 	SigDbEagerlyLoad = 'config.solver.sigdb.eagerlyLoad',
 	SigDbCustomPath = 'config.solver.sigdb.customPath',
 
+	CompletionEnabled = 'completion.enabled',
+
+	RecordingEnabled = 'recording.enabled',
+	RecordingAcronym = 'recording.acronym',
+	RecordingDirectory = 'recording.directory',
+
 	ErrorMessageTimer = 'errorMessage.Timer',
 
 	DebugFlowrLoglevel = 'debug.flowrLogLevel',

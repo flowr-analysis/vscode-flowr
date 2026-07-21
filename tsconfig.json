@@ -11,6 +11,7 @@
 		],
 		"sourceMap": true,
 		"rootDir": "src",
+		"resolveJsonModule": true,
 		"strict": true,
 		"alwaysStrict": true,
 		"esModuleInterop": true,

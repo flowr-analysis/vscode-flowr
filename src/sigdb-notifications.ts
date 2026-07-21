@@ -21,14 +21,19 @@ function packagesFromDiagnosticMessage(message: string): string[] {
 	return [...match[1].matchAll(/`([^`]+)`/g)].map(m => m[1]);
 }
 
+function pruneExpiredPrompts(now: number): void {
+	for(const [pkg, at] of lastPromptAt) {
+		if(at + promptCooldownMs <= now) {
+			lastPromptAt.delete(pkg);
+			promptedPackages.delete(pkg);
+		}
+	}
+}
+
 async function promptForPackages(packages: string[], output: vscode.OutputChannel): Promise<void> {
 	const now = Date.now();
-	const fresh = packages.filter(pkg => {
-		if(promptedPackages.has(pkg) && (lastPromptAt.get(pkg) ?? 0) + promptCooldownMs > now) {
-			return false;
-		}
-		return true;
-	});
+	pruneExpiredPrompts(now);
+	const fresh = packages.filter(pkg => !promptedPackages.has(pkg));
 	if(fresh.length === 0) {
 		return;
 	}
@@ -58,6 +63,10 @@ export function watchForUndefinedSymbols(output: vscode.OutputChannel): vscode.D
 			return;
 		}
 		for(const uri of e.uris) {
+			const languageId = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString())?.languageId;
+			if(languageId !== 'r' && languageId !== 'rmd') {
+				continue;
+			}
 			const diags = vscode.languages.getDiagnostics(uri);
 			const packages = new Set<string>();
 			for(const diag of diags) {

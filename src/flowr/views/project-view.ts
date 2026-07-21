@@ -1,54 +1,94 @@
 import * as vscode from 'vscode';
 import { Settings } from '../../settings';
-import { baseRPackages, isSigDbEnabled } from '../../package-db';
+import { baseRPackages, isSigDbEnabled, findSigDbPackageSource, safeLatestVersionStr, safeSigDbCall } from '../../package-db';
+import { getInstalledPackageVersions } from '../../installed-packages';
+import { setProjectDeclaredRVersion } from '../../extension';
+import { RRange } from '@eagleoutice/flowr/util/r-version';
 
 export const FlowrProjectViewId = 'flowr-project';
-
-const ProjectContextKey = 'vscode-flowr:hasProject';
 
 type MatchStatus = 'matched' | 'base' | 'unmatched' | 'db-unavailable';
 
 interface LibraryMatch {
 	status:       MatchStatus;
 	dbVersion?:   string;
+	/** with a declared version: whether any downloaded database version covers it (see {@link classifyLibrary}) */
+	dbSatisfies?: boolean;
 	exportCount?: number;
 }
 
-/** Classify a declared library against base R packages and the signature database */
-export function classifyLibrary(name: string): LibraryMatch {
+/** classifies a declared library against base R and the on-disk sigdb; with a declaredVersion, also resolves the latest covering db version */
+export async function classifyLibrary(name: string, declaredVersion?: string): Promise<LibraryMatch> {
 	if(baseRPackages.has(name)) {
 		return { status: 'base' };
 	}
 	if(!isSigDbEnabled()) {
 		return { status: 'db-unavailable' };
 	}
-	return { status: 'unmatched' };
+	const found = await findSigDbPackageSource(name);
+	if(!found) {
+		return { status: 'unmatched' };
+	}
+	let dbVersion = safeLatestVersionStr(found.source, name);
+	let dbSatisfies: boolean | undefined;
+	if(declaredVersion) {
+		if(dbVersion && satisfiesDeclaredVersion(dbVersion, declaredVersion)) {
+			dbSatisfies = true;
+		} else {
+			const releases = safeSigDbCall(() => found.source.releaseDates(name)) ?? [];
+			const newestSatisfying = [...releases].reverse().find(r => satisfiesDeclaredVersion(r.version.str, declaredVersion));
+			if(newestSatisfying) {
+				dbVersion = newestSatisfying.version.str;
+				dbSatisfies = true;
+			} else {
+				dbSatisfies = false;
+			}
+		}
+	}
+	const exportCount = safeSigDbCall(() => found.source.lookup(name, dbVersion))?.exported.length;
+	return { status: 'matched', dbVersion, dbSatisfies, exportCount };
 }
 
-interface DeclaredLibrary {
+export interface DeclaredLibrary {
 	name:             string;
-	/** version as declared in the manifest (if any) */
+	/** version as declared in the manifest: an exact pin for lockfiles, a constraint like `>= 1.2` for a DESCRIPTION */
 	declaredVersion?: string;
+}
+
+/** how a lockfile relates to its declaring manifest in the same folder (renv.lock ↔ DESCRIPTION, rv.lock ↔ rproject.toml) */
+export interface LockfileSyncReport {
+	/** the declaring manifest's file name */
+	partner:     string;
+	/** declared packages that are absent from the lockfile */
+	missing:     string[];
+	/** declared version constraints the locked version does not satisfy */
+	unsatisfied: { name: string, constraint: string, locked: string }[];
 }
 
 interface ProjectManifest {
 	/** absolute path of the manifest file */
-	uri:             vscode.Uri;
+	uri:               vscode.Uri;
 	/** short, human-readable label (relative to the workspace folder) */
-	label:           string;
+	label:             string;
 	/** e.g. `renv`, `DESCRIPTION`, `rv` */
-	kind:            string;
-	/** the package this manifest itself describes (from a `DESCRIPTION`'s `Package:` field), if any */
-	packageName?:    string;
-	/** the version this manifest declares for itself (from a `DESCRIPTION`'s `Version:` field), if any */
-	packageVersion?: string;
-	libraries:       DeclaredLibrary[];
+	kind:              string;
+	/** whether this manifest pins resolved, exact versions (a `*.lock` file) rather than declaring constraints */
+	lockfile:          boolean;
+	/** the package/project this manifest itself describes, if any */
+	packageName?:      string;
+	/** the version this manifest declares for itself, if any */
+	packageVersion?:   string;
+	/** the R version the project declares (renv.lock's `R.Version`, rproject.toml's `r_version`, a DESCRIPTION's `Depends: R (>= …)` minimum) */
+	declaredRVersion?: string;
+	/** for lockfiles: how it compares against the declaring manifest in the same folder, if one exists */
+	sync?:             LockfileSyncReport;
+	libraries:         DeclaredLibrary[];
 }
 
 /** the tree is two levels deep: manifests at the top, their libraries below */
 type ProjectNode =
 	| { type: 'manifest', manifest: ProjectManifest }
-	| ({ type: 'library', manifest: ProjectManifest, library: DeclaredLibrary } & LibraryMatch);
+	| ({ type: 'library', manifest: ProjectManifest, library: DeclaredLibrary, installedVersion?: string, rAvailable?: boolean } & LibraryMatch);
 
 type LibraryNode = Extract<ProjectNode, { type: 'library' }>;
 
@@ -62,10 +102,14 @@ interface StatusPresentation {
 
 const statusPresentations: Record<MatchStatus, StatusPresentation> = {
 	matched: {
-		icon:    'pass',
-		color:   'testing.iconPassed',
-		badge:   node => `in DB: v${node.dbVersion}`,
-		tooltip: node => `\`${node.library.name}\` is in the package database (v${node.dbVersion}, ${node.exportCount} exported identifiers).`
+		icon:  'pass',
+		color: 'testing.iconPassed',
+		badge: node => node.dbSatisfies === false
+			? `in DB: v${node.dbVersion} (declared ${node.library.declaredVersion} not covered)`
+			: `in DB: v${node.dbVersion}`,
+		tooltip: node => node.dbSatisfies === false
+			? `\`${node.library.name}\` is in the package database, but no downloaded version covers the declared \`${node.library.declaredVersion}\` (closest: v${node.dbVersion}). Signature lookups fall back to that version; downloading the full-history scope may add the declared one.`
+			: `\`${node.library.name}\` is in the package database (v${node.dbVersion}, ${node.exportCount} exported identifiers${node.dbSatisfies && node.library.declaredVersion ? `, covering the declared \`${node.library.declaredVersion}\`` : ''}).`
 	},
 	base: {
 		icon:    'library',
@@ -85,10 +129,7 @@ const statusPresentations: Record<MatchStatus, StatusPresentation> = {
 	}
 };
 
-/**
- * Registers the "Project" sidebar view: detects R manifests (renv/DESCRIPTION/rv) in the workspace and shows,
- * per declared library, whether flowR's package database knows it.
- */
+/** registers the "Project" sidebar view: detects R manifests in the workspace and shows whether flowR's sigdb knows each declared library */
 export function registerProjectView(output: vscode.OutputChannel): { dispose: () => void } {
 	const data = new FlowrProjectTreeView(output);
 	const disposables: vscode.Disposable[] = [];
@@ -110,12 +151,7 @@ export function registerProjectView(output: vscode.OutputChannel): { dispose: ()
 		})
 	);
 
-	// The view is contributed behind a `when: vscode-flowr:hasProject` clause so it stays hidden until a manifest
-	// is found. Some editors (e.g. Positron) do not register a `when`-hidden view yet, so creating the tree view
-	// while the context is unset errors with "No view is registered". We therefore enable the context first, then
-	// create the view, then let refresh() set the real state (hiding it again when there is no project).
 	void (async() => {
-		await vscode.commands.executeCommand('setContext', ProjectContextKey, true);
 		try {
 			treeView = vscode.window.createTreeView(FlowrProjectViewId, { treeDataProvider: data });
 			data.setTreeView(treeView);
@@ -157,17 +193,14 @@ class FlowrProjectTreeView implements vscode.TreeDataProvider<ProjectNode> {
 
 	async refresh(): Promise<void> {
 		this.manifests = await detectManifests(this.output);
-		// drive the view's `when` clause: the Project tab is only shown once we actually found a manifest
-		void vscode.commands.executeCommand('setContext', ProjectContextKey, this.manifests.length > 0);
+		setProjectDeclaredRVersion(pickDeclaredRVersion(this.manifests));
 		if(this.tv) {
 			const total = this.manifests.reduce((n, m) => n + m.libraries.length, 0);
-			this.tv.message = `Found ${this.manifests.length} manifest${this.manifests.length === 1 ? '' : 's'} declaring ${total} librar${total === 1 ? 'y' : 'ies'}.`;
+			this.tv.message = this.manifests.length === 0
+				? 'No project manifest (renv.lock, DESCRIPTION, rv.lock, rproject.toml) found in this workspace.'
+				: `Found ${this.manifests.length} manifest${this.manifests.length === 1 ? '' : 's'} declaring ${total} librar${total === 1 ? 'y' : 'ies'}.`;
 		}
 		this._onDidChangeTreeData.fire(undefined);
-	}
-
-	private classify(library: DeclaredLibrary): LibraryMatch {
-		return classifyLibrary(library.name);
 	}
 
 	getTreeItem(element: ProjectNode): vscode.TreeItem {
@@ -177,28 +210,64 @@ class FlowrProjectTreeView implements vscode.TreeDataProvider<ProjectNode> {
 		return libraryTreeItem(element);
 	}
 
-	getChildren(element?: ProjectNode): ProjectNode[] {
+	async getChildren(element?: ProjectNode): Promise<ProjectNode[]> {
 		if(!element) {
 			return this.manifests.map(manifest => ({ type: 'manifest', manifest }));
 		}
 		if(element.type === 'manifest') {
-			return element.manifest.libraries.map(library => ({
-				type:     'library' as const,
-				manifest: element.manifest,
+			const installed = await getInstalledPackageVersions();
+			return Promise.all(element.manifest.libraries.map(async library => ({
+				type:             'library' as const,
+				manifest:         element.manifest,
 				library,
-				...this.classify(library)
-			}));
+				installedVersion: installed?.get(library.name),
+				rAvailable:       installed !== undefined,
+				...await classifyLibrary(library.name, library.declaredVersion)
+			})));
 		}
 		return [];
 	}
 }
 
+/** a short badge + tooltip for a lockfile's sync state against its declaring manifest */
+function syncPresentation(sync: LockfileSyncReport): { badge: string, tooltip: string } {
+	if(sync.missing.length === 0 && sync.unsatisfied.length === 0) {
+		return { badge: `in sync with ${sync.partner}`, tooltip: `Every package the \`${sync.partner}\` declares is pinned by this lockfile with a satisfying version.` };
+	}
+	const parts = [
+		sync.missing.length > 0 ? `${sync.missing.length} missing` : undefined,
+		sync.unsatisfied.length > 0 ? `${sync.unsatisfied.length} version conflict${sync.unsatisfied.length === 1 ? '' : 's'}` : undefined
+	].filter(Boolean);
+	const details = [
+		sync.missing.length > 0 ? `Declared in \`${sync.partner}\` but missing from the lockfile: ${sync.missing.map(m => `\`${m}\``).join(', ')}.` : undefined,
+		...sync.unsatisfied.map(u => `\`${u.name}\`: locked \`v${u.locked}\` does not satisfy the declared \`${u.constraint}\`.`)
+	].filter(Boolean);
+	return { badge: `out of sync with ${sync.partner} (${parts.join(', ')})`, tooltip: details.join('\n\n') };
+}
+
 function manifestTreeItem(manifest: ProjectManifest): vscode.TreeItem {
-	// when the manifest describes a package itself (a DESCRIPTION), surface that package's name and version
+	// when the manifest describes a package/project itself, surface that name and version
 	const libraryCount = `${manifest.libraries.length} librar${manifest.libraries.length === 1 ? 'y' : 'ies'}`;
 	const item = new vscode.TreeItem(manifest.packageName ?? manifest.label, vscode.TreeItemCollapsibleState.Expanded);
-	item.description = [manifest.packageVersion && `v${manifest.packageVersion}`, manifest.kind, libraryCount].filter(Boolean).join(' · ');
-	item.iconPath = new vscode.ThemeIcon('package');
+	const sync = manifest.sync && syncPresentation(manifest.sync);
+	const outOfSync = manifest.sync && (manifest.sync.missing.length > 0 || manifest.sync.unsatisfied.length > 0);
+	item.description = [
+		manifest.packageVersion && `v${manifest.packageVersion}`,
+		manifest.kind,
+		manifest.lockfile ? 'lockfile' : undefined,
+		manifest.declaredRVersion && `R ${manifest.declaredRVersion}`,
+		libraryCount,
+		sync?.badge
+	].filter(Boolean).join(' · ');
+	item.iconPath = manifest.lockfile
+		? new vscode.ThemeIcon(outOfSync ? 'unlock' : 'lock', outOfSync ? new vscode.ThemeColor('list.warningForeground') : undefined)
+		: new vscode.ThemeIcon('package');
+	if(sync?.tooltip || manifest.declaredRVersion) {
+		item.tooltip = new vscode.MarkdownString([
+			manifest.declaredRVersion && `Declares R \`${manifest.declaredRVersion}\`${manifest.lockfile ? '' : ' (minimum)'} - used as flowR's assumed R version instead of the default.`,
+			sync?.tooltip
+		].filter(Boolean).join('\n\n'));
+	}
 	item.resourceUri = manifest.uri;
 	const title = manifest.packageName
 		? `\`${manifest.packageName}\`${manifest.packageVersion ? ` v${manifest.packageVersion}` : ''} — ${manifest.kind}`
@@ -208,13 +277,32 @@ function manifestTreeItem(manifest: ProjectManifest): vscode.TreeItem {
 	return item;
 }
 
+/** the local-installation part of a library row (only meaningful when R itself was reachable) */
+function installedPresentation(node: LibraryNode): { badge?: string, tooltip?: string } {
+	if(!node.rAvailable || node.status === 'base') {
+		return {};
+	}
+	if(node.installedVersion === undefined) {
+		return { badge: 'not installed', tooltip: `\`${node.library.name}\` is not installed in the local R library.` };
+	}
+	const declared = node.library.declaredVersion;
+	if(declared && !satisfiesDeclaredVersion(node.installedVersion, declared)) {
+		return {
+			badge:   `installed ${node.installedVersion} ≠ ${declared}`,
+			tooltip: `Installed locally as v${node.installedVersion}, but the manifest declares \`${declared}\`.`
+		};
+	}
+	return { badge: `installed ${node.installedVersion}`, tooltip: `Installed locally as v${node.installedVersion}.` };
+}
+
 function libraryTreeItem(node: LibraryNode): vscode.TreeItem {
 	const present = statusPresentations[node.status];
+	const installed = installedPresentation(node);
 	const item = new vscode.TreeItem(node.library.name, vscode.TreeItemCollapsibleState.None);
 	item.iconPath = new vscode.ThemeIcon(present.icon, present.color ? new vscode.ThemeColor(present.color) : undefined);
 	const declared = node.library.declaredVersion ? `declared ${node.library.declaredVersion}` : undefined;
-	item.description = [declared, present.badge(node)].filter(Boolean).join(' · ');
-	item.tooltip = new vscode.MarkdownString(present.tooltip(node));
+	item.description = [declared, present.badge(node), installed.badge].filter(Boolean).join(' · ');
+	item.tooltip = new vscode.MarkdownString([present.tooltip(node), installed.tooltip].filter(Boolean).join('\n\n'));
 	return item;
 }
 
@@ -222,25 +310,35 @@ function libraryTreeItem(node: LibraryNode): vscode.TreeItem {
 
 /** binds a manifest file name to the project kind it represents and the parsers that read it */
 interface ManifestDetector {
-	file:  string;
-	kind:  string;
-	parse: (content: string) => DeclaredLibrary[];
-	/** optional: extract the package this manifest describes itself (name/version) */
-	meta?: (content: string) => { packageName?: string, packageVersion?: string };
+	file:     string;
+	kind:     string;
+	lockfile: boolean;
+	/** the declaring manifest in the same folder this lockfile resolves (checked for sync) */
+	partner?: string;
+	parse:    (content: string) => DeclaredLibrary[];
+	/** optional: extract what the manifest says about itself (name/version/declared R version) */
+	meta?:    (content: string) => ManifestMeta;
 }
 
 const manifestDetectors: readonly ManifestDetector[] = [
-	{ file: 'renv.lock', kind: 'renv', parse: parseRenvLock },
-	{ file: 'DESCRIPTION', kind: 'DESCRIPTION', parse: parseDescription, meta: parseDescriptionMeta },
-	{ file: 'rv.lock', kind: 'rv', parse: parseRvLock },
-	{ file: 'rproject.toml', kind: 'rv', parse: parseRvToml }
+	{ file: 'renv.lock', kind: 'renv', lockfile: true, partner: 'DESCRIPTION', parse: parseRenvLock, meta: parseRenvLockMeta },
+	{ file: 'DESCRIPTION', kind: 'DESCRIPTION', lockfile: false, parse: parseDescription, meta: parseDescriptionMeta },
+	{ file: 'rv.lock', kind: 'rv', lockfile: true, partner: 'rproject.toml', parse: parseRvLock },
+	{ file: 'rproject.toml', kind: 'rv', lockfile: false, parse: parseRvToml, meta: parseRvTomlMeta }
 ];
+
+/** the R version the project declares: an exact lockfile pin wins over a DESCRIPTION's Depends minimum */
+export function pickDeclaredRVersion(manifests: readonly { declaredRVersion?: string, kind: string }[]): string | undefined {
+	const exact = manifests.find(m => m.declaredRVersion && m.kind !== 'DESCRIPTION');
+	return (exact ?? manifests.find(m => m.declaredRVersion))?.declaredRVersion;
+}
 
 async function detectManifests(output: vscode.OutputChannel): Promise<ProjectManifest[]> {
 	const folders = vscode.workspace.workspaceFolders ?? [];
 	const manifests: ProjectManifest[] = [];
 	for(const folder of folders) {
-		for(const { file, kind, parse, meta } of manifestDetectors) {
+		const perFolder: ProjectManifest[] = [];
+		for(const { file, kind, lockfile, parse, meta } of manifestDetectors) {
 			const uri = vscode.Uri.joinPath(folder.uri, file);
 			let content: string;
 			try {
@@ -249,14 +347,48 @@ async function detectManifests(output: vscode.OutputChannel): Promise<ProjectMan
 				continue; // file does not exist
 			}
 			try {
-				manifests.push({ uri, label: file, kind, ...meta?.(content), libraries: dedupeLibraries(parse(content)) });
+				perFolder.push({ uri, label: file, kind, lockfile, ...meta?.(content), libraries: dedupeLibraries(parse(content)) });
 			} catch(e) {
 				output.appendLine(`[Project View] Failed to parse ${uri.fsPath}: ${(e as Error).message}`);
-				manifests.push({ uri, label: file, kind, libraries: [] });
+				perFolder.push({ uri, label: file, kind, lockfile, libraries: [] });
+			}
+		}
+		for(const manifest of perFolder) {
+			const partnerName = manifestDetectors.find(d => d.file === manifest.label)?.partner;
+			const partner = partnerName && perFolder.find(m => m.label === partnerName);
+			if(partner) {
+				manifest.sync = lockfileSyncReport(partner.label, partner.libraries, manifest.libraries);
+			}
+		}
+		manifests.push(...perFolder);
+	}
+	return manifests;
+}
+
+/** whether `version` satisfies a manifest's declared constraint via flowR's own RRange; an unparseable declaration is treated as satisfied (fail-open) */
+export function satisfiesDeclaredVersion(version: string, declared: string): boolean {
+	if(RRange.parse(declared) === undefined) {
+		return true;
+	}
+	return RRange.satisfies(version, declared);
+}
+
+/** how a lockfile's pinned packages relate to the packages a declaring manifest asks for (see {@link LockfileSyncReport}) */
+export function lockfileSyncReport(partner: string, declared: DeclaredLibrary[], locked: DeclaredLibrary[]): LockfileSyncReport {
+	const pins = new Map(locked.map(l => [l.name, l.declaredVersion]));
+	const missing: string[] = [];
+	const unsatisfied: LockfileSyncReport['unsatisfied'] = [];
+	for(const lib of declared) {
+		if(!pins.has(lib.name)) {
+			missing.push(lib.name);
+		} else {
+			const locked = pins.get(lib.name);
+			if(lib.declaredVersion && locked && !satisfiesDeclaredVersion(locked, lib.declaredVersion)) {
+				unsatisfied.push({ name: lib.name, constraint: lib.declaredVersion, locked });
 			}
 		}
 	}
-	return manifests;
+	return { partner, missing, unsatisfied };
 }
 
 /** Removes empty names and the `R` pseudo-package, collapses duplicates (keeping the first), and sorts by name. */
@@ -285,10 +417,36 @@ export function parseRenvLock(content: string): DeclaredLibrary[] {
 	}));
 }
 
-/** Extracts the package this `DESCRIPTION` describes itself: its `Package:` name and `Version:`. */
-export function parseDescriptionMeta(content: string): { packageName?: string, packageVersion?: string } {
-	const field = (name: string) => new RegExp(`^${name}\\s*:\\s*(.+)$`, 'm').exec(content.replace(/\r\n/g, '\n'))?.[1].trim();
-	return { packageName: field('Package'), packageVersion: field('Version') };
+/** what a manifest says about itself: the package/project it describes and the R version it declares */
+export interface ManifestMeta {
+	packageName?:      string;
+	packageVersion?:   string;
+	declaredRVersion?: string;
+}
+
+/** Extracts the package this `DESCRIPTION` describes itself (`Package:`/`Version:`) and its `Depends: R (>= …)` minimum R version. */
+export function parseDescriptionMeta(content: string): ManifestMeta {
+	const unfolded = content.replace(/\r\n/g, '\n').replace(/\n[ \t]+/g, ' ');
+	const field = (name: string) => new RegExp(`^${name}\\s*:\\s*(.+)$`, 'm').exec(unfolded)?.[1].trim();
+	const rDep = /^Depends\s*:.*?\bR\s*\(\s*(?:>=|>)?\s*([0-9][0-9.-]*)\s*\)/m.exec(unfolded)?.[1];
+	return { packageName: field('Package'), packageVersion: field('Version'), declaredRVersion: rDep };
+}
+
+/** Extracts the R version an `renv.lock` pins (`{"R": {"Version": "4.3.1"}}`). */
+export function parseRenvLockMeta(content: string): ManifestMeta {
+	try {
+		const lock = JSON.parse(content) as { R?: { Version?: string } };
+		return { declaredRVersion: typeof lock.R?.Version === 'string' ? lock.R.Version : undefined };
+	} catch{
+		return {};
+	}
+}
+
+/** Extracts the project name and declared R version from an `rproject.toml`'s `[project]` table. */
+export function parseRvTomlMeta(content: string): ManifestMeta {
+	const project = /\[project\]([\s\S]*?)(?=\n\s*\[|$)/.exec(content)?.[1] ?? '';
+	const key = (name: string) => new RegExp(`^\\s*${name}\\s*=\\s*"([^"]+)"`, 'm').exec(project)?.[1];
+	return { packageName: key('name'), declaredRVersion: key('r_version') };
 }
 
 /** Extracts the packages listed in the `Depends`/`Imports`/`Suggests`/`LinkingTo` fields of a `DESCRIPTION` file. */
@@ -354,8 +512,7 @@ export function parseRvToml(content: string): DeclaredLibrary[] {
 		return libraries;
 	}
 	let body = depsMatch[1];
-	// inline detail tables carry the package under `name = "..."`; collect those, then strip the tables so
-	// their other keys (e.g. `repository = "CRAN"`) are not mistaken for package names
+	// inline detail tables carry the package under name = "..."; strip them so other keys aren't mistaken for package names
 	const inlineTable = /\{[^}]*\}/g;
 	let table: RegExpExecArray | null;
 	while((table = inlineTable.exec(body)) !== null) {

@@ -1,11 +1,11 @@
-// runs only under @vscode/test-web (see src/web/test/suite/index.ts) - the web extension host has no fs/https,
-// so this file (and everything it imports) must stay browser-safe: no direct fs/os/child_process usage
+// runs only under @vscode/test-web; this file (and everything it imports) must stay browser-safe - no fs/os/child_process
 import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { activateExtension } from './test-util';
 import { loadedPackagesIn, callBeforeCursor } from '../completion';
 import { SigDbTreeDataProvider } from '../flowr/views/sigdb-view';
 import { isWeb } from '../extension';
+import { findSigDbPackageSource, getSigDbScopeState, safeSigDbCall } from '../package-db';
 
 async function openWorkspaceFile(name: string): Promise<vscode.TextEditor> {
 	const folder = vscode.workspace.workspaceFolders?.[0];
@@ -24,10 +24,22 @@ suite('web smoke', () => {
 		await activateExtension();
 	});
 
-	test('the signature database view reports itself unavailable rather than crashing', async() => {
+	test('the signature database view lists real scopes without crashing', async() => {
 		const provider = new SigDbTreeDataProvider(vscode.window.createOutputChannel('vscode-flowr-test-web-sigdb'));
 		const children = await provider.getChildren();
-		assert.ok(children.some(c => c.kind === 'info'), `expected an explanatory info node in the web extension, got: ${JSON.stringify(children)}`);
+		assert.ok(children.some(c => c.kind === 'scope'), `expected real scope nodes in the web extension, got: ${JSON.stringify(children)}`);
+	});
+
+	// end-to-end over the bundled base scope: virtual-fs hydration, WASM brotli decompression, and flowR's reader all have to work together
+	test('the bundled base-R signature scope is really readable in the web build', async function() {
+		this.timeout(30000);
+		assert.ok(getSigDbScopeState('base').manifest, 'expected the bundled base scope to expose a manifest');
+
+		const found = await findSigDbPackageSource('compiler');
+		assert.ok(found, 'expected the base-R package "compiler" to resolve from the bundled scope');
+		assert.ok(safeSigDbCall(() => found.source.latestVersion('compiler'))?.str, 'expected a real version for "compiler"');
+		const fns = safeSigDbCall(() => found.source.functions('compiler', undefined)) ?? [];
+		assert.ok(fns.some(f => f.name === 'cmpfun'), `expected compiler::cmpfun among the decoded functions, got: ${fns.slice(0, 5).map(f => f.name).join(', ')}`);
 	});
 
 	test('hover and definition providers do not throw for a simple R file (tree-sitter backend)', async() => {

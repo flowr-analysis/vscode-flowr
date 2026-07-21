@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getFlowrSession } from './extension';
 import { locationSearch, rangeToVscodeRange, toDataflowNode } from './flowr/utils';
-import { getOriginInDfg } from '@eagleoutice/flowr/dataflow/origin/dfg-get-origin';
+import { getOriginInDfg, OriginType } from '@eagleoutice/flowr/dataflow/origin/dfg-get-origin';
 import type { Origin } from '@eagleoutice/flowr/dataflow/origin/dfg-get-origin';
 import { Identifier } from '@eagleoutice/flowr/dataflow/environments/identifier';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
@@ -10,8 +10,9 @@ import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
 import { VertexType, isVariableDefinitionVertex } from '@eagleoutice/flowr/dataflow/graph/vertex';
 import { DfEdge, EdgeType } from '@eagleoutice/flowr/dataflow/graph/edge';
 import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
-import { baseRPackages, getSigDbScopeState, findSigDbPackageSource, resolveSigDbPackageVersion, rMajorVersionPageUrl } from './package-db';
-import type { SignatureFunctionView, SignaturePackageView, SignatureQueryResult, SignatureDependencyView } from '@eagleoutice/flowr/queries/catalog/signature-query/signature-query-format';
+import { baseRPackages, getSigDbScopeState, findSigDbPackageSource, resolveSigDbPackageVersion, rMajorVersionPageUrl, allKnownPackageNames, closestPackageNames, cranPageUrl } from './package-db';
+import { getHelpDoc, getInstalledVersion } from './installed-packages';
+import type { SignatureFunctionView, SignaturePackageView, SignatureQueryResult, SignatureDependencyView, SignatureParameterView } from '@eagleoutice/flowr/queries/catalog/signature-query/signature-query-format';
 import {
 	DefaultBuiltinConfig, GgPlotCreate, TinyPlotCrate, GraphicsPlotCreate, PlotCreate,
 	TinyPlotAddons, GraphicsPlotAddons, GgPlotAddons
@@ -19,11 +20,7 @@ import {
 
 const SigDbScopes = ['base', 'current', 'history'] as const;
 
-/**
- * flowR's builtin configuration attributes each built-in to its package. We expose only the base/auto-loaded
- * packages here (e.g. `print` from `base`): non-base attributions (ggplot2, dplyr, …) require an explicit
- * `library()` and are surfaced through the dataflow origins instead, only when the package is actually loaded.
- */
+/** only base/auto-loaded builtins are exposed here; non-base attributions need an explicit library() and go through dataflow origins instead */
 let builtinBasePackages: Map<string, string> | undefined;
 function builtinBasePackageOf(name: string): string | undefined {
 	if(!builtinBasePackages) {
@@ -42,12 +39,7 @@ function builtinBasePackageOf(name: string): string | undefined {
 /** functions whose (first) argument names a package to load */
 const libraryLoadFunctions = new Set(['library', 'require', 'loadNamespace', 'requireNamespace', 'attachNamespace']);
 
-/**
- * Names flowR's builtin config special-cases even though they belong to a real package (e.g. `ggplot`
- * becomes "Built-In" in the dataflow graph so flowR can model plot output without needing library()
- * resolution). A real cross-package signature-database lookup is only attempted for names in this set -
- * it has to scan every mounted package, so it's too expensive to run for every unresolved hover otherwise.
- */
+/** names flowR special-cases as "Built-In" despite belonging to a real package (e.g. ggplot); only these trigger the expensive cross-package sigdb scan */
 const nonBaseBuiltinNames = new Set([
 	...GgPlotCreate, ...TinyPlotCrate, ...GraphicsPlotCreate, ...PlotCreate,
 	...TinyPlotAddons, ...GraphicsPlotAddons, ...GgPlotAddons
@@ -58,11 +50,14 @@ function anySigDbScopeDownloaded(): boolean {
 	return SigDbScopes.some(scope => getSigDbScopeState(scope).manifest);
 }
 
-/** the "not resolved" hover text, distinguishing "nothing downloaded yet" from "downloaded but this package isn't in it" */
-function sigDbMissingHint(): string {
-	return anySigDbScopeDownloaded()
+/** hover text for an unresolved `library(pkg)`, with a "did you mean" guess when a known package name is close */
+async function sigDbMissingHint(pkg: string): Promise<string> {
+	const base = anySigDbScopeDownloaded()
 		? 'not in the downloaded signature database(s)'
 		: 'no signature database downloaded yet — see the Signature DB view';
+	const suggestions = closestPackageNames(pkg, await allKnownPackageNames());
+	const didYouMean = suggestions.length > 0 ? ` — did you mean ${suggestions.map(s => `\`${s}\``).join(' or ')}?` : '';
+	return `${base}${didYouMean}`;
 }
 
 /** runs flowR's real `signature` query against the active session - all URL/deprecated/S3-generic logic lives there, not reimplemented here */
@@ -77,32 +72,45 @@ async function runSignatureQuery(document: vscode.TextDocument, pkg: string | un
 	}
 }
 
-/**
- * The scope (`base`/`current`/`history`) whose on-disk database actually knows `pkg`, for attribution in
- * hover text. flowR's `signature` query result does not report which of the (possibly several) mounted
- * scopes answered a lookup, and the sharded reader does not expose which *shard file* within a scope a
- * package's data came from either - the scope is the finest-grained attribution available.
- */
+/** which scope's on-disk database knows pkg; flowR's signature query doesn't report this, so the scope is the finest attribution available */
 async function resolveSigDbScopeLabel(pkg: string): Promise<string | undefined> {
 	return (await findSigDbPackageSource(pkg))?.scope;
 }
 
-function formatFunctionView(fn: SignatureFunctionView, scope?: string): string {
+/** `name = default`, `name` (required), or `name?` (optional without a shown default) */
+function formatParameter(p: SignatureParameterView): string {
+	if(p.default !== undefined) {
+		return `${p.name} = ${p.default}`;
+	}
+	return p.required ? p.name : `${p.name}?`;
+}
+
+async function formatFunctionView(fn: SignatureFunctionView, scope?: string): Promise<string> {
 	const link = fn.sourceUrl ? `[\`${fn.package}::${fn.name}\`](${fn.sourceUrl})` : `\`${fn.package}::${fn.name}\``;
+	const signature = `\`\`\`r\n${fn.name}(${fn.parameters.map(formatParameter).join(', ')})\n\`\`\``;
 	const parts = [`resolved via the${scope ? ` \`${scope}\`` : ''} signature database as ${link}`];
 	if(fn.version) {
 		parts.push(`\`v${fn.version}\``);
 	}
-	if(fn.docUrl) {
+	// gate on `exported` to avoid linking internal functions; fn.docUrl already resolves the real Rd topic
+	const wantsHelpDoc = fn.docUrl && fn.exported;
+	const [installed, helpDoc] = await Promise.all([getInstalledVersion(fn.package), wantsHelpDoc ? getHelpDoc(fn.package, fn.name) : undefined]);
+	if(installed) {
+		parts.push(`installed \`v${installed}\``);
+	}
+	let helpTitle: string | undefined;
+	if(wantsHelpDoc) {
+		helpTitle = helpDoc?.title;
 		parts.push(`[documentation](${fn.docUrl})`);
 	}
 	const flags = [
 		fn.properties.includes('deprecated') ? '⚠ deprecated' : undefined,
 		fn.properties.includes('can-throw') ? '⚠ can throw' : undefined,
-		fn.s3generic ? '🔀 S3 generic' : undefined
+		fn.s3generic ? '🔀 S3 generic' : undefined,
+		fn.s3method ? `🔀 S3 method for \`${fn.s3method.generic}\` (\`${fn.s3method.package}\`), class \`${fn.s3method.class}\`` : undefined
 	].filter((f): f is string => !!f);
-	const summary = parts.join(' · ');
-	return flags.length > 0 ? `${summary}\n\n${flags.join(' • ')}` : summary;
+	const summary = [helpTitle && `**${helpTitle}**`, parts.join(' · ')].filter(Boolean).join('\n\n');
+	return flags.length > 0 ? `${signature}\n\n${summary}\n\n${flags.join(' • ')}` : `${signature}\n\n${summary}`;
 }
 
 function formatPackageView(pkg: SignaturePackageView, scope?: string): string {
@@ -151,11 +159,7 @@ function unquote(lexeme: string | undefined): string | undefined {
 	return (lexeme ?? '').replace(/^["'`]|["'`]$/g, '') || undefined;
 }
 
-/**
- * Resolves the package loaded by a `library()`/`require()`-style call when hovering *either* its package-name
- * argument (`library(ggplot2)` on `ggplot2`) *or* the load function itself (`library(ggplot2)` on `library`).
- * `viaFunctionName` distinguishes the two so the hover can phrase it accordingly.
- */
+/** resolves the package for a library()/require() call, whether hovering the package name or the load function itself */
 function loadedPackageAt(ast: NormalizedAst, id: NodeId): { package: string, viaFunctionName: boolean } | undefined {
 	const node = ast.idMap.get(id);
 	// (a) hovering the package name argument: value -> RArgument -> call
@@ -177,19 +181,54 @@ function loadedPackageAt(ast: NormalizedAst, id: NodeId): { package: string, via
 	return undefined;
 }
 
+/** an unused, zero-width target range - the redirect document itself has no real content to point at */
+const ZeroRange = new vscode.Range(0, 0, 0, 0);
+
+const RedirectScheme = 'vscode-flowr-open-external';
+
+/** a virtual document whose entire purpose is carried in its query string (the external URL to open on a real click) */
+function redirectUri(target: string): vscode.Uri {
+	return vscode.Uri.from({ scheme: RedirectScheme, path: '/redirect', query: target });
+}
+
+// no side effect here on purpose: this also runs for a Ctrl+hover "peek" preview, not just a real navigation -
+// the actual `openExternal` lives in the tab-open listener below instead, which real previews don't trigger
+class RedirectContentProvider implements vscode.TextDocumentContentProvider {
+	provideTextDocumentContent(): string {
+		return '';
+	}
+}
+
 /**
- * Registers a hover- and a definition-provider that use flowR's dataflow origins (via
- * {@link Identifier.toQualified}) to tell the user which package a called function stems from and,
- * where flowR knows a definition location (e.g. a locally-defined function or variable), to let them
- * jump to it via <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+click.
+ * Opens the external URL carried by a {@link redirectUri}, but only once it becomes a real, open editor tab.
+ * Unlike `TextDocumentContentProvider.provideTextDocumentContent` (which VS Code also calls to render a Ctrl+hover
+ * peek preview, not just a real navigation - the original bug this whole mechanism exists to avoid), a tab actually
+ * opening only happens on a genuine "go to definition" navigation. This is what makes the link work exactly like a
+ * normal go-to-definition target (no permanent underline, only while Ctrl is held) while still reliably opening an
+ * external URL, unlike a plain Definition/LocationLink to an http(s) URI - which VS Code tries to open as a text
+ * editor tab and fails ("the editor could not be opened due to an unexpected error"), verified against a real click.
  */
+function registerExternalRedirect(): vscode.Disposable[] {
+	return [
+		vscode.workspace.registerTextDocumentContentProvider(RedirectScheme, new RedirectContentProvider()),
+		vscode.window.tabGroups.onDidChangeTabs(e => {
+			for(const tab of e.opened) {
+				const input = tab.input;
+				if(input instanceof vscode.TabInputText && input.uri.scheme === RedirectScheme) {
+					void vscode.env.openExternal(vscode.Uri.parse(input.uri.query));
+					void vscode.window.tabGroups.close(tab);
+				}
+			}
+		})
+	];
+}
+
+/** registers the hover/definition/reference providers plus the external-link redirect mechanism */
 export function registerPackageInfo(output: vscode.OutputChannel): vscode.Disposable[] {
 	const provider = new FlowrPackageInfoProvider(output);
 	const referenceProvider = new FlowrReferenceProvider(output);
 	const selectors: vscode.DocumentSelector[] = [{ language: 'r' }, { language: 'rmd' }];
-	const disposables: vscode.Disposable[] = [
-		vscode.workspace.registerTextDocumentContentProvider(RemoteLinkRedirectScheme, new RemoteLinkRedirectProvider())
-	];
+	const disposables: vscode.Disposable[] = [...registerExternalRedirect()];
 	for(const selector of selectors) {
 		disposables.push(
 			vscode.languages.registerHoverProvider(selector, provider),
@@ -218,12 +257,7 @@ function isLocalOrigin(origin: Origin): origin is Exclude<Origin, { readonly pro
 	return !('proc' in origin);
 }
 
-/**
- * Looks up the dataflow origins for the node the user pointed at. A location search resolves to the
- * innermost node, which for a call like `map(...)` is the function-name *symbol* - but flowR attaches the
- * origins (and hence the package attribution) to the enclosing *function-call* node. So when the symbol
- * itself has no origins, we climb to its parent call and use that instead.
- */
+/** a location search resolves to the innermost symbol, but flowR attaches origins to the enclosing call - climb to the parent call if the symbol itself has none */
 function originsForNode(graph: DataflowGraph, ast: NormalizedAst, id: NodeId): ResolvedOrigins | undefined {
 	const direct = getOriginInDfg(graph, id);
 	if(direct && direct.length > 0) {
@@ -283,26 +317,16 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 		return resolveNode(document, pos, token, this.output);
 	}
 
-	/**
-	 * The package/function attribution for the node the user pointed at, covering the same four cases for
-	 * both hover text and "go to definition": (1) a call attributed to a package via dataflow origins, (2) a
-	 * `library()`/`require()` load, (3) a base/auto-loaded builtin, (4) a non-base builtin flowR special-cases
-	 * (e.g. `ggplot`) that the signature database also happens to know. `url` is only set when a real remote
-	 * link (CRAN mirror source, or the package's CRAN page) is known - `provideDefinition` uses it to jump out.
-	 */
-	private async resolveSigDbInfo(resolved: ResolvedNode, document: vscode.TextDocument): Promise<{ text: string, url?: string } | undefined> {
-		// case 1: a call attributed to a package (e.g. `ggplot` -> ggplot2). We deliberately leave locally-defined
-		// variables/functions to the other hover providers so as not to clutter every hover.
+	/** package/function attribution text: dataflow-origin call, library() load, base builtin, or a special-cased non-base builtin */
+	private async resolveSigDbInfo(resolved: ResolvedNode, document: vscode.TextDocument): Promise<string | undefined> {
+		// case 1: a call attributed to a package (e.g. `ggplot` -> ggplot2); local variables/functions are left to other hover providers
 		const origins = originsForNode(resolved.graph, resolved.ast, resolved.id)?.origins;
 		const qualified = origins && Identifier.toQualified(origins);
 		const namespace = qualified && Identifier.getNamespace(qualified);
 		if(qualified && namespace) {
 			const fnName = Identifier.getName(qualified);
 			const [result, scope] = await Promise.all([runSignatureQuery(document, namespace, fnName, this.output), resolveSigDbScopeLabel(namespace)]);
-			return {
-				text: `**\`${fnName}\`** is provided by the \`${namespace}\` package${result?.function ? `\n\n${formatFunctionView(result.function, scope)}` : ''}`,
-				url:  result?.function?.sourceUrl
-			};
+			return `**\`${fnName}\`** is provided by the \`${namespace}\` package${result?.function ? `\n\n${await formatFunctionView(result.function, scope)}` : ''}`;
 		}
 
 		// case 2: a `library(pkg)`/`require(pkg)` load — jumps to the package's CRAN page
@@ -310,28 +334,21 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 		if(loaded) {
 			const subject = loaded.viaFunctionName ? `loads the \`${loaded.package}\` package` : `**\`${loaded.package}\`**`;
 			const [result, scope] = await Promise.all([runSignatureQuery(document, loaded.package, undefined, this.output), resolveSigDbScopeLabel(loaded.package)]);
-			return {
-				text: result?.package ? `${subject} — ${formatPackageView(result.package, scope)}` : `${subject}: ${sigDbMissingHint()}`,
-				url:  result?.package?.repoUrl ?? result?.package?.cranPage
-			};
+			return result?.package ? `${subject} — ${formatPackageView(result.package, scope)}` : `${subject}: ${await sigDbMissingHint(loaded.package)}`;
 		}
 
-		// case 3: a call to a base/auto-loaded built-in (e.g. `print` -> base) that needs no `library()` - base R
-		// isn't mirrored on GitHub the way CRAN packages are, so there is no source link, only a version
+		// case 3: a base/auto-loaded built-in (e.g. `print` -> base); base R has no GitHub mirror, so only a version, no source link
 		const fnName = functionNameAt(resolved.ast, resolved.id);
 		const basePackage = fnName && builtinBasePackageOf(fnName);
 		if(fnName && basePackage) {
 			const version = await resolveSigDbPackageVersion(basePackage);
 			const rVersionPage = version && rMajorVersionPageUrl(version);
 			const pkgLabel = rVersionPage ? `[\`${basePackage}\`](${rVersionPage})` : `\`${basePackage}\``;
-			return { text: `**\`${fnName}\`** is provided by the ${pkgLabel} package${version ? ` \`v${version}\`` : ''}` };
+			return `**\`${fnName}\`** is provided by the ${pkgLabel} package${version ? ` \`v${version}\`` : ''}`;
 		}
 
-		// case 4: flowR pre-registers some non-base functions (e.g. `ggplot`) as built-ins so it can model their
-		// behavior (producing plot output) without a full library() resolution. That classification wins in the
-		// dataflow graph, but if the signature database happens to know a real package for the same name, surface
-		// it (and its source link) too instead of staying silent. A wildcard (package-less) query only returns
-		// compact matches, so re-query the top hit by exact package+name for the full view (S3/deprecated/etc).
+		// case 4: flowR pre-registers some non-base functions (e.g. `ggplot`) as built-ins; if the sigdb also knows a
+		// real package for the name, surface it too - re-query the top wildcard hit by exact name for the full view
 		if(fnName && nonBaseBuiltinNames.has(fnName) && anySigDbScopeDownloaded()) {
 			const wildcard = await runSignatureQuery(document, undefined, fnName, this.output);
 			const hit = wildcard?.matches?.[0];
@@ -339,13 +356,29 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 				? await Promise.all([runSignatureQuery(document, hit.package, hit.name, this.output), resolveSigDbScopeLabel(hit.package)])
 				: [undefined, undefined];
 			if(result?.function) {
-				return {
-					text: `**\`${fnName}\`** is treated as a built-in by flowR (for output/dependency tracking), but the signature database also knows it as ${formatFunctionView(result.function, scope)}`,
-					url:  result.function.sourceUrl
-				};
+				return `**\`${fnName}\`** is treated as a built-in by flowR (for output/dependency tracking), but the signature database also knows it as ${await formatFunctionView(result.function, scope)}`;
 			}
 		}
 
+		return undefined;
+	}
+
+	/** the sigdb function view a call is attributed to (mirrors {@link resolveSigDbInfo}'s cases 1/4), for its `sourceUrl` */
+	private async resolveAttributedFunction(resolved: ResolvedNode, document: vscode.TextDocument): Promise<SignatureFunctionView | undefined> {
+		const origins = originsForNode(resolved.graph, resolved.ast, resolved.id)?.origins;
+		const qualified = origins && Identifier.toQualified(origins);
+		const namespace = qualified && Identifier.getNamespace(qualified);
+		if(qualified && namespace) {
+			const result = await runSignatureQuery(document, namespace, Identifier.getName(qualified), this.output);
+			return result?.function;
+		}
+		const fnName = functionNameAt(resolved.ast, resolved.id);
+		if(fnName && nonBaseBuiltinNames.has(fnName) && anySigDbScopeDownloaded()) {
+			const wildcard = await runSignatureQuery(document, undefined, fnName, this.output);
+			const hit = wildcard?.matches?.[0];
+			const result = hit && await runSignatureQuery(document, hit.package, hit.name, this.output);
+			return result?.function;
+		}
 		return undefined;
 	}
 
@@ -355,7 +388,7 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 			return undefined;
 		}
 		const info = await this.resolveSigDbInfo(resolved, document);
-		return info ? new vscode.Hover(new vscode.MarkdownString(info.text)) : undefined;
+		return info ? new vscode.Hover(new vscode.MarkdownString(info)) : undefined;
 	}
 
 	async provideDefinition(document: vscode.TextDocument, pos: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Definition | undefined> {
@@ -364,25 +397,33 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 			return undefined;
 		}
 
-		// two cases where flowR's dataflow origins are misleading, not a real user-editable local definition:
-		// (1) names like `ggplot` that flowR pre-registers as built-ins (see `nonBaseBuiltinNames`), modeled
-		// with an AST-attached origin that happens to satisfy `isLocalOrigin`; (2) a `library(pkg)`/`require(pkg)`
-		// package-name argument, which flowR's NSE-unaware dataflow may try to resolve as an ordinary variable
-		// read. Skip the local-origin lookup for both and go straight to the real remote link.
+		// a library(pkg) package name redirects to its CRAN page
+		const loaded = loadedPackageAt(resolved.ast, resolved.id);
+		if(loaded && !loaded.viaFunctionName && !baseRPackages.has(loaded.package)) {
+			return new vscode.Location(redirectUri(cranPageUrl(loaded.package)), ZeroRange);
+		}
+
+		// a call attributed to a package function (see resolveSigDbInfo's cases 1/4) redirects to its source
+		const attributedFn = await this.resolveAttributedFunction(resolved, document);
+		if(attributedFn?.sourceUrl) {
+			return new vscode.Location(redirectUri(attributedFn.sourceUrl), ZeroRange);
+		}
+
+		// skip the misleading local-origin lookup for builtins and library() package-name args
 		const fnName = functionNameAt(resolved.ast, resolved.id);
-		const isPackageNameArg = !!loadedPackageAt(resolved.ast, resolved.id);
+		const isPackageNameArg = !!loaded;
 		if(!(fnName && nonBaseBuiltinNames.has(fnName)) && !isPackageNameArg) {
-			const origins = originsForNode(resolved.graph, resolved.ast, resolved.id)?.origins;
+			const localOrigins = (originsForNode(resolved.graph, resolved.ast, resolved.id)?.origins ?? []).filter(isLocalOrigin);
+			// prefer the FunctionCallOrigin over a plain variable-binding origin, so `f <- function(){}; f()` jumps to the body only
+			const hasFunctionCallOrigin = localOrigins.some(o => o.type === OriginType.FunctionCallOrigin);
+			const preferredOrigins = hasFunctionCallOrigin ? localOrigins.filter(o => o.type === OriginType.FunctionCallOrigin) : localOrigins;
+
 			const locations = new Map<string, vscode.Location>();
-			for(const origin of origins ?? []) {
-				if(!isLocalOrigin(origin)) {
-					continue;
-				}
+			for(const origin of preferredOrigins) {
 				const loc = resolved.ast.idMap.get(origin.id)?.location;
 				if(loc) {
 					const range = rangeToVscodeRange(loc);
-					// several origins (e.g. a function-call origin and the variable it was bound to) can point at
-					// the same spot; collapse them so we do not offer the user duplicate jump targets
+					// collapse origins pointing at the same spot into one jump target
 					locations.set(`${range.start.line}:${range.start.character}`, new vscode.Location(document.uri, range));
 				}
 			}
@@ -391,19 +432,7 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 			}
 		}
 
-		// a remote-only target (a package function's source, a library()'s CRAN page) is reported as a Location
-		// too, so Ctrl+hover underlines it exactly like a local one - see `RemoteLinkRedirectUri`/
-		// `RemoteLinkRedirectProvider` below for how "opening" that Location redirects to a real browser only
-		// on an actual navigation (click), never merely from the speculative call VS Code makes on Ctrl+hover.
-		const info = await this.resolveSigDbInfo(resolved, document);
-		if(info?.url) {
-			return new vscode.Location(remoteLinkRedirectUri(info.url), new vscode.Position(0, 0));
-		}
-
-		// clicking a variable/function at its own definition (not a use of it) has no "origin" to resolve - it
-		// is not a read of anything upstream - so the lookups above always come up empty there. Report the
-		// definition as its own location instead of nothing, matching how most language servers treat this
-		// (VS Code then just leaves the cursor in place rather than showing "no references found").
+		// clicking a definition itself (not a use of it) has no origin to resolve; report it as its own location instead of nothing
 		const vertex = resolved.graph.getVertex(resolved.id) ?? resolved.graph.getVertex(toDataflowNode(resolved.ast, resolved.id));
 		if(vertex && (isVariableDefinitionVertex(vertex) || vertex.tag === VertexType.FunctionDefinition)) {
 			const loc = resolved.ast.idMap.get(resolved.id)?.location;
@@ -415,12 +444,7 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 	}
 }
 
-/**
- * "Find All References"/right-click "Find All References" for local variables and functions, via flowR's
- * dataflow graph: every node with a `Reads` edge into the definition is a use of it. Without this, clicking a
- * definition whose "go to definition" target is itself falls back to VS Code's built-in reference search, which
- * (with no provider registered) always reports "No references found" - misleading, since real references exist.
- */
+/** "Find All References" via flowR's dataflow graph: every node with a Reads edge into the definition is a use of it */
 export class FlowrReferenceProvider implements vscode.ReferenceProvider {
 	private readonly output: vscode.OutputChannel;
 
@@ -457,61 +481,4 @@ export class FlowrReferenceProvider implements vscode.ReferenceProvider {
 		}
 		return [...locations.values()];
 	}
-}
-
-export const RemoteLinkRedirectScheme = 'flowr-remote-link';
-
-/** a fake document URI that `RemoteLinkRedirectProvider` resolves by opening `target` externally */
-export function remoteLinkRedirectUri(target: string): vscode.Uri {
-	return vscode.Uri.from({ scheme: RemoteLinkRedirectScheme, path: `/${encodeURIComponent(target)}` });
-}
-
-/**
- * Backs the Ctrl+click Location returned for remote-only targets. VS Code only calls
- * `provideTextDocumentContent` when it actually tries to open the document - i.e. on a real click navigation,
- * never for the speculative `provideDefinition` call it makes just from Ctrl+hovering - so the browser opens
- * exactly once, only on click. The placeholder tab this briefly opens is closed right after.
- */
-export class RemoteLinkRedirectProvider implements vscode.TextDocumentContentProvider {
-	provideTextDocumentContent(uri: vscode.Uri): string {
-		const target = decodeURIComponent(uri.path.replace(/^\//, ''));
-		void vscode.env.openExternal(vscode.Uri.parse(target));
-		void closeRedirectTab(uri);
-		return `Opened ${target} in your browser…`;
-	}
-}
-
-function findRedirectTab(uri: vscode.Uri): vscode.Tab | undefined {
-	const target = uri.toString();
-	for(const group of vscode.window.tabGroups.all) {
-		for(const tab of group.tabs) {
-			if(tab.input instanceof vscode.TabInputText && tab.input.uri.toString() === target) {
-				return tab;
-			}
-		}
-	}
-	return undefined;
-}
-
-/** closes the placeholder tab as soon as it actually appears, rather than guessing a fixed delay - falls back to a short timeout in case the tab-open event is ever missed */
-async function closeRedirectTab(uri: vscode.Uri): Promise<void> {
-	const existing = findRedirectTab(uri);
-	if(existing) {
-		await vscode.window.tabGroups.close(existing);
-		return;
-	}
-	await new Promise<void>(resolve => {
-		const timeout = setTimeout(() => {
-			listener.dispose();
-			resolve();
-		}, 2000);
-		const listener = vscode.window.tabGroups.onDidChangeTabs(() => {
-			const tab = findRedirectTab(uri);
-			if(tab) {
-				clearTimeout(timeout);
-				listener.dispose();
-				void vscode.window.tabGroups.close(tab).then(() => resolve());
-			}
-		});
-	});
 }

@@ -12,7 +12,7 @@ import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/
 import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
 import type { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';
 import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
-import type { FlowrSearch } from '@eagleoutice/flowr/search/flowr-search-builder';
+import { Q, type FlowrSearch } from '@eagleoutice/flowr/search/flowr-search-builder';
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert';
 
 // Contains utility functions and a common interface for the two FlowrSession implementations
@@ -46,19 +46,7 @@ export interface FlowrSession {
  */
 export function locationSearch(position: vscode.Position, document: vscode.TextDocument): FlowrSearch {
 	const pos = getPositionAt(position, document)?.start ?? position;
-	return {
-		generator: {
-			type: 'generator',
-			name: 'get',
-			args: { filter: {
-				line:          pos.line + 1,
-				column:        pos.character + 1,
-				fuzzy:         true,
-				innermostOnly: true
-			} }
-		},
-		search: []
-	};
+	return Q.locFuzzy(pos.line + 1, pos.character + 1, true).build();
 }
 
 /**
@@ -69,10 +57,7 @@ export async function getNodeIdAt(position: vscode.Position, document: vscode.Te
 	return result.hasError ? undefined : result.result.search.results[0]?.ids[0];
 }
 
-/**
- * Maps a function-name symbol (what a location search resolves to for `print(x)`) to its enclosing call node,
- * which - unlike the name symbol - is a dataflow vertex. Non-call nodes are returned unchanged.
- */
+/** maps a function-name symbol to its enclosing call node (the actual dataflow vertex); non-call nodes are returned unchanged */
 export function toDataflowNode(ast: NormalizedAst, id: NodeId): NodeId {
 	const parentId = ast.idMap.get(id)?.info.parent;
 	if(parentId === undefined) {
@@ -102,10 +87,7 @@ export function consolidateNewlines(text: string) {
 }
 
 
-/**
- * Resolves each position to a slicing criterion in a single analysis pass, dropping positions that
- * do not map to a flowR node. The result may be shorter than `positions` (or empty).
- */
+/** resolves each position to a slicing criterion in one analysis pass, dropping positions that don't map to a flowR node */
 export async function makeSlicingCriteriaForPositions(positions: vscode.Position[], doc: vscode.TextDocument, session: FlowrSession): Promise<SlicingCriteria> {
 	if(positions.length === 0) {
 		return [];
@@ -142,12 +124,7 @@ export function makeSliceElements(sliceResponse: ReadonlySet<NodeId>, idToLocati
 	return sliceElements;
 }
 
-/**
- * Converts a flowR {@link SourceRange} into an equivalent {@link vscode.Range}. flowR positions are
- * 1-based while VS Code's are 0-based, so we subtract one - clamping to zero because `new vscode.Range`
- * throws on negative arguments, which would otherwise take down an entire diagnostics/decoration update
- * if flowR ever reports a finding without a proper location (e.g. a synthetic line 0).
- */
+/** converts a flowR {@link SourceRange} (1-based) to a {@link vscode.Range} (0-based), clamped to zero since `new vscode.Range` throws on negatives */
 export function rangeToVscodeRange(range: SourceRange): vscode.Range {
 	const clamp = (n: number) => n > 0 ? n : 0;
 	return new vscode.Range(clamp(range[0] - 1), clamp(range[1] - 1), clamp(range[2] - 1), clamp(range[3]));
@@ -164,8 +141,7 @@ export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<Pare
 	const result = new Set<NodeId>();
 	const maybeIncluded = new Array<RExpressionList<ParentInformation>>();
 
-	// By default the end of the selection extends one more coloumn
-	// Thus we subtract one so that the selection really only includes the selected chars
+	// the selection's end extends one column too far by default, so subtract one to include only the selected chars
 	const selections = selectionsRaw.map(sel => sel.with(
 		sel.start,
 		sel.end.with(sel.end.line, Math.max(sel.end.character - 1, 0))

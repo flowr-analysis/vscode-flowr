@@ -5,6 +5,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { downloadSigDbScope, removeSigDbScope, readSigDbRemotePointer, getSigDbBundleDir, getSigDbScopeState } from '../package-db';
 import { SigDbTreeDataProvider } from '../flowr/views/sigdb-view';
+import { predownloadBaseRSignatures } from '../extension';
+import { getConfig, Settings } from '../settings';
 
 suite('SigDB download/remove', () => {
 	let previousCacheDir: string | undefined;
@@ -101,6 +103,28 @@ suite('SigDB download/remove', () => {
 		for(const node of packages) {
 			await assert.doesNotReject(provider.getTreeItem(node), `getTreeItem threw for ${JSON.stringify(node)}`);
 		}
+	});
+
+	// regression test: predownloadBaseRSignatures() used to only log a message and never actually call any
+	// download API - base R was never really pre-downloaded no matter how auto-sync was configured
+	test('predownloadBaseRSignatures() actually downloads Base R when auto-sync is enabled', async function() {
+		this.timeout(30000);
+		if(!readSigDbRemotePointer()) {
+			this.skip();
+			return;
+		}
+		assert.ok(!getSigDbScopeState('base').manifest, 'expected a fresh temp cache to start with nothing downloaded');
+
+		const config = getConfig();
+		const previousAutoSync = config.get<boolean>(Settings.SigDbAutoSync);
+		await config.update(Settings.SigDbAutoSync, true, vscode.ConfigurationTarget.Global);
+		try {
+			await predownloadBaseRSignatures();
+		} finally {
+			await config.update(Settings.SigDbAutoSync, previousAutoSync, vscode.ConfigurationTarget.Global);
+		}
+
+		assert.ok(getSigDbScopeState('base').manifest, 'expected Base R to have actually been downloaded to disk');
 	});
 
 	test('removing a scope that was never downloaded removes nothing', () => {

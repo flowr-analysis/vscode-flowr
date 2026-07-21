@@ -3,11 +3,14 @@ import * as path from 'path';
 import * as https from 'https';
 import * as crypto from 'crypto';
 import { getConfig, Settings } from './settings';
-import { getBundledSigDbPath } from './extension';
+import { getBundledSigDbPath, isWeb } from './extension';
+import { getInstalledPackageVersions } from './installed-packages';
 import { readManifestFile, type SigDbManifest } from '@eagleoutice/flowr/project/sigdb/manifest';
 import { sigDbCacheDir } from '@eagleoutice/flowr/project/sigdb/decompress';
 import { selectDownloadVariants } from '@eagleoutice/flowr/project/sigdb/sigdb-download';
+import { readableExtsPreferred } from '@eagleoutice/flowr/project/sigdb/codec';
 import { getSharedSigSource, type PackageSignatureSource } from '@eagleoutice/flowr/project/sigdb/reader';
+import type { DecodedFunction } from '@eagleoutice/flowr/project/sigdb/decode';
 
 export const baseRPackages = new Set([
 	'base', 'compiler', 'datasets', 'grDevices', 'graphics', 'grid', 'methods', 'parallel',
@@ -45,13 +48,7 @@ export interface SigDbRemotePointer {
 
 let cachedPointer: SigDbRemotePointer | undefined | null = null;
 
-/**
- * Reads the sigdb release pointer shipped inside the extension bundle (`dist/node/sigdb/sigdb.remote.json`,
- * copied there by webpack from flowR's `data/sigdb`) directly off disk, relative to this extension's own
- * bundle location. We read it ourselves rather than calling flowR's `sigDbRemoteRelease()`/`syncedSigDbDir()`
- * because those resolve the pointer relative to `sigdb-download.js`'s *own* file location on disk (assuming a
- * normal `node_modules` layout) -- which breaks once that module is bundled into a single webpacked file.
- */
+/** reads dist/node/sigdb/sigdb.remote.json directly; flowR's own sigDbRemoteRelease() resolves paths relative to its module file, which breaks once webpacked */
 export function readSigDbRemotePointer(): SigDbRemotePointer | undefined {
 	if(cachedPointer !== null) {
 		return cachedPointer ?? undefined;
@@ -84,11 +81,12 @@ export function getSigDbBundleDir(): string | undefined {
 	return path.join(sigDbCacheDir(), 'bundles', pointer.tag);
 }
 
-const ManifestVariants = ['.zst', '.br', ''];
-
 /** locate a real, on-disk manifest file for a scope (`base` | `current` | `history`) inside a directory */
 function findManifestFile(dir: string, scope: string): string | undefined {
-	for(const ext of ManifestVariants) {
+	// a cache dir can genuinely hold both `.zst` and `.br` for the same shard (e.g. downloaded by different Node
+	// versions over time) - always trying `.zst` first regardless of runtime support would pick a variant this
+	// Node can't decompress and never fall back to the working `.br` right next to it, only to a different dir
+	for(const ext of [...readableExtsPreferred(), '']) {
 		const candidate = path.join(dir, `${scope}.manifest.json${ext}`);
 		if(fs.existsSync(candidate)) {
 			return candidate;
@@ -103,11 +101,7 @@ export interface SigDbScopeState {
 	manifest?:     SigDbManifest;
 }
 
-/**
- * Real, on-disk manifest state for one scope, searched across the bundled sigdb dir, the user's configured
- * additional path, and the downloaded-bundle dir (in that order, first match wins) -- mirrors the search
- * order flowR's own sigdb plugin uses (bundled default, then `additionalPaths`/`$FLOWR_SIGDB`).
- */
+/** searches bundled dir, then configured additional path, then downloaded-bundle dir, first match wins (mirrors flowR's own sigdb plugin) */
 export function getSigDbScopeState(scope: 'base' | 'current' | 'history'): SigDbScopeState {
 	const dirs = [getBundledSigDbPath(), getSigDbAdditionalPath().trim() || undefined, getSigDbBundleDir()]
 		.filter((d): d is string => !!d);
@@ -126,11 +120,7 @@ export function getSigDbScopeState(scope: 'base' | 'current' | 'history'): SigDb
 	return { scope };
 }
 
-/**
- * Opens a package-signature source, tolerating a corrupt or partially-downloaded shard (e.g. from a network
- * connection cut mid-download by a sandbox) instead of throwing -- callers get `undefined` and an explanation
- * via `onError`/the output channel rather than an unhandled rejection breaking the tree view or hover.
- */
+/** tolerates a corrupt/partial shard instead of throwing; callers get undefined plus an onError explanation */
 export async function safeGetSigSource(manifestPath: string, onError?: (message: string) => void): Promise<PackageSignatureSource | undefined> {
 	try {
 		return await getSharedSigSource(manifestPath);
@@ -141,22 +131,27 @@ export async function safeGetSigSource(manifestPath: string, onError?: (message:
 	}
 }
 
+/** a package can be listed in a manifest whose shard wasn't actually downloaded; swallow the resulting ENOENT */
+export function safeSigDbCall<T>(fn: () => T): T | undefined {
+	try {
+		return fn();
+	} catch(e) {
+		if(e && typeof e === 'object' && 'code' in e && e.code === 'ENOENT') {
+			return undefined;
+		}
+		throw e;
+	}
+}
+
 /** sha256 hex digest of a file's contents (same algorithm flowR's own downloader hashes against) */
 function sha256File(file: string): string {
 	return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
-/**
- * how long to wait for a connection/response before giving up -- a sandbox that silently drops egress (rather
- *  than refusing the connection) would otherwise hang the request forever with no feedback to the user
- */
+/** a sandbox that silently drops egress would otherwise hang the request forever */
 const RequestTimeoutMs = 30_000;
 
-/**
- * GET following redirects (GitHub release assets redirect to a signed storage host); resolves the final
- * response for streaming. VS Code patches Node's `https` module in the extension host to honor the user's
- * `http.proxy`/`http.systemCertificates` settings automatically, so this needs no proxy handling of its own.
- */
+/** follows redirects (GitHub release assets redirect to a signed storage host); VS Code's https patch already handles proxy settings */
 function httpGet(url: string, opts: { redirects?: number, signal?: AbortSignal } = {}): Promise<import('http').IncomingMessage> {
 	const { redirects = 5, signal } = opts;
 	return new Promise((resolve, reject) => {
@@ -181,7 +176,35 @@ function httpGet(url: string, opts: { redirects?: number, signal?: AbortSignal }
 	});
 }
 
+/** web target: no node:https in a webworker, so this uses fetch instead (which follows redirects itself, unlike httpGet) */
+async function downloadToWeb(url: string, dest: string, signal?: AbortSignal): Promise<void> {
+	const controller = new AbortController();
+	const onAbort = () => controller.abort(signal?.reason as Error | undefined);
+	signal?.addEventListener('abort', onAbort);
+	const timeout = setTimeout(() => controller.abort(new Error(`request to ${url} timed out after ${RequestTimeoutMs / 1000}s`)), RequestTimeoutMs);
+	try {
+		const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/octet-stream' } });
+		if(!res.ok) {
+			throw new Error(`GET ${url} -> HTTP ${res.status}`);
+		}
+		fs.writeFileSync(dest, Buffer.from(await res.arrayBuffer()));
+	} catch(e) {
+		if(e instanceof TypeError) {
+			// GitHub's release-asset host sends no CORS headers, so a browser blocks the request outright
+			throw new Error(`the browser blocked the download of ${url} (cross-origin requests to this host are not allowed); base-R signatures are bundled with the extension, but additional scopes cannot be synced from the web version`);
+		}
+		throw e;
+	} finally {
+		clearTimeout(timeout);
+		signal?.removeEventListener('abort', onAbort);
+	}
+}
+
 async function downloadTo(url: string, dest: string, signal?: AbortSignal): Promise<void> {
+	if(isWeb()) {
+		await downloadToWeb(url, dest, signal);
+		return;
+	}
 	const res = await httpGet(url, { signal });
 	await new Promise<void>((resolve, reject) => {
 		const out = fs.createWriteStream(dest);
@@ -196,14 +219,17 @@ export interface SigDbScopeDownloadResult {
 	files: string[];
 }
 
-/**
- * a real, on-disk shard id within a scope's manifest, e.g. `current-top`, `base-full`, `history-rest` - parsed
- *  from the release pointer's own asset names (`<scope>.<shardId>.sigs.ndjson[.br|.zst]`)
- */
+let sigDbPackageNamesCache: Promise<Set<string>> | undefined;
+
+/** drops the {@link allSigDbPackageNames} cache; call whenever a scope's shards or the custom sigdb path setting change */
+export function invalidateSigDbPackageNamesCache(): void {
+	sigDbPackageNamesCache = undefined;
+}
+
+/** a shard id (e.g. current-top) parsed from the release pointer's asset name <scope>.<shardId>.sigs.ndjson[.br|.zst] */
 function shardIdOf(scope: string, assetName: string): string {
 	const rest = assetName.slice(scope.length + 1);
-	// `rest` is `manifest.json[.br|.zst]` for the manifest itself - no leading dot before "manifest" to strip,
-	// unlike a data shard's `<id>.sigs.ndjson[.br|.zst]`, so it needs its own (anchored) check
+	// "rest" is manifest.json[.br|.zst] itself here, unlike a shard's <id>.sigs.ndjson[.br|.zst] - needs its own check
 	if(/^manifest\.json(\.br|\.zst)?$/.test(rest)) {
 		return 'manifest';
 	}
@@ -225,15 +251,7 @@ export const SigDbShardGroups: Record<'base' | 'current' | 'history', { id: stri
 	]
 };
 
-/**
- * Downloads a scope's shards (`base` | `current` | `history`) from the bundled release pointer, optionally
- * restricted to a subset of shard ids (see {@link SigDbShardGroups} - e.g. `['current-top']` alone, skipping
- * the long-tail `current-rest` shard). The manifest and any shared dictionary shards are always included
- * regardless of the filter, since a data shard is unreadable without them. Already-present, hash-verified
- * shards are skipped - flowR's own `downloadFullSigDb` has no such per-shard filter (it always fetches
- * everything), so this mirrors its exact GET/redirect/hash-verify logic
- * (see `@eagleoutice/flowr/project/sigdb/sigdb-download.js`) filtered down manually.
- */
+/** downloads a scope's shards, optionally filtered to shardIds (see {@link SigDbShardGroups}); manifest/dict are always included, already-verified shards are skipped */
 export async function downloadSigDbScope(
 	scope: 'base' | 'current' | 'history',
 	onProgress?: (msg: string) => void,
@@ -281,6 +299,7 @@ export async function downloadSigDbScope(
 		}
 		files.push(dest);
 	}
+	invalidateSigDbPackageNamesCache();
 	return { dir, files };
 }
 
@@ -312,24 +331,14 @@ export function getDownloadedShardGroups(scope: 'base' | 'current' | 'history'):
 	return groups;
 }
 
-/**
- * Deletes one scope's downloaded shard files (and any decompressed working-cache copies keyed by their
- * content hash) from the synced bundle directory. The bundled release pointer + remote release itself are
- * untouched, so the scope can be re-downloaded later.
- */
-/**
- * Removes a scope's downloaded shard files. With `shardIds` given, only those specific data shards are removed
- * (the manifest and shared dictionary are left in place, since other still-downloaded shard groups need them);
- * omit it to remove the whole scope, including the manifest, dictionary, and decompressed working-cache copies.
- */
+/** removes a scope's shard files; with shardIds only those data shards go, otherwise the whole scope (manifest, dict, cache included) */
 export function removeSigDbScope(scope: 'base' | 'current' | 'history', shardIds?: readonly string[]): { removed: string[] } {
 	const removed: string[] = [];
 	const pointer = readSigDbRemotePointer();
 	const dir = getSigDbBundleDir();
 	const state = getSigDbScopeState(scope);
 
-	// the decompressed working-cache copy for each shard this scope's manifest describes, keyed by content hash
-	// (only cleaned up on a full-scope removal - a partial removal may leave other shards depending on it)
+	// decompressed shard cache, keyed by content hash; only cleared on a full-scope removal
 	if(shardIds === undefined && state.manifest) {
 		for(const shard of state.manifest.shards) {
 			const cached = path.join(sigDbCacheDir(), `sigdb-${shard.hash}.sigs.ndjson`);
@@ -356,29 +365,18 @@ export function removeSigDbScope(scope: 'base' | 'current' | 'history', shardIds
 		}
 	}
 
+	invalidateSigDbPackageNamesCache();
 	return { removed };
 }
 
-/** same URL scheme as flowR's own `signature` query (`queries/catalog/signature-query/signature-query-executor.js`) */
-const CranGithubMirror = 'https://github.com/cran';
-const RdrrTopicName = /^[A-Za-z.][A-Za-z0-9._]*$/;
+export { cranPageUrl, cranMirrorSourceUrl } from '@eagleoutice/flowr/queries/catalog/signature-query/signature-query-executor';
 
-/** the CRAN package landing page (only meaningful for CRAN packages - base R packages are not published under `package=`, there is no such CRAN page for them) */
-export function cranPageUrl(pkg: string): string {
-	return `https://cran.r-project.org/package=${encodeURIComponent(pkg)}`;
-}
+const RdrrTopicName = /^[A-Za-z.][A-Za-z0-9._]*$/;
 
 /** the CRAN listing page for an R major-version series (e.g. `R-4`) - what to link a base-R package's version to instead of a (non-existent) CRAN package page */
 export function rMajorVersionPageUrl(version: string): string | undefined {
 	const major = /^(\d+)\./.exec(version)?.[1];
 	return major ? `https://cran.r-project.org/src/base/R-${major}/` : undefined;
-}
-
-/** deep-link a function definition into the CRAN mirror (`github.com/cran/<pkg>`) at the package's version tag */
-export function cranMirrorSourceUrl(pkg: string, version: string | undefined, file: string, line: number | undefined): string {
-	const ref = version ? encodeURIComponent(version) : 'HEAD';
-	const anchor = line !== undefined && line >= 0 ? `#L${line}` : '';
-	return `${CranGithubMirror}/${encodeURIComponent(pkg)}/blob/${ref}/${file}${anchor}`;
 }
 
 /** best-effort rdrr.io documentation link: `/r/<pkg>/<fn>` for base R, `/cran/<pkg>/man/<fn>` for CRAN */
@@ -412,31 +410,99 @@ export async function findSigDbPackageSource(pkg: string): Promise<{ scope: 'bas
 	return undefined;
 }
 
+/** every package name any synced signature-database scope can resolve, deduplicated across scopes; cached until a scope is downloaded/removed */
+export function allSigDbPackageNames(): Promise<Set<string>> {
+	sigDbPackageNamesCache ??= (async() => {
+		const names = new Set<string>();
+		for(const scope of SigDbScopeOrder) {
+			const state = getSigDbScopeState(scope);
+			if(!state.manifestPath) {
+				continue;
+			}
+			const source = await safeGetSigSource(state.manifestPath);
+			for(const name of source?.packageNames() ?? []) {
+				names.add(name);
+			}
+		}
+		return names;
+	})().catch((e: unknown) => {
+		// don't let a failed attempt poison the cache forever - the next call should retry fresh
+		sigDbPackageNamesCache = undefined;
+		throw e;
+	});
+	return sigDbPackageNamesCache;
+}
+
+/** every package name known locally (installed) or via any synced signature-database scope, deduplicated */
+export async function allKnownPackageNames(): Promise<Set<string>> {
+	const [sigdb, installed] = await Promise.all([allSigDbPackageNames(), getInstalledPackageVersions()]);
+	const names = new Set(sigdb);
+	for(const pkg of installed?.keys() ?? []) {
+		names.add(pkg);
+	}
+	return names;
+}
+
+/** edit distance between two strings (Wagner-Fischer DP, one-row) - used to guess a likely-intended package name for a typo */
+function levenshtein(a: string, b: string): number {
+	const prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+	for(let i = 1; i <= a.length; i++) {
+		let diag = prev[0];
+		prev[0] = i;
+		for(let j = 1; j <= b.length; j++) {
+			const above = prev[j];
+			prev[j] = a[i - 1] === b[j - 1] ? diag : 1 + Math.min(diag, prev[j], prev[j - 1]);
+			diag = above;
+		}
+	}
+	return prev[b.length];
+}
+
+/** how far (relative to the typed name's own length) a known package name may be before it stops being a plausible "did you mean" for a typo */
+const MaxSuggestionDistanceRatio = 0.4;
+
+/** the closest known package name(s) to `typed` (a package that wasn't resolved), for a "did you mean" hint - empty when nothing is close enough to plausibly be a typo of `typed` */
+export function closestPackageNames(typed: string, known: Iterable<string>, max = 3): string[] {
+	const maxDistance = Math.max(1, Math.floor(typed.length * MaxSuggestionDistanceRatio));
+	const scored: { name: string, distance: number }[] = [];
+	for(const name of known) {
+		if(name === typed) {
+			continue;
+		}
+		const distance = levenshtein(typed.toLowerCase(), name.toLowerCase());
+		if(distance <= maxDistance) {
+			scored.push({ name, distance });
+		}
+	}
+	return scored
+		.sort((a, b) => a.distance - b.distance || a.name.localeCompare(b.name))
+		.slice(0, max)
+		.map(s => s.name);
+}
+
+/** `source`'s recorded (latest) version string for `pkg`, or `undefined` if unavailable/errored */
+export function safeLatestVersionStr(source: PackageSignatureSource, pkg: string): string | undefined {
+	return safeSigDbCall(() => source.latestVersion(pkg))?.str;
+}
+
+/** `pkg`'s function signatures on `source` at `version` (or its latest), or `[]` if unavailable/errored */
+export function safeFunctionsOf(source: PackageSignatureSource, pkg: string, version?: string): DecodedFunction[] {
+	return safeSigDbCall(() => source.functions(pkg, version)) ?? [];
+}
+
 /** the signature database's recorded (latest) version for `pkg`, if any downloaded scope knows it */
 export async function resolveSigDbPackageVersion(pkg: string): Promise<string | undefined> {
 	const found = await findSigDbPackageSource(pkg);
-	return found?.source.latestVersion(pkg)?.str;
+	return found && safeLatestVersionStr(found.source, pkg);
 }
 
-/**
- * Whether `fnName` looks like an S3 generic within `pkg`: other exported functions in the same package/version
- * dispatch off it (`<fnName>.<class>`, e.g. `print` is a generic because `print.data.frame` exists). Same
- * heuristic flowR's own `signature` query uses (`reconstructS3Generics` in the sigdb plugin), computed directly
- * here since that helper isn't exported and needs a live analyzer to reach otherwise.
- */
+/** whether `fnName` is an S3 generic: another function `<fnName>.<class>` is a registered `s3-method` */
 export function isSigDbFunctionS3Generic(source: PackageSignatureSource, pkg: string, fnName: string, version: string | undefined): boolean {
 	const prefix = `${fnName}.`;
-	return (source.functions(pkg, version) ?? []).some(f => f.exported && f.name !== fnName && f.name.startsWith(prefix));
+	return safeFunctionsOf(source, pkg, version).some(f => f.name !== fnName && f.name.startsWith(prefix) && f.props.includes('s3-method'));
 }
 
-/**
- * The non-overlapping set of manifest *file* paths (not directories) to mount for `additionalPaths`/
- * `FLOWR_SIGDB`. `current`'s manifest already embeds its own copy of the base-R shards (so it is
- * self-sufficient for base R + current CRAN on its own), whereas `base`'s manifest describes the *same*
- * base packages again - mounting both at once registers every base package twice and crashes flowR's own
- * `reconstructS3Generics` deep inside dependency resolution. So: prefer `current` over `base` (never both),
- * and always add `history` too (it does not re-embed base, so it is safe to combine with either).
- */
+/** current's manifest already embeds base R, so mounting base too registers every package twice and crashes flowR's reconstructS3Generics; prefer current over base, always add history */
 export function getSigDbMountPaths(): string[] {
 	const current = getSigDbScopeState('current');
 	const base = getSigDbScopeState('base');

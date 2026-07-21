@@ -3,13 +3,13 @@ import {
 	isSigDbEnabled, getSigDbAdditionalPath, getSigDbCacheDir, getSigDbBundleDir,
 	readSigDbRemotePointer, getSigDbScopeState, safeGetSigSource,
 	downloadSigDbScope, removeSigDbScope, cranMirrorSourceUrl, cranPageUrl, rMajorVersionPageUrl, rdrrDocUrl, isSigDbFunctionS3Generic,
-	SigDbShardGroups, getDownloadedShardGroups, getDownloadedShardIds
+	SigDbShardGroups, getDownloadedShardGroups, getDownloadedShardIds, safeSigDbCall, safeLatestVersionStr, safeFunctionsOf
 } from '../../package-db';
 import { Settings, getConfig } from '../../settings';
-import { registerCommand, isWeb, refreshSigDbConfig } from '../../extension';
-import { downloadFullSigDb } from '@eagleoutice/flowr/project/sigdb/sigdb-download';
+import { registerCommand, refreshSigDbConfig } from '../../extension';
+import { getInstalledVersion, getHelpDoc } from '../../installed-packages';
 import type { PackageSignatureSource } from '@eagleoutice/flowr/project/sigdb/reader';
-import type { SigParameter } from '@eagleoutice/flowr/project/sigdb/decode';
+import type { DecodedFunction, SigParameter } from '@eagleoutice/flowr/project/sigdb/decode';
 import { RRange, RVersion } from '@eagleoutice/flowr/util/r-version';
 
 const GlobChars = /[*?]/;
@@ -66,8 +66,10 @@ const ScopeDescription: Record<Scope, string> = {
 	history: 'Full CRAN archive, including every historical version of every package'
 };
 
-/** how many children to materialize at once (packages under a scope, functions under a version) before capping */
+/** how many children to materialize on the first page (packages under a scope, functions under a version) before capping */
 const MaxListedChildren = 200;
+/** how many more to reveal each time "… N more" is expanded again, after the first page - a much gentler increment than dumping another full page */
+const MoreListedChildren = 20;
 
 export type SigDbNode =
 	| { kind: 'scope', scope: Scope }
@@ -75,10 +77,7 @@ export type SigDbNode =
 	| { kind: 'package', scope: Scope, pkg: string }
 	| { kind: 'version', scope: Scope, pkg: string, version: string }
 	| { kind: 'function', scope: Scope, pkg: string, version: string, name: string }
-	/**
-	 * the next page of a scope's package list (`pkg` unset) or a version's function list (`pkg` set) - itself
-	 *  lazily expandable, so a huge listing paginates instead of dead-ending in a static "N more"
-	 */
+	/** the next page of a scope's package list or a version's function list, itself lazily expandable */
 	| { kind: 'more', scope: Scope, pkg?: string, version?: string, offset: number, remaining: number }
 	| { kind: 'custom', path: string }
 	| { kind: 'info', text: string };
@@ -150,17 +149,13 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 	}
 
 	private getRootChildren(): SigDbNode[] {
-		if(isWeb()) {
-			return [{ kind: 'info', text: 'Signature databases require local file/network access and are not available in the web extension.' }];
-		}
 		if(!isSigDbEnabled()) {
 			return [{ kind: 'info', text: 'Signature database is disabled (vscode-flowr.config.solver.sigdb.enabled).' }];
 		}
 
 		const children: SigDbNode[] = Scopes.map(scope => ({ kind: 'scope', scope }));
 		const custom = getSigDbAdditionalPath().trim();
-		// a customPath equal to the auto-managed synced-bundle dir isn't something the user configured - it is
-		// stale state from an earlier bug where syncing wrote its destination there; self-heal it away
+		// a customPath equal to the auto-managed synced-bundle dir is stale state from an earlier bug; self-heal it away
 		if(custom && custom === getSigDbBundleDir()) {
 			void getConfig().update(Settings.SigDbCustomPath, '', vscode.ConfigurationTarget.Global);
 		} else if(custom) {
@@ -186,9 +181,7 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 		if(!source) {
 			return [{ kind: 'info', text: 'Could not open this database (see the flowR output channel).' }];
 		}
-		// `current`/`history` manifests embed their own base-R shard copy (so each scope is self-contained and
-		// can resolve base R symbols on its own) -- hide that overlap here since "Base R" already lists them,
-		// rather than showing every base package duplicated under every scope.
+		// current/history manifests embed their own base-R shard copy; hide that overlap here since "Base R" already lists them
 		let names = [...source.packageNames()];
 		if(scope !== 'base') {
 			names = names.filter(pkg => !source.isBaseR(pkg));
@@ -199,9 +192,7 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 			offset,
 			nextOffset => ({ kind: 'more', scope, offset: nextOffset, remaining: names.length - nextOffset })
 		);
-		// the manifest lists every package in the scope regardless of which shard groups are actually on disk
-		// (e.g. a "top only" download still lists the long-tail packages, just without their function data) -
-		// so keep a way to fetch the rest visible at the top at all times, not just before the first download
+		// the manifest lists every package regardless of which shard groups are on disk, so keep "fetch the rest" visible even after the first download
 		const mostComplete = SigDbShardGroups[scope].at(-1);
 		if(offset === 0 && mostComplete && !getDownloadedShardGroups(scope).has(mostComplete.id)) {
 			return [{ kind: 'sync', scope }, ...packages];
@@ -228,8 +219,7 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 			if(releases.length > 0) {
 				return releases.slice().reverse().map(r => ({ kind: 'version', scope, pkg, version: r.version.str } as SigDbNode));
 			}
-			// base R packages don't carry release dates the way CRAN packages do - their per-R-release version
-			// history lives in `coreVersions` instead (e.g. `compiler` has one entry per R release since 2.13.0)
+			// base R packages carry no release dates; their per-R-release version history lives in coreVersions instead
 			if(source.isBaseR(pkg)) {
 				const core = source.coreVersions(pkg) ?? [];
 				if(core.length > 0) {
@@ -262,28 +252,22 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 		}
 	}
 
-	/**
-	 * slices `nodes` at `offset`, appending a lazily-expandable "more" node (built by `buildMore`) for the next
-	 *  page when there's more beyond the listing cap - so a huge list paginates instead of dead-ending
-	 */
+	/** slices `nodes` at `offset`, appending a lazily-expandable "more" node (via `buildMore`) when there's more beyond the cap */
 	private capped(nodes: SigDbNode[], offset: number, buildMore: (nextOffset: number) => SigDbNode): SigDbNode[] {
+		const pageSize = offset === 0 ? MaxListedChildren : MoreListedChildren;
 		const remainingNodes = nodes.slice(offset);
-		if(remainingNodes.length <= MaxListedChildren) {
+		if(remainingNodes.length <= pageSize) {
 			return remainingNodes;
 		}
-		const visible = remainingNodes.slice(0, MaxListedChildren);
-		const overflow = remainingNodes.slice(MaxListedChildren);
+		const visible = remainingNodes.slice(0, pageSize);
+		const overflow = remainingNodes.slice(pageSize);
 		// anything pinned (e.g. a search result being revealed) stays reachable on this page too
 		const pinnedOverflow = overflow.filter(n => this.pinned.has(nodeId(n)));
-		const nextOffset = offset + MaxListedChildren;
+		const nextOffset = offset + pageSize;
 		return [...visible, ...pinnedOverflow, buildMore(nextOffset)];
 	}
 
-	/**
-	 * for Base R, the R-core version range a package was actually bundled for, when it doesn't span the whole
-	 * known history - `from R vX` if added later, `until R vY` if since removed, both if it was only ever
-	 * bundled for a middle stretch of R releases
-	 */
+	/** for Base R, the version range a package was bundled for when it doesn't span the whole known history */
 	private baseRCoreRangeLabel(source: PackageSignatureSource, pkg: string): string | undefined {
 		const core = source.coreVersions(pkg);
 		const allCore = source.coreVersions('base');
@@ -306,12 +290,7 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 		return undefined;
 	}
 
-	/**
-	 * rich tooltip for a package-level node: version, export/deprecation counts, CRAN/base-R attribution and
-	 * links - the same information a hover in the editor would show for a use of this package. Everything here
-	 * beyond the package name can need a shard's actual data (not just the manifest's package index), which may
-	 * not be on disk yet for a partially-downloaded scope - degrade to the bare item rather than throw.
-	 */
+	/** rich tooltip for a package node; degrades to the bare item rather than throw when a shard isn't downloaded yet */
 	private async packageTreeItem(scope: Scope, pkg: string): Promise<vscode.TreeItem> {
 		const item = new vscode.TreeItem(pkg, vscode.TreeItemCollapsibleState.Collapsed);
 		const source = await this.openScopeSource(scope);
@@ -322,14 +301,17 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 			const version = source.latestVersion(pkg)?.str;
 			const exportsInfo = source.lookup(pkg, version);
 			const base = source.isBaseR(pkg);
-			// base R packages are not published under CRAN's `package=` landing pages - link to the R version
-			// series they shipped with instead (both link targets are real, existing CRAN pages)
+			// base R packages have no CRAN package= page; link to the R version series they shipped with instead
 			const cranPage = !base && exportsInfo?.cran ? cranPageUrl(pkg) : undefined;
 			const rVersionPage = base && version ? rMajorVersionPageUrl(version) : undefined;
 			const link = cranPage ?? rVersionPage;
 			const coreRange = base ? this.baseRCoreRangeLabel(source, pkg) : undefined;
 			const versionCount = base ? undefined : source.releaseDates(pkg).length;
-			item.description = coreRange ?? (versionCount && versionCount > 1 ? `${versionCount} versions` : undefined);
+			const installed = base ? undefined : await getInstalledVersion(pkg);
+			item.description = [
+				coreRange ?? (versionCount && versionCount > 1 ? `${versionCount} versions` : undefined),
+				installed && `installed ${installed}`
+			].filter(Boolean).join(' · ') || undefined;
 
 			const md = new vscode.MarkdownString();
 			md.appendMarkdown(link ? `**[\`${pkg}\`](${link})**` : `**\`${pkg}\`**`);
@@ -348,6 +330,15 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 				if(exportsInfo.deprecated.length > 0) {
 					md.appendMarkdown(`, ${exportsInfo.deprecated.length} deprecated`);
 				}
+			}
+			if(installed) {
+				md.appendMarkdown(`\n\nInstalled locally as \`v${installed}\`${version && installed !== version ? ` (database describes \`v${version}\`)` : ''}.`);
+			}
+			if(exportsInfo?.s3Classes.length) {
+				md.appendMarkdown(`\n\n**S3 classes:** ${exportsInfo.s3Classes.map(c => `\`${c}\``).join(', ')}`);
+			}
+			if(exportsInfo?.s4Classes.length) {
+				md.appendMarkdown(`\n\n**S4 classes:** ${exportsInfo.s4Classes.map(c => `\`${c}\``).join(', ')}`);
 			}
 			if(cranPage) {
 				md.appendMarkdown(`\n\n[CRAN](${cranPage})`);
@@ -402,8 +393,7 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 		const md = new vscode.MarkdownString();
 		md.appendMarkdown(`**${ScopeLabel[scope]}**\n\n${ScopeDescription[scope]}\n\n`);
 		if(state.manifest) {
-			// the manifest lists every shard's package count regardless of what is actually on disk (its index
-			// is embedded) - report the two numbers separately rather than implying everything listed is usable
+			// the manifest's package count is independent of what's actually on disk; report both numbers separately
 			const downloadedIds = getDownloadedShardIds(scope);
 			const totalPackages = state.manifest.shards.reduce((sum, s) => sum + s.packages, 0);
 			const downloadedPackages = state.manifest.shards.filter(s => downloadedIds.has(s.id)).reduce((sum, s) => sum + s.packages, 0);
@@ -479,7 +469,9 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 			const base = source.isBaseR(node.pkg);
 			const cran = exportsInfo?.cran ?? false;
 			const sourceUrl = cran && !base && fn.file ? cranMirrorSourceUrl(node.pkg, version, fn.file, fn.line) : undefined;
-			const docUrl = rdrrDocUrl(node.pkg, node.name, { base, cran });
+			// `no-doc` marks a function proven undocumented; `fn.topic` is its real Rd help topic if not its own name
+			const docUrl = fn.exported && !fn.props.includes('no-doc') ? rdrrDocUrl(node.pkg, fn.topic ?? node.name, { base, cran }) : undefined;
+			const helpDoc = docUrl ? await getHelpDoc(node.pkg, node.name) : undefined;
 
 			item.description = `(${formatSignature(fn.signature)})${deprecated ? ' deprecated' : ''}${sourceUrl ? ' ↗' : ''}`;
 			if(sourceUrl) {
@@ -492,6 +484,9 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 				md.appendMarkdown('⚠️ **Deprecated**\n\n');
 			}
 			md.appendMarkdown(`${fn.exported ? 'Exported' : 'Internal'} function of \`${node.pkg}\`.\n`);
+			if(helpDoc?.title) {
+				md.appendMarkdown(`\n**${helpDoc.title}**\n`);
+			}
 			const flags = [
 				s3generic ? '🔀 S3 generic' : undefined,
 				canThrow ? '⚠ can throw' : undefined,
@@ -520,23 +515,55 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 }
 
 export interface SigDbSearchQuery {
-	pkg:      string;
-	version?: string;
-	fnName?:  string;
+	pkg:                 string;
+	version?:            string;
+	fnName?:             string;
+	/** keep only functions with a parameter matching every one of these names (glob wildcards allowed, position-independent) - `--param`/`-p` */
+	parameters?:         string[];
+	/** keep only functions with exactly this many required (no-default) parameters, excluding `...` - `--required`/`--req` */
+	requiredParameters?: number;
 }
 
-/** parses `pkg`, `pkg::fn`, `pkg@version`, `pkg@version::fn` - globs (`*`/`?`) allowed in any part, same syntax as flowR's own `:signature` REPL command */
+/**
+ * Tokenizes on whitespace and parses exactly like flowR's own `:signature query` REPL command (see
+ * signatureQueryLineParser in signature-query-format.js): `--param <name>` (repeatable, comma-separable) and
+ * `--required <n>` are pulled out first, then the remaining positional tokens are `<pkg>[@<version>]` and,
+ * optionally, a second `<pkg>::<fn>`/`<fn>` token - so `pkg fn` and `pkg@version fn` both work, matching flowR's own
+ * syntax. `pkg@version` (and `pkg::fn`) must stay one contiguous token each - flowR's own parser has no notion of
+ * spaces inside either.
+ */
 export function parseSigDbSearchQuery(query: string): SigDbSearchQuery | undefined {
-	const fnSplit = query.split('::');
-	const head = fnSplit[0]?.trim() ?? '';
-	const fnName = fnSplit.length > 1 ? (fnSplit.slice(1).join('::').trim() || undefined) : undefined;
-	if(!head) {
-		return undefined;
+	const tokens = query.trim().split(/\s+/).filter(t => t.length > 0);
+	const parameters: string[] = [];
+	let requiredParameters: number | undefined;
+	const positional: string[] = [];
+	for(let i = 0; i < tokens.length; i++) {
+		const tok = tokens[i];
+		if(tok === '--param' || tok === '-p') {
+			parameters.push(...(tokens[++i] ?? '').split(',').map(s => s.trim()).filter(s => s.length > 0));
+		} else if(tok === '--required' || tok === '--req') {
+			const n = Number(tokens[++i]);
+			if(!Number.isNaN(n)) {
+				requiredParameters = n;
+			}
+		} else if(!tok.startsWith('--')) {
+			positional.push(tok);
+		}
 	}
-	const atIndex = head.indexOf('@');
-	const pkg = (atIndex === -1 ? head : head.slice(0, atIndex)).trim();
-	const version = atIndex === -1 ? undefined : (head.slice(atIndex + 1).trim() || undefined);
-	return pkg ? { pkg, version, fnName } : undefined;
+	const paramFilters = { parameters: parameters.length > 0 ? parameters : undefined, requiredParameters };
+	const [first, second] = positional;
+	if(!first) {
+		// a bare parameter filter (`--param fuzz`) searches every package; otherwise there is nothing to look up
+		return (parameters.length > 0 || requiredParameters !== undefined) ? { pkg: '*', version: undefined, fnName: undefined, ...paramFilters } : undefined;
+	}
+	const dbl = first.indexOf('::');
+	const left = dbl >= 0 ? first.slice(0, dbl) : first;
+	const fnFromColon = dbl >= 0 ? first.slice(dbl + 2) : undefined;
+	const at = left.indexOf('@');
+	const pkg = at >= 0 ? left.slice(0, at) : left;
+	const version = at >= 0 ? (left.slice(at + 1) || undefined) : undefined;
+	const fnName = second ?? fnFromColon;
+	return pkg ? { pkg, version, fnName, ...paramFilters } : undefined;
 }
 
 export interface SigDbSearchMatch {
@@ -546,18 +573,22 @@ export interface SigDbSearchMatch {
 	fnName?:  string;
 }
 
-/**
- * Resolves a parsed query against every downloaded scope, matching glob/exact package, version (glob, exact,
- * or a real `RRange`-parsed semver-ish constraint) and function names - the same wildcard semantics as flowR's
- * own `signature` query. A plain exact package name (the common case) stays a cheap `has()` check; only a
- * glob/version-constrained search has to scan every package in a scope.
- */
+/** mirrors flowR's own `parameterFilter` (signature-query-executor.js) */
+function matchesParameterFilter(fn: DecodedFunction, parameters: string[] | undefined, requiredParameters: number | undefined): boolean {
+	if(parameters && !parameters.every(pat => fn.signature.some(p => matchesPattern(pat, p.name)))) {
+		return false;
+	}
+	return requiredParameters === undefined || fn.signature.filter(p => p.name !== '...' && !p.optional).length === requiredParameters;
+}
+
+/** resolves a parsed query against every downloaded scope with flowR's own wildcard semantics; a plain exact name stays a cheap has() check */
 export async function findSigDbMatches(
 	query: SigDbSearchQuery, output: vscode.OutputChannel, restrictTo: Scope | undefined, progress?: vscode.Progress<{ message?: string }>
 ): Promise<SigDbSearchMatch[]> {
-	const { pkg: pkgPattern, version: versionPattern, fnName: fnPattern } = query;
+	const { pkg: pkgPattern, version: versionPattern, fnName: fnPattern, parameters, requiredParameters } = query;
 	const pkgIsGlob = GlobChars.test(pkgPattern);
 	const fnIsGlob = fnPattern !== undefined && GlobChars.test(fnPattern);
+	const hasParamFilter = (parameters?.length ?? 0) > 0 || requiredParameters !== undefined;
 	const matches: SigDbSearchMatch[] = [];
 
 	for(const scope of restrictTo ? [restrictTo] : Scopes) {
@@ -576,19 +607,20 @@ export async function findSigDbMatches(
 		for(const pkg of candidatePkgs) {
 			let versions: (string | undefined)[];
 			if(versionPattern) {
-				versions = source.releaseDates(pkg).map(r => r.version.str).filter(v => matchesVersion(versionPattern, v));
-				const latest = source.latestVersion(pkg)?.str;
+				versions = (safeSigDbCall(() => source.releaseDates(pkg)) ?? []).map(r => r.version.str).filter(v => matchesVersion(versionPattern, v));
+				const latest = safeLatestVersionStr(source, pkg);
 				if(versions.length === 0 && latest && matchesVersion(versionPattern, latest)) {
 					versions = [latest];
 				}
 			} else {
-				versions = [source.latestVersion(pkg)?.str];
+				versions = [safeLatestVersionStr(source, pkg)];
 			}
 
 			for(const version of versions) {
-				if(fnPattern) {
-					for(const fn of source.functions(pkg, version) ?? []) {
-						if(fnIsGlob ? matchesPattern(fnPattern, fn.name) : fn.name === fnPattern) {
+				if(fnPattern || hasParamFilter) {
+					for(const fn of safeFunctionsOf(source, pkg, version)) {
+						const nameMatches = fnPattern === undefined || (fnIsGlob ? matchesPattern(fnPattern, fn.name) : fn.name === fnPattern);
+						if(nameMatches && matchesParameterFilter(fn, parameters, requiredParameters)) {
 							matches.push({ scope, pkg, version, fnName: fn.name });
 						}
 					}
@@ -617,35 +649,40 @@ async function runSync(dataProvider: SigDbTreeDataProvider, output: vscode.Outpu
 	await vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: 'Syncing signature databases', cancellable: false },
 		async progress => {
-			let total = 0;
-			let done = 0;
-			const version = pointer?.tag.replace(/^sigdb-v/, '');
-			try {
-				const result = await downloadFullSigDb({
-					version,
-					onProgress: msg => {
-						output.appendLine(`[SigDB] ${msg}`);
-						const syncing = /^syncing (\d+) shards/.exec(msg);
-						if(syncing) {
-							total = Number(syncing[1]);
-							return;
-						}
-						done++;
-						progress.report({
-							increment: total > 0 ? 100 / total : undefined,
-							message:   total > 0 ? `${msg} (${done}/${total})` : msg
-						});
-					}
-				});
-				output.appendLine(`[SigDB] Sync complete: ${result.files.length} file(s) in ${result.dir}`);
-				vscode.window.showInformationMessage(`Signature databases synced to ${result.dir}`);
-			} catch(e) {
-				const message = e instanceof Error ? e.message : String(e);
-				output.appendLine(`[SigDB] Sync failed: ${message}`);
-				vscode.window.showErrorMessage(`Signature database sync failed: ${message}`);
+			// go through our own downloadSigDbScope() per scope, not flowR's downloadFullSigDb(): the latter
+			// locates the committed pointer relative to its own source file (__dirname), which once webpacked
+			// into a single bundle no longer resolves to anything real - it then silently falls back to guessing
+			// a release tag from the *running flowR package's own version* (`sigdb-v<flowR version>`), which is
+			// not the same release cadence as the sigdb data and 404s. downloadSigDbScope reads the bundled
+			// dist/node/sigdb/sigdb.remote.json directly (see readSigDbRemotePointer's own doc comment), so it
+			// isn't affected by this.
+			// each scope downloads independently: a failure on one (e.g. a network blip on the large `history`
+			// scope) must not throw away `base`/`current` succeeding, so every scope gets its own try/catch
+			// rather than one that aborts the whole loop on the first error
+			let totalFiles = 0;
+			const failures: string[] = [];
+			for(const scope of Scopes) {
+				try {
+					const result = await downloadSigDbScope(scope, msg => {
+						output.appendLine(`[SigDB] [${scope}] ${msg}`);
+						progress.report({ message: `${ScopeLabel[scope]}: ${msg}` });
+					});
+					totalFiles += result.files.length;
+				} catch(e) {
+					const message = e instanceof Error ? e.message : String(e);
+					output.appendLine(`[SigDB] [${scope}] sync failed: ${message}`);
+					failures.push(`${ScopeLabel[scope]} (${message})`);
+				}
 			}
-			// an already-running flowR session bakes its sigdb paths in at construction time - refresh the
-			// config and drop it so the next analysis actually sees what was just synced
+			output.appendLine(`[SigDB] Sync ${failures.length > 0 ? 'partially ' : ''}complete: ${totalFiles} file(s)${failures.length > 0 ? `, failed: ${failures.join('; ')}` : ''}`);
+			if(failures.length === 0) {
+				vscode.window.showInformationMessage('Signature databases synced.');
+			} else if(totalFiles > 0) {
+				vscode.window.showWarningMessage(`Signature databases partially synced; failed: ${failures.join('; ')}`);
+			} else {
+				vscode.window.showErrorMessage(`Signature database sync failed: ${failures.join('; ')}`);
+			}
+			// an already-running flowR session bakes its sigdb paths in at construction; drop it so the next analysis sees what was just synced
 			refreshSigDbConfig();
 			dataProvider.refresh();
 		}
@@ -749,21 +786,14 @@ function ancestorChain(dataProvider: SigDbTreeDataProvider, node: SigDbNode): Si
 	return chain;
 }
 
-/**
- * Reveals `node` in the tree. VS Code's `TreeView.reveal()` walks the ancestor chain itself via
- * `getParent`/`getChildren`, but only finds an ancestor's *already-materialized* children - it will not
- * force a lazy scope/package to load. So we manually walk the chain top-down first (pinning + fetching
- * each level's children, which forces flowR to open the source and guarantees the target survives any
- * listing cap), then hand off to `reveal()` for the actual scrolling/selection.
- */
+/** reveals `node`; VS Code's own `reveal()` won't force a lazy scope/package to load, so we walk the chain top-down first to materialize it */
 async function revealSafely(treeView: vscode.TreeView<SigDbNode>, dataProvider: SigDbTreeDataProvider, node: SigDbNode, output: vscode.OutputChannel, label: string): Promise<void> {
 	const chain = ancestorChain(dataProvider, node);
 	for(const n of chain) {
 		dataProvider.pin(nodeId(n));
 	}
 	try {
-		// the view is nested inside our own activity-bar container; the container itself needs revealing
-		// before the individual view's own `.focus` command can actually render it
+		// the container itself needs revealing before the view's own .focus command can actually render it
 		await vscode.commands.executeCommand('workbench.view.extension.flowr');
 		await vscode.commands.executeCommand(`${FlowrSigDbViewId}.focus`);
 	} catch(e) {
@@ -793,12 +823,26 @@ async function revealSearchMatch(treeView: vscode.TreeView<SigDbNode>, dataProvi
 	}
 }
 
+let searchInFlight = false;
+
 async function runSearch(treeView: vscode.TreeView<SigDbNode>, dataProvider: SigDbTreeDataProvider, output: vscode.OutputChannel, restrictTo?: Scope): Promise<void> {
+	if(searchInFlight) {
+		return;
+	}
+	searchInFlight = true;
+	try {
+		await runSearchImpl(treeView, dataProvider, output, restrictTo);
+	} finally {
+		searchInFlight = false;
+	}
+}
+
+async function runSearchImpl(treeView: vscode.TreeView<SigDbNode>, dataProvider: SigDbTreeDataProvider, output: vscode.OutputChannel, restrictTo?: Scope): Promise<void> {
 	const query = await vscode.window.showInputBox({
 		prompt: restrictTo
-			? `Package (or pkg@version, pkg::fn, pkg@version::fn - globs allowed) to look up in ${ScopeLabel[restrictTo]}`
-			: 'Package (or pkg@version, pkg::fn, pkg@version::fn - globs allowed) to look up',
-		placeHolder: 'e.g. ggplot2, ggplot2@3.5.0::ggplot, dplyr::mutate, ggplot2@3.*::ggp*'
+			? `Package, pkg::fn/pkg fn, pkg@version, --param <name>, --required <n> - globs allowed - in ${ScopeLabel[restrictTo]}`
+			: 'Package, pkg::fn/pkg fn, pkg@version, --param <name>, --required <n> - globs allowed',
+		placeHolder: 'e.g. ggplot2, ggplot2 ggplot, dplyr::mutate, ggp*, ggplot2@3.*::ggp*, --param x,y*, mutate --required 2'
 	});
 	if(!query) {
 		return;
@@ -813,9 +857,8 @@ async function runSearch(treeView: vscode.TreeView<SigDbNode>, dataProvider: Sig
 		progress => findSigDbMatches(parsed, output, restrictTo, progress)
 	);
 
-	// a bare term with no `::`/`@` is ambiguous - it is tried as a package name first, but if that finds
-	// nothing, retry it as a function name across every package (mirrors flowR's own `:signature * <fn>` query)
-	if(matches.length === 0 && !parsed.fnName && !parsed.version) {
+	// a bare term is tried as a package name first, then as a function name across every package (mirrors flowR's own signature query)
+	if(matches.length === 0 && !parsed.fnName && !parsed.version && !parsed.parameters && parsed.requiredParameters === undefined) {
 		matches = await vscode.window.withProgress(
 			{ location: vscode.ProgressLocation.Notification, title: `Searching for "${query}" as a function name`, cancellable: false },
 			progress => findSigDbMatches({ pkg: '*', fnName: parsed.pkg }, output, restrictTo, progress)
@@ -846,10 +889,7 @@ async function runSearch(treeView: vscode.TreeView<SigDbNode>, dataProvider: Sig
 	}
 }
 
-/**
- * Registers the SigDB sidebar view. Every value shown is read live from disk (manifests, package/function
- * counts, download state) -- nothing here is estimated or hardcoded.
- */
+/** registers the SigDB sidebar view; every value shown is read live from disk, nothing is estimated or hardcoded */
 export function registerSigDbView(context: vscode.ExtensionContext, output: vscode.OutputChannel): { dispose: () => void } {
 	const dataProvider = new SigDbTreeDataProvider(output);
 	const disposables: vscode.Disposable[] = [];

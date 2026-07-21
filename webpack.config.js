@@ -2,11 +2,21 @@ const path = require('path');
 const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
+// flowR's doc-files.js pulls in a webpack-breaking glob; redirect requires of it to the shim by resolved resource (resolve.alias can't catch relative specifiers)
+function flowrDocFilesReplacementPlugin() {
+	return new webpack.NormalModuleReplacementPlugin(/(^|\/)doc-files$/, resource => {
+		if(resource.context.includes(path.join('@eagleoutice', 'flowr'))) {
+			resource.request = path.resolve(__dirname, 'webpack-shims/flowr-doc-files.js');
+		}
+	});
+}
+
 module.exports = env => {
 	const telemetry = env.HAS_TELEMETRY ?? false;
 	console.log(`Building with telemetry ${telemetry}`);
 
 	const nodeExtensionConfig = {
+		name: 'node',
 		mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
 		target: 'node',
 		entry: {
@@ -23,18 +33,15 @@ module.exports = env => {
 			new CopyWebpackPlugin({
 				patterns: [
 					{ from: path.resolve(__dirname, 'resources'), to: 'resources' },
-					// ship flowR's bundled package database so package information is available by default
-					// (it lives in node_modules and would otherwise not be part of the packaged extension)
-					// ship flowR's bundled signature database so package information is available by default
+					// ship flowR's bundled signature database, otherwise not part of the packaged extension
 					{ from: path.resolve(__dirname, 'node_modules/@eagleoutice/flowr/data/sigdb'), to: 'sigdb' }
 				]
 			}),
-			// webpack 5's node-core externalsPreset does not recognize `node:`-prefixed requests (it treats
-			// `node:` as an unhandled URI scheme instead of a module specifier); rewrite it away to the bare
-			// core-module name before resolution, so `externalsPresets.node` can externalize it as usual.
+			// webpack 5's node-core externalsPreset doesn't recognize `node:`-prefixed requests; strip the prefix first
 			new webpack.NormalModuleReplacementPlugin(/^node:/, resource => {
 				resource.request = resource.request.replace(/^node:/, '');
-			})
+			}),
+			flowrDocFilesReplacementPlugin()
 		],
 		externalsPresets: {
 			node: true
@@ -73,6 +80,7 @@ module.exports = env => {
 	};
 
 	const webExtensionConfig = {
+		name: 'web',
 		mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
 		target: 'webworker', // extensions run in a webworker context
 		entry: {
@@ -95,21 +103,19 @@ module.exports = env => {
 				readline: false,
 				net: false,
 				'fs/promises': false,
-				fs: false,
+				fs: path.resolve(__dirname, 'webpack-shims/fs.js'),
 				clipboardy: false,
 				'rotating-file-stream': false,
 				timers: false,
 				https: false,
 				http: false,
-				crypto: false,
+				crypto: path.resolve(__dirname, 'webpack-shims/crypto.js'),
 				'stream/promises': false,
 				// `v8` has no web equivalent; provide a shim so heap-pressure checks are no-ops
 				v8: path.resolve(__dirname, 'webpack-shims/v8.js')
 			},
 			fallback: {
-				// Webpack 5 no longer polyfills Node.js core modules automatically.
-				// see https://webpack.js.org/configuration/resolve/#resolvefallback
-				// for the list of Node.js core module polyfills.
+				// Webpack 5 no longer polyfills Node.js core modules automatically, see https://webpack.js.org/configuration/resolve/#resolvefallback
 				assert: require.resolve('assert'),
 				path: require.resolve('path-browserify'),
 				stream: require.resolve('stream-browserify'),
@@ -149,17 +155,16 @@ module.exports = env => {
 			new CopyWebpackPlugin({
 				patterns: [
 					{ from: path.resolve(__dirname, 'resources'), to: 'resources' },
-					// ship flowR's bundled package database (see the node config for details)
-					// ship flowR's bundled signature database so package information is available by default
-					{ from: path.resolve(__dirname, 'node_modules/@eagleoutice/flowr/data/sigdb'), to: 'sigdb' }
+					// ship flowR's bundled signature database (see the node config for details)
+					{ from: path.resolve(__dirname, 'node_modules/@eagleoutice/flowr/data/sigdb'), to: 'sigdb' },
+					{ from: path.resolve(__dirname, 'node_modules/brotli-dec-wasm/pkg/brotli_dec_wasm_bg.wasm'), to: 'wasm/brotli_dec_wasm_bg.wasm' }
 				]
 			}),
-			// see the node config for why this is needed: webpack treats `node:` as an unhandled URI scheme
-			// otherwise. The sigdb reader/downloader modules aren't usable in a webworker anyway (no fs/https),
-			// so after rewriting we let `resolve.alias` below stub the bare names out to `false`.
+			// see the node config for why (`node:` prefix handling); resolve.alias below stubs the bare names out to false
 			new webpack.NormalModuleReplacementPlugin(/^node:/, resource => {
 				resource.request = resource.request.replace(/^node:/, '');
-			})
+			}),
+			flowrDocFilesReplacementPlugin()
 		],
 		externals: [
 			{ vscode: 'commonjs vscode' }
