@@ -7,7 +7,7 @@ import { Identifier } from '@eagleoutice/flowr/dataflow/environments/identifier'
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
-import { FunctionCallVertex, FunctionDefinitionVertex, VariableDefinitionVertex } from '@eagleoutice/flowr/dataflow/graph/vertex';
+import { DfgVertex } from '@eagleoutice/flowr/dataflow/graph/vertex';
 import { DfEdge, EdgeType } from '@eagleoutice/flowr/dataflow/graph/edge';
 import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
 import { baseRPackages, defaultLoadedPackages, getSigDbScopeState, findSigDbPackageSource, resolveSigDbPackageVersion, rMajorVersionPageUrl, allKnownPackageNames, closestPackageNames, cranPageUrl } from './package-db';
@@ -156,7 +156,7 @@ function functionNameAt(ast: NormalizedAst, id: NodeId): string | undefined {
 /** the package + function of a `pkg::fn`/`pkg:::fn` call at `id`, from flowR's already-namespaced call identifier - the namespace is explicit in the source, so no `library()` is needed to attribute it */
 function namespacedCallAt(graph: DataflowGraph, ast: NormalizedAst, id: NodeId): { package: string, name: string } | undefined {
 	const vertex = graph.getVertex(toDataflowNode(ast, id));
-	if(!FunctionCallVertex.is(vertex)) {
+	if(!DfgVertex.isFunctionCall(vertex)) {
 		return undefined;
 	}
 	const namespace = Identifier.getNamespace(vertex.name);
@@ -307,7 +307,7 @@ async function resolveNode(document: vscode.TextDocument, pos: vscode.Position, 
 /** the node at `id` itself if it is a variable/function definition vertex, otherwise the local definition its origin points to (if any) */
 function definitionIdFor(resolved: ResolvedNode): NodeId | undefined {
 	const vertex = resolved.graph.getVertex(resolved.id) ?? resolved.graph.getVertex(toDataflowNode(resolved.ast, resolved.id));
-	if(VariableDefinitionVertex.is(vertex) || FunctionDefinitionVertex.is(vertex)) {
+	if(DfgVertex.isVariableDefinition(vertex) || DfgVertex.isFunctionDefinition(vertex)) {
 		return resolved.id;
 	}
 	const origins = originsForNode(resolved.graph, resolved.ast, resolved.id)?.origins;
@@ -481,7 +481,7 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 
 		// clicking a definition itself (not a use of it) has no origin to resolve; report it as its own location instead of nothing
 		const vertex = resolved.graph.getVertex(resolved.id) ?? resolved.graph.getVertex(toDataflowNode(resolved.ast, resolved.id));
-		if(VariableDefinitionVertex.is(vertex) || FunctionDefinitionVertex.is(vertex)) {
+		if(DfgVertex.isVariableDefinition(vertex) || DfgVertex.isFunctionDefinition(vertex)) {
 			const loc = resolved.ast.idMap.get(resolved.id)?.location;
 			if(loc) {
 				return new vscode.Location(document.uri, rangeToVscodeRange(loc));

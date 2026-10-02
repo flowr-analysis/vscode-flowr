@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getFlowrSession, registerCommand } from '../../extension';
 import type { DefaultDependencyCategoryName, DependenciesQuery, DependenciesQueryResult, DependencyCategoryName, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
-import { DefaultDependencyCategories, Unknown } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
+import { defaultDependencyCategories, Unknown } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { Identifier } from '@eagleoutice/flowr/dataflow/environments/identifier';
@@ -16,6 +16,7 @@ import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/mod
 import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { ConfigurableRefresher, isRTypeLanguage, RefreshType } from '../../configurable-refresher';
 import type { GuessDepVersionsQueryResult, GuessEvidenceSource } from '@eagleoutice/flowr/queries/catalog/guess-dep-versions-query/guess-dep-versions-query-format';
+import { isNotUndefined } from '@eagleoutice/flowr/util/assert';
 
 
 const FlowrDependencyViewId = 'flowr-dependencies';
@@ -52,7 +53,7 @@ export function registerDependencyInternalCommands(context: vscode.ExtensionCont
 		const values = new Set<DependencyCategoryName>(getConfig().get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories));
 		if(!values.size) {
 			// empty array means all are enabled, so we add them here to make the edit easier
-			values.union(new Set<DependencyCategoryName>(Object.keys(DefaultDependencyCategories)));
+			values.union(new Set<DependencyCategoryName>(Object.keys(defaultDependencyCategories)));
 		}
 		if(values.has(dependency.category)) {
 			values.delete(dependency.category);
@@ -563,7 +564,8 @@ export class Dependency extends vscode.TreeItem {
 
 		if(info) {
 			const functionName = renderFunctionName(info.functionName);
-			this.loc = locationMap?.map.ids[info.nodeId]?.[1];
+			this.loc = info.nodeId !== undefined ? locationMap?.map.ids[info.nodeId]?.[1] : undefined;
+
 			// the signature database's resolved version and local installation state for a `library()`/`require()` dependency
 			const versions = category === 'library' && info.value ? libraryVersions?.get(info.value) : undefined;
 			const versionBadge = [
@@ -602,7 +604,7 @@ export class Dependency extends vscode.TreeItem {
 			/* in the future we should be able to do better when flowR tells us the locations */
 			const activeEditor = vscode.window.activeTextEditor;
 			if(categoryInfo.useReverseLinks) {
-				const dependents = allInfos.filter(i => i !== info && i.linkedIds && i.linkedIds.indexOf(info.nodeId) >= 0);
+				const dependents = allInfos.filter(i => i !== info && i.linkedIds && info.nodeId && i.linkedIds.indexOf(info.nodeId) >= 0);
 				if(dependents.length > 0){
 					this.children = makeGroupedElements(locationMap, dependents, allInfos, verb, category, categoryInfo, dfi, ast);
 					this.children.flatMap(c => [c, ...c.children ?? []]).forEach(c => c.iconPath ??= new vscode.ThemeIcon('indent'));
@@ -688,10 +690,14 @@ export function unknownGuardedName(e: DependencyInfo): string {
 	return e.lexemeOfArgument ? `${named}: ${e.lexemeOfArgument}` : named;
 }
 
+function withNodeId(infos: DependencyInfo[]) {
+	return infos.filter(info => isNotUndefined(info.nodeId)) as (DependencyInfo & Required<Pick<DependencyInfo, 'nodeId'>>)[];
+}
+
 function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow: DependencyInfo[], allInfos: DependencyInfo[], verb: string, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst, libraryVersions?: Map<string, LibraryVersionInfo>): Dependency[] {
 	/* first group by name */
 	const grouped = new Map<string, DependencyInfo[]>();
-	for(const e of elementsToShow.toSorted((a, b) => compareByLocation(locationMap, a.nodeId, b.nodeId))) {
+	for(const e of withNodeId(elementsToShow).toSorted((a, b) => compareByLocation(locationMap, a.nodeId, b.nodeId))) {
 		const name = unknownGuardedName(e) + (e.value && e.value !== Unknown ? ` (${renderFunctionName(e.functionName)})` : '');
 		if(!grouped.has(name)) {
 			grouped.set(name, []);
