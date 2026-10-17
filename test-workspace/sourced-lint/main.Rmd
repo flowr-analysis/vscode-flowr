@@ -1,0 +1,9 @@
+---
+title: "sourced lint"
+---
+
+```{r}
+source("helper.R")
+unused_in_main <- 1
+print(helper())
+```

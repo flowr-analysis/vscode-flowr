@@ -63,9 +63,8 @@ export function isLocInDocument(loc: SourceLocation, document: Pick<vscode.TextD
 		// no file attribution (or the inline-buffer marker) => the primary document being analyzed
 		return true;
 	}
-	const normalize = (p: string) => p.replace(/^file:\/\//, '').replace(/\\/g, '/');
-	const target = normalize(file);
-	return target === normalize(document.fileName) || target === normalize(document.uri.fsPath);
+	const uri = file.startsWith('file://') ? vscode.Uri.parse(file) : vscode.Uri.file(file);
+	return uri.toString() === document.uri.toString() || uri.toString() === vscode.Uri.file(document.fileName).toString();
 }
 
 /** drops the finding's absolute file path from its message: {@link SourceLocation.format} prefixes the location with it, but the diagnostic already points at the file in the editor and Problems panel */
@@ -89,7 +88,7 @@ class CodeAction extends vscode.CodeAction {
 class LinterService implements vscode.CodeActionProvider<CodeAction> {
 	private readonly output: vscode.OutputChannel;
 	private readonly diagnosticCollection = vscode.languages.createDiagnosticCollection('flowr-lint');
-	private readonly codeActions = vscode.languages.registerCodeActionsProvider({ language: 'r' }, this, {
+	private readonly codeActions = vscode.languages.registerCodeActionsProvider([{ language: 'r' }, { language: 'rmd' }], this, {
 		providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
 	});
 	private readonly refresher:      ConfigurableRefresher;

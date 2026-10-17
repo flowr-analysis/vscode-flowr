@@ -1,6 +1,7 @@
 # Version 0.9.0 (unreleased)
 - Update to flowR 2.16.2 and offer its new `unused-import`, `unclosed-connection`, `unescaped-arguments` and `namespace-access` linting rules (enabled by default)
 - The dependency view now also refreshes when lines are inserted above all code (e.g. pressing Enter at the start of the file), which previously left stale line numbers
+- Findings of scripts loaded with `source()` no longer appear in R Markdown files that source them, and quick fixes are now also offered in R Markdown
 
 # Version 0.8.4 (2026-08-01)
 - Update to flowR 2.13.8: a braceless loop body (`for(f in files) read.csv(f)`) is no longer mistaken for a quotation, so its reads/writes show up in the dependency view and its symbols are linted; `.Rmd` chunk options parse correctly; and package versions are also guessed for orphan dependencies

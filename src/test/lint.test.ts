@@ -61,6 +61,14 @@ suite('linter', () => {
 		assert.deepStrictEqual([...setting.items.enum].sort(), Object.keys(LintingRules).sort());
 	});
 
+	test('an R Markdown file does not show findings of the scripts it sources', async() => {
+		const editor = await openTestFile('sourced-lint/main.Rmd');
+		await vscode.commands.executeCommand('vscode-flowr.lint.run');
+		const messages = vscode.languages.getDiagnostics(editor.document.uri).filter(d => d.source === 'flowr-lint').map(d => d.message);
+		assert.ok(messages.some(m => m.includes('unused_in_main')), `expected the document's own finding, got: ${JSON.stringify(messages)}`);
+		assert.ok(!messages.some(m => m.includes('unused_in_helper')), `found a finding of the sourced script: ${JSON.stringify(messages)}`);
+	});
+
 	test('quick fix', async() => {
 		const editor = await openTestFile('lint-example.R');
 		const result: vscode.CodeAction[] = await vscode.commands.executeCommand('vscode.executeCodeActionProvider',
