@@ -324,6 +324,16 @@ To build the extension into a `vsix` file, see [this documentation article](http
 
 This will also work for Positron, as the extension is the same for both Visual Studio Code and Positron.
 
+### Testing
+
+`npm test` runs the test suite in a desktop instance of Visual Studio Code (on a headless Linux machine, run it with `xvfb-run`). `npm run test-web` runs the browser-capable part of the suite in the web version of Visual Studio Code (headless Chromium; install it once with `npx playwright install chromium`). The CI runs both.
+
+### Releasing and flowR Updates
+
+A commit on `main` whose message starts with `[release:patch]`, `[release:minor]` or `[release:major]` bumps the version, publishes the extension, and uses the matching `# Version` section of the [changelog](CHANGELOG.md) as release notes.
+
+The `flowr-update` workflow checks daily (and whenever it is triggered manually or by a `flowr-release` repository dispatch) whether a newer flowR version is available. If so, it updates the dependency, records it in the changelog (`scripts/bump-flowr.mjs`), runs the desktop and web tests and, only if they pass, opens (or updates) a pull request titled `[release:<step>] Bump to flowR <version>`. Squash-merging it with that title releases the update. The workflow needs a `RELEASE_TOKEN` secret allowed to push branches and open pull requests, so that the pull request triggers the regular CI.
+
 ### Git Hooks
 
 This repository contains some git hooks to ensure that linting and other actions happen. Register these hooks by running:

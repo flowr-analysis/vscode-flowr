@@ -1,0 +1,67 @@
+name: flowr-update
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+  repository_dispatch:
+    types: [flowr-release]
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Check for a new flowR version
+        id: check
+        run: |
+          latest=$(npm view @eagleoutice/flowr version)
+          current=$(node -p "require('./package-lock.json').packages['node_modules/@eagleoutice/flowr'].version")
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          if [ "$latest" != "$current" ]; then
+            echo "update=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update flowR
+        if: steps.check.outputs.update
+        id: bump
+        run: |
+          npm ci
+          npm install "@eagleoutice/flowr@^$LATEST"
+          echo "step=$(node scripts/bump-flowr.mjs "$LATEST")" >> "$GITHUB_OUTPUT"
+        env:
+          LATEST: ${{ steps.check.outputs.latest }}
+
+      - name: Test
+        if: steps.check.outputs.update
+        uses: coactions/setup-xvfb@v1
+        with:
+          run: npm run test -- --forbid-only
+
+      - name: Test web
+        if: steps.check.outputs.update
+        run: npx playwright install --with-deps chromium && npm run test-web
+
+      - name: Create pull request
+        if: steps.check.outputs.update
+        uses: peter-evans/create-pull-request@v7
+        with:
+          # a token other than GITHUB_TOKEN, so the pull request triggers the regular CI
+          token: ${{ secrets.RELEASE_TOKEN }}
+          branch: auto/flowr-update
+          delete-branch: true
+          commit-message: '[release:${{ steps.bump.outputs.step }}] Bump to flowR ${{ steps.check.outputs.latest }}'
+          title: '[release:${{ steps.bump.outputs.step }}] Bump to flowR ${{ steps.check.outputs.latest }}'
+          body: |
+            Updates flowR to [${{ steps.check.outputs.latest }}](https://github.com/flowr-analysis/flowr/releases/tag/v${{ steps.check.outputs.latest }}). Tests (desktop and web) passed with the new version.
+            Squash-merge with the title unchanged to release.
