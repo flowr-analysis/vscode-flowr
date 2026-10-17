@@ -493,7 +493,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		const uniqueIds = new Set<string>();
 		this.rootElements = Object.entries(dependencyDisplayInfo).map(([d, i]) => {
 			const result = this.activeDependencies[d] as DependencyInfo[];
-			return this.makeDependency(i.name, i.verb, result, new vscode.ThemeIcon(i.icon), d, i, dfi, ast, libraryVersions).enforceUniqueIds(uniqueIds);
+			return this.makeDependency(i.name, i.verb, result, new vscode.ThemeIcon(i.icon, categoryColor(d)), d, i, dfi, ast, libraryVersions).enforceUniqueIds(uniqueIds);
 		});
 	}
 
@@ -656,6 +656,7 @@ export class Dependency extends vscode.TreeItem {
 			}
 		} else if(info) {
 			this.contextValue = 'dependency';
+			this.iconPath ??= new vscode.ThemeIcon('circle-small-filled', categoryColor(category));
 		}
 	}
 
@@ -683,6 +684,11 @@ export class Dependency extends vscode.TreeItem {
 }
 function getActiveEditorCharLength() {
 	return vscode.window.activeTextEditor?.document.getText().length ?? 0;
+}
+
+/** the theme color of a category, matching the line indicators next to the line numbers */
+function categoryColor(category: string): vscode.ThemeColor | undefined {
+	return category in dependencyDisplayInfo ? new vscode.ThemeColor(`vscodeFlowr.category.${category}`) : undefined;
 }
 
 /** Renders a dependency's {@link Identifier} function name as valid R (e.g. `purrr::map`, not `map,purrr,false`). */

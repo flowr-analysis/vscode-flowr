@@ -38,6 +38,88 @@
   "main": "./dist/node/extension.js",
   "browser": "./dist/web/extension.js",
   "contributes": {
+    "colors": [
+      {
+        "id": "vscodeFlowr.category.library",
+        "description": "Color of the flowR Libraries category (line indicators use the default palette)",
+        "defaults": {
+          "dark": "#0072B2",
+          "light": "#0072B2",
+          "highContrast": "#0072B2",
+          "highContrastLight": "#0072B2"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.read",
+        "description": "Color of the flowR Imported Data category (line indicators use the default palette)",
+        "defaults": {
+          "dark": "#009E73",
+          "light": "#009E73",
+          "highContrast": "#009E73",
+          "highContrastLight": "#009E73"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.source",
+        "description": "Color of the flowR Sourced Scripts category (line indicators use the default palette)",
+        "defaults": {
+          "dark": "#CC79A7",
+          "light": "#CC79A7",
+          "highContrast": "#CC79A7",
+          "highContrastLight": "#CC79A7"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.write",
+        "description": "Color of the flowR Outputs category (line indicators use the default palette)",
+        "defaults": {
+          "dark": "#E69F00",
+          "light": "#E69F00",
+          "highContrast": "#E69F00",
+          "highContrastLight": "#E69F00"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.visualize",
+        "description": "Color of the flowR Visualizations category (line indicators use the default palette)",
+        "defaults": {
+          "dark": "#D55E00",
+          "light": "#D55E00",
+          "highContrast": "#D55E00",
+          "highContrastLight": "#D55E00"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.test",
+        "description": "Color of the flowR Tests category (line indicators use the default palette)",
+        "defaults": {
+          "dark": "#F0E442",
+          "light": "#F0E442",
+          "highContrast": "#F0E442",
+          "highContrastLight": "#F0E442"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.statistics",
+        "description": "Color of the flowR Statistical Tests category (line indicators use the default palette)",
+        "defaults": {
+          "dark": "#7B3294",
+          "light": "#7B3294",
+          "highContrast": "#7B3294",
+          "highContrastLight": "#7B3294"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.remote",
+        "description": "Color of the flowR Remote Installs category (line indicators use the default palette)",
+        "defaults": {
+          "dark": "#999999",
+          "light": "#999999",
+          "highContrast": "#999999",
+          "highContrastLight": "#999999"
+        }
+      }
+    ],
     "languages": [
       {
         "id": "r",
@@ -92,14 +174,14 @@
         "command": "vscode-flowr.internal.slice.dependency",
         "title": "Show Relevant Code for Dependency (Backward Slice)",
         "category": "flowR",
-        "icon": "$(graph)",
+        "icon": "$(arrow-up)",
         "enablement": "sideBarFocus"
       },
       {
         "command": "vscode-flowr.internal.forward-slice.dependency",
         "title": "Show Influence of Dependency (Forward Slice)",
         "category": "flowR",
-        "icon": "$(graph)",
+        "icon": "$(arrow-down)",
         "enablement": "sideBarFocus"
       },
       {
@@ -918,6 +1000,16 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "vscode-flowr.internal.slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-flowr.internal.forward-slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "inline"
+        },
         {
           "command": "vscode-flowr.internal.slice.dependency",
           "when": "view == flowr-dependencies && viewItem == dependency",

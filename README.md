@@ -195,11 +195,11 @@ When you mark multiple positions (<kbd>Alt</kbd>+<kbd>P</kbd>), the editor shows
 
 ![A screenshot of a dependency diagram for a piece of code](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/dependencies.png)
 
-Using the extension, the sidebar should contain a flowR icon whose **Overview** view holds more information on the current file, listing the libraries loaded, the files read and written, and the sourced scripts. If you expand the respective sections, clicking on the found entries should open them in the editor. The context menu (available with a right click) allows you to [slice](#slicing) for the selected entry.
+Using the extension, the sidebar should contain a flowR icon whose **Overview** view holds more information on the current file, listing the libraries loaded, the files read and written, and the sourced scripts. If you expand the respective sections, clicking on the found entries should open them in the editor. The arrow buttons next to an entry (also in its context menu) [slice](#slicing) for it: backward for the code it depends on, forward for the code it influences. Each category and entry carries the same color as its [line indicator](#line-category-indicators); the colors can be changed in your color theme (`vscodeFlowr.category.*`).
 
 #### Line Category Indicators
 
-The same information is shown directly in the editor: a small colored bar next to the line numbers (and a mark in the overview ruler) tells you what a line does, without switching to the view. Hover the line for details.
+The same information is shown directly in the editor: a small colored bar next to the line numbers (and a mark in the overview ruler) tells you what a line does, without switching to the view. The indicators appear as soon as you open an R file. Hover the code of the line to see what each color stands for and why flowR marked the line: for example, `dplyr::select(...)` counts as a library dependency because `::` uses the package without `library()`, while a plain `filter(...)` after `library(dplyr)` does not.
 
 | Color | Category |
 |-------|----------|

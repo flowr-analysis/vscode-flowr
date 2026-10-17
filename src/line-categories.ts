@@ -4,13 +4,14 @@ import { ConfigurableRefresher, isRTypeLanguage } from './configurable-refresher
 import { DependencyViewRefresherConfigKeys, Settings, getConfig } from './settings';
 import type { DisplayedCategoryName } from './flowr/views/dependency-view';
 import { buildDependencyQueries, dependencyDisplayInfo, renderFunctionName } from './flowr/views/dependency-view';
+import { Unknown } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { DependenciesQueryResult, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { SourceLocation } from '@eagleoutice/flowr/util/range';
 import { isLocInDocument } from './lint';
 
-/** colorblind-friendly (Okabe-Ito based) color per dependency category */
-const CategoryColors: Record<DisplayedCategoryName, string> = {
+/** colorblind-friendly (Okabe-Ito based) color per dependency category, also contributed as theme colors for the dependency view */
+export const CategoryColors: Record<DisplayedCategoryName, string> = {
 	library:    '#0072B2',
 	read:       '#009E73',
 	source:     '#CC79A7',
@@ -21,6 +22,17 @@ const CategoryColors: Record<DisplayedCategoryName, string> = {
 	remote:     '#999999'
 };
 
+/** hover text of a line's indicator: the category in its color, what the line does, and why it counts */
+function describe(category: DisplayedCategoryName, display: { name: string, verb: string }, info: DependencyInfo): string {
+	const fn = renderFunctionName(info.functionName);
+	const value = info.value && info.value !== Unknown ? ` \`${info.value}\`` : '';
+	const namespaceAccess = (info.functionName as unknown) === '::' || (info.functionName as unknown) === ':::';
+	const why = namespaceAccess
+		? `\`${info.value ?? 'pkg'}${String(info.functionName)}…\` uses the package without \`library()\`, so it counts as a library dependency`
+		: `\`${fn}\` ${display.verb}${value}`;
+	return `<span style="color:${colorOf(category)};">■</span> **${display.name}** (flowR): ${why}`;
+}
+
 interface LineInfo { line: number, categories: DisplayedCategoryName[], labels: string[] }
 
 const colorOf = (category: DisplayedCategoryName) => CategoryColors[category];
@@ -28,8 +40,8 @@ const indicatorsEnabled = () => getConfig().get<boolean>(Settings.StyleLineCateg
 
 /** a narrow bar made of one vertical stripe per category, as a data URI (works without node APIs) */
 function barIcon(categories: DisplayedCategoryName[]): vscode.Uri {
-	const w = 6 / categories.length;
-	const rects = categories.map((c, i) => `<rect x='${5 + i * w}' y='0' width='${w}' height='16' fill='${colorOf(c)}'/>`).join('');
+	const w = 3 / categories.length;
+	const rects = categories.map((c, i) => `<rect x='${6 + i * w}' y='0' width='${w}' height='16' fill='${colorOf(c)}'/>`).join('');
 	const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>${rects}</svg>`;
 	return vscode.Uri.parse(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`);
 }
@@ -60,7 +72,7 @@ function clearEditor(editor: vscode.TextEditor) {
 /** collects the per-line categories of a dependency query result that lie in `document` (not in sourced scripts), sorted by line */
 function collectLines(dependencies: DependenciesQueryResult, locations: LocationMapQueryResult, document: vscode.TextDocument): LineInfo[] {
 	const lines = new Map<number, { categories: Set<DisplayedCategoryName>, labels: Set<string> }>();
-	for(const [category, display] of Object.entries(dependencyDisplayInfo) as [DisplayedCategoryName, { name: string }][]) {
+	for(const [category, display] of Object.entries(dependencyDisplayInfo) as [DisplayedCategoryName, { name: string, verb: string }][]) {
 		for(const info of (dependencies[category] as DependencyInfo[] | undefined) ?? []) {
 			const loc = info.nodeId === undefined ? undefined : locations.map.ids[info.nodeId];
 			if(!loc || !isLocInDocument([...loc[1], locations.map.files[loc[0]]] as SourceLocation, document)) {
@@ -69,7 +81,7 @@ function collectLines(dependencies: DependenciesQueryResult, locations: Location
 			const line = Math.max(loc[1][0] - 1, 0);
 			const entry = lines.get(line) ?? { categories: new Set(), labels: new Set() };
 			entry.categories.add(category);
-			entry.labels.add(`flowR: ${display.name} (${renderFunctionName(info.functionName)})`);
+			entry.labels.add(describe(category, display, info));
 			lines.set(line, entry);
 		}
 	}
@@ -82,7 +94,9 @@ function applyLines(doc: vscode.TextDocument, lines: LineInfo[]) {
 	for(const l of lines) {
 		const combo = l.categories.join(',');
 		const group = byCombo.get(combo) ?? { categories: l.categories, options: [] };
-		group.options.push({ range: doc.lineAt(Math.min(l.line, doc.lineCount - 1)).range, hoverMessage: new vscode.MarkdownString(l.labels.join('\n\n')) });
+		const hover = new vscode.MarkdownString(l.labels.join('\n\n'));
+		hover.supportHtml = true;
+		group.options.push({ range: doc.lineAt(Math.min(l.line, doc.lineCount - 1)).range, hoverMessage: hover });
 		byCombo.set(combo, group);
 	}
 	for(const editor of vscode.window.visibleTextEditors.filter(e => e.document === doc)) {
@@ -182,12 +196,15 @@ export function registerLineCategories(context: vscode.ExtensionContext, output:
 		})
 	);
 
-	registerCommand(context, 'vscode-flowr.internal.lineCategories', async(): Promise<{ line: number, categories: string[] }[]> => {
+	// the refresher only reacts to changes, so start the analysis for an R file that is already open on activation
+	void refresh();
+
+	registerCommand(context, 'vscode-flowr.internal.lineCategories', async(): Promise<{ line: number, categories: string[], labels: string[] }[]> => {
 		await refresh();
 		const editor = vscode.window.activeTextEditor;
 		if(!editor || lastUri !== editor.document.uri.toString() || !indicatorsEnabled()) {
 			return [];
 		}
-		return lastLines.map(l => ({ line: l.line, categories: l.categories }));
+		return lastLines.map(l => ({ line: l.line, categories: l.categories, labels: l.labels }));
 	});
 }

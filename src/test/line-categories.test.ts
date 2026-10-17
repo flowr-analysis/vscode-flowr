@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import assert from 'assert';
 import { activateExtension, openTestFile } from './test-util';
 
-type Lines = { line: number, categories: string[] }[];
+type Lines = { line: number, categories: string[], labels: string[] }[];
 const Setting = 'style.lineCategoryIndicators';
 
 suite('line category indicators', () => {
@@ -24,9 +24,22 @@ suite('line category indicators', () => {
 		assert.strictEqual(cats(lines, 5), undefined);
 	});
 
+	test('explains each indicator on hover, including namespace access', async() => {
+		await openTestFile('line-categories-example.R');
+		const label = (await get()).find(l => l.line === 0)?.labels.join();
+		assert.ok(label?.includes('Libraries') && label.includes('`library`'), label);
+		const doc = await vscode.workspace.openTextDocument({ language: 'r', content: 'x <- dplyr::select(df, a)\ny <- filter(x, a > 1)\n' });
+		await vscode.window.showTextDocument(doc);
+		const lines = await get();
+		assert.deepStrictEqual(cats(lines, 0), ['library'], JSON.stringify(lines));
+		assert.ok(lines[0].labels.join().includes('`dplyr::…`'), lines[0].labels.join());
+		assert.strictEqual(cats(lines, 1), undefined);
+		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+	});
+
 	test('marks R Markdown lines but not those of sourced scripts', async() => {
 		await openTestFile('sourced-lint/main.Rmd');
-		const lines = await get();
+		const lines = (await get()).map(({ line, categories }) => ({ line, categories }));
 		assert.deepStrictEqual(lines, [{ line: 5, categories: ['source'] }, { line: 7, categories: ['write'] }], 'the library() of the sourced helper.R must not show up in main.Rmd');
 	});
 

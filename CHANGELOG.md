@@ -4,7 +4,8 @@
 - Findings of scripts loaded with `source()` no longer appear in R Markdown files that source them, and quick fixes are now also offered in R Markdown
 - Continuous slices (position slices and following the cursor) always show the slice of the latest edit: results of earlier keystrokes that finish late are discarded, and updates requested while slicing are no longer dropped
 - Parse with the official r-lib release of tree-sitter-r (1.3.0)
-- Show a small color indicator next to the line numbers for lines that load libraries, import data, source scripts, write outputs, visualize, or test (`vscode-flowr.style.lineCategoryIndicators`)
+- Show a small color indicator next to the line numbers for lines that load libraries, import data, source scripts, write outputs, visualize, or test (`vscode-flowr.style.lineCategoryIndicators`); they appear as soon as an R file is opened, and hovering the line explains each color. The dependency view shows the same colors
+- Slice for a dependency directly with the arrow buttons next to it in the dependency view
 - Position slices can show the intersection instead of the union of all marked positions (`vscode-flowr.slice.positionCombination`, "Toggle Union/Intersection of Position Slices")
 - Negative slices (`vscode-flowr.slice.negative`, "Toggle Negative Slice") gray out the slice and reconstruct the remaining code, and "Fold Code Outside the Slice" folds the grayed out regions
 - The diff view and the reconstruction no longer open each other in turn, and a closed reconstruction or diff view is not reopened automatically until the slice is cleared
