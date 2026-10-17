@@ -8,6 +8,8 @@
 - Position slices can show the intersection instead of the union of all marked positions (`vscode-flowr.slice.positionCombination`, "Toggle Union/Intersection of Position Slices")
 - Negative slices (`vscode-flowr.slice.negative`, "Toggle Negative Slice") gray out the slice and reconstruct the remaining code, and "Fold Code Outside the Slice" folds the grayed out regions
 - The diff view and the reconstruction no longer open each other in turn, and a closed reconstruction or diff view is not reopened automatically until the slice is cleared
+- A syntax error in one place (e.g. in another R Markdown chunk) no longer disables value hovers, slicing and package information for the whole file
+- Large files no longer stall the editor after opening them: the linter runs once per document version, shared by diagnostics and quick fixes, instead of twice
 
 # Version 0.8.4 (2026-08-01)
 - Update to flowR 2.13.8: a braceless loop body (`for(f in files) read.csv(f)`) is no longer mistaken for a quotation, so its reads/writes show up in the dependency view and its symbols are linted; `.Rmd` chunk options parse correctly; and package versions are also guessed for orphan dependencies

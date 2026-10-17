@@ -20,6 +20,16 @@ for(i in 1:(n - 1)) product <- product * i
 			`.trim());
 	});
 
+	// a syntax error in an unrelated part of the file (e.g. another R Markdown chunk) must not disable slicing everywhere
+	test('slices despite a syntax error elsewhere in the file', async() => {
+		const doc = await vscode.workspace.openTextDocument({ language: 'r', content: 'x <- 1\ny <- x + 1\n\nbroken <- (\n' });
+		const editor = await vscode.window.showTextDocument(doc);
+		editor.selection = new vscode.Selection(1, 0, 1, 0);
+		const slice: SliceReturn | undefined = await vscode.commands.executeCommand('vscode-flowr.slice.cursor');
+		assert.ok(slice?.code.includes('x <- 1'), `expected the slice of y, got: ${slice?.code}`);
+		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+	});
+
 	test('forward slice cursor', async() => {
 		await openTestFile('example.R', new vscode.Selection(0, 0, 0, 0));
 		const slice: SliceReturn | undefined = await vscode.commands.executeCommand('vscode-flowr.forward-slice.cursor');

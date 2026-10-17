@@ -68,8 +68,8 @@ async function sigDbMissingHint(pkg: string): Promise<string> {
 async function runSignatureQuery(document: vscode.TextDocument, pkg: string | undefined, fnName: string | undefined, output: vscode.OutputChannel): Promise<SignatureQueryResult | undefined> {
 	try {
 		const session = await getFlowrSession();
-		const { result, hasError } = await session.retrieveQuery(document, [{ type: 'signature', package: pkg, function: fnName }]);
-		return hasError ? undefined : result.signature;
+		const { result } = await session.retrieveQuery(document, [{ type: 'signature', package: pkg, function: fnName }]);
+		return result.signature;
 	} catch(e) {
 		output.appendLine(`[Package Info] signature query failed: ${e instanceof Error ? e.message : String(e)}`);
 		return undefined;
@@ -294,7 +294,7 @@ async function resolveNode(document: vscode.TextDocument, pos: vscode.Position, 
 	}
 	try {
 		const res = await session.retrieveQuery(document, [{ type: 'search', search: locationSearch(pos, document) }]);
-		if(token.isCancellationRequested || res.hasError || !res.dfi || !res.ast) {
+		if(token.isCancellationRequested || !res.result.search || !res.dfi || !res.ast) {
 			return undefined;
 		}
 		const id = res.result.search.results[0]?.ids[0];

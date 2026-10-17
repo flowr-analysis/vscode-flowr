@@ -61,7 +61,7 @@ export function locationSearch(position: vscode.Position, document: vscode.TextD
  */
 export async function getNodeIdAt(position: vscode.Position, document: vscode.TextDocument, session: FlowrSession): Promise<NodeId | undefined> {
 	const result = await session.retrieveQuery(document, [{ type: 'search', search: locationSearch(position, document) }]);
-	return result.hasError ? undefined : result.result.search.results[0]?.ids[0];
+	return result.result.search?.results[0]?.ids[0];
 }
 
 /** maps a function-name symbol to its enclosing call node (the actual dataflow vertex); non-call nodes are returned unchanged */
@@ -96,7 +96,8 @@ export async function makeSlicingCriteriaForPositions(positions: vscode.Position
 		return [];
 	}
 	const result = await session.retrieveQuery(doc, positions.map(pos => ({ type: 'search', search: locationSearch(pos, doc) } as const)));
-	if(result.hasError) {
+	// a syntax error elsewhere still leaves a usable (partial) AST, so only bail out when there is no result at all
+	if(!result.result.search) {
 		return [];
 	}
 	const ast = result.ast;
