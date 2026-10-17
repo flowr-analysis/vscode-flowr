@@ -24,9 +24,7 @@ const criteriaSlicerPath = 'Dependency Slice';
 
 // currently only one instance is used and never disposed
 let criteriaSlicer: CriteriaSlicer | undefined;
-/**
- *
- */
+/** returns the singleton criteria slicer, disposing its current slice state first */
 export function getCriteriaSlicer(): CriteriaSlicer {
 	if(criteriaSlicer) {
 		criteriaSlicer.disposeCurrent();
@@ -57,19 +55,19 @@ class CriteriaSlicer {
 
 	// Clear all slice decos or only the ones affecting a specific editor/document
 	clearSliceDecos(editor?: vscode.TextEditor, doc?: vscode.TextDocument): void {
-		if(!this.decos){
+		if(!this.decos) {
 			return;
 		}
-		if(editor){
+		if(editor) {
 			editor.setDecorations(this.decos.lineSlice, []);
 			editor.setDecorations(this.decos.tokenSlice, []);
-			if(!doc){
+			if(!doc) {
 				return;
 			}
 		}
-		if(doc){
-			for(const editor of vscode.window.visibleTextEditors){
-				if(editor.document === doc){
+		if(doc) {
+			for(const editor of vscode.window.visibleTextEditors) {
+				if(editor.document === doc) {
 					this.clearSliceDecos(editor);
 				}
 			}
@@ -81,7 +79,7 @@ class CriteriaSlicer {
 
 	public disposeCurrent(): void {
 		this.clearSliceDecos();
-		for(const d of this.disposables){
+		for(const d of this.disposables) {
 			d.dispose();
 		}
 		this.disposables = [];
@@ -106,7 +104,7 @@ class CriteriaSlicer {
 		}
 
 		const ret = await getSliceFor(criteria, direction, info);
-		if(ret === undefined){
+		if(ret === undefined) {
 			return '';
 		}
 		if(direction === SliceDirection.Backward) {
@@ -116,11 +114,11 @@ class CriteriaSlicer {
 		}
 		this.hasDoc = true;
 		const clearOtherDecos = getConfig().get<boolean>(Settings.StyleOnlyHighlightActiveSelection, false);
-		for(const editor of this.decoratedEditors){
-			if(editor === ret.editor){
+		for(const editor of this.decoratedEditors) {
+			if(editor === ret.editor) {
 				continue;
 			}
-			if(clearOtherDecos || positionSlicers.has(editor.document)){
+			if(clearOtherDecos || positionSlicers.has(editor.document)) {
 				this.clearSliceDecos(editor);
 			}
 		}
@@ -137,15 +135,15 @@ interface CriteriaSliceReturn extends SliceReturn {
 }
 async function getSliceFor(criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<CriteriaSliceReturn | undefined> {
 	const editor = vscode.window.activeTextEditor;
-	if(!editor){
+	if(!editor) {
 		return;
 	}
 	const flowrSession = await getFlowrSession();
-	if(!flowrSession){
+	if(!flowrSession) {
 		return;
 	}
 	const ret = await flowrSession.retrieveSlice(criteria, direction, editor.document, true, info);
-	if(!ret.sliceElements.length){
+	if(!ret.sliceElements.length) {
 		return {
 			code:          '# No slice',
 			sliceElements: [],

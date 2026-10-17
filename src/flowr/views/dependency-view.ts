@@ -237,7 +237,7 @@ const emptyLocationMap: LocationMapQueryResult = { map: {
 	files: [],
 	ids:   {}
 }, '.meta': { timing: -1 } };
-interface DependencyCategoryInfo { name: string, verb: string, icon: string, useReverseLinks?: boolean };
+interface DependencyCategoryInfo { name: string, verb: string, icon: string, useReverseLinks?: boolean }
 /** the categories shown in the overview; `undeclared`/`unused` are deliberately excluded */
 type DisplayedCategoryName = Exclude<DefaultDependencyCategoryName, 'undeclared' | 'unused'>;
 const dependencyDisplayInfo: Record<DisplayedCategoryName, DependencyCategoryInfo> = {
@@ -604,13 +604,13 @@ export class Dependency extends vscode.TreeItem {
 			/* in the future we should be able to do better when flowR tells us the locations */
 			const activeEditor = vscode.window.activeTextEditor;
 			if(categoryInfo.useReverseLinks) {
-				const dependents = allInfos.filter(i => i !== info && i.linkedIds && info.nodeId && i.linkedIds.indexOf(info.nodeId) >= 0);
-				if(dependents.length > 0){
+				const dependents = allInfos.filter(i => i !== info && i.linkedIds && info.nodeId && i.linkedIds.includes(info.nodeId));
+				if(dependents.length > 0) {
 					this.children = makeGroupedElements(locationMap, dependents, allInfos, verb, category, categoryInfo, dfi, ast);
 					this.children.flatMap(c => [c, ...c.children ?? []]).forEach(c => c.iconPath ??= new vscode.ThemeIcon('indent'));
 					this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 				}
-			} else if(info.linkedIds){
+			} else if(info.linkedIds) {
 				this.children = info.linkedIds.toSorted((a, b) => compareByLocation(locationMap, a, b)).map(i => {
 					const loc = locationMap.map.ids[i]?.[1];
 					const tok = loc ? activeEditor?.document.getText(rangeToVscodeRange(loc)) : undefined;
@@ -633,9 +633,9 @@ export class Dependency extends vscode.TreeItem {
 			}
 		}
 
-		if(root){
+		if(root) {
 			this.contextValue = 'category';
-			if(getConfig().get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories).findIndex(c => this.category === c) < 0) {
+			if(!getConfig().get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories).includes(this.category)) {
 				this.description = 'Disabled';
 			}
 		} else if(info) {

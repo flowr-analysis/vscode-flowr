@@ -7,9 +7,7 @@ import type { DiagramOption, DiagramOptions, FlowrDiagramType } from './diagram-
 import { DiagramDefinitions } from './diagram-definitions';
 import { Mermaid } from '@eagleoutice/flowr/util/mermaid/mermaid';
 
-/**
- *
- */
+/** registers one command per diagram type plus the selection listener that keeps open diagrams updated */
 export function registerDiagramCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const coordinator = new DiagramUpdateCoordinator(output);
 
@@ -108,7 +106,7 @@ export class DiagramUpdateCoordinator {
 		const panel = createDiagramWebview({
 			options:          options,
 			documentationUrl: definition.documentationUrl,
-			id:               type as string,
+			id:               type,
 			name:             `${definition.title} (${path.basename(editor.document.fileName)})`
 		});
 

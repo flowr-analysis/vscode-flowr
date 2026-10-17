@@ -14,7 +14,7 @@ suite('rendering helpers', () => {
 		});
 
 		test('passes a plain identifier through unchanged', () => {
-			assert.equal(renderFunctionName('library' as unknown as Identifier), 'library');
+			assert.equal(renderFunctionName('library'), 'library');
 		});
 	});
 

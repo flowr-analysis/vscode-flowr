@@ -113,16 +113,12 @@ export const DependencyViewRefresherConfigKeys =  {
 export type SliceDisplay = 'text' | 'diff' | 'tokens';
 export type ConnectionType = 'auto' | 'websocket' | 'websocket-secure' | 'tcp';
 
-/**
- *
- */
+/** the extension's workspace configuration section */
 export function getConfig(): vscode.WorkspaceConfiguration {
 	return vscode.workspace.getConfiguration(Settings.Category);
 }
 
-/**
- *
- */
+/** whether verbose logging is enabled */
 export function isVerbose(): boolean {
 	return getConfig().get<boolean>(Settings.VerboseLog, false);
 }

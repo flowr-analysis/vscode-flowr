@@ -10,9 +10,7 @@ import { rangeToVscodeRange } from './flowr/utils';
 import { flowrScheme } from './doc-provider';
 import { SourceLocation } from '@eagleoutice/flowr/util/range';
 
-/**
- *
- */
+/** registers the lint commands backed by a {@link LinterService} */
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(context, output);
 	registerCommand(context, 'vscode-flowr.lint.run', async() => {
@@ -128,7 +126,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 					continue;
 				}
 				const quickFixes = (finding as LintingResult).quickFix;
-				if(!quickFixes?.length){
+				if(!quickFixes?.length) {
 					continue;
 				}
 				// only add quick fixes if we overlap the relevant range or selection

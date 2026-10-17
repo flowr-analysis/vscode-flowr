@@ -9,7 +9,7 @@ import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { KnownParser, KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
 import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/tree-sitter-executor';
-import { type Queries, type QueryResults, type SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
+import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import { SlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { SemVer } from 'semver';
@@ -210,14 +210,14 @@ export class FlowrInternalSession implements FlowrSession {
 				const timeout = new Promise<null>(resolve => handle = setTimeout(() => resolve(null), 5000));
 				await Promise.race([this.parser.usedRVersion(), timeout]).then((version: SemVer | null) => {
 					clearTimeout(handle);
-					if(!version){
+					if(!version) {
 						const seeDoc = 'See documentation';
 						const sandboxHint = typeof process !== 'undefined' && process.env?.FLATPAK_ID
 							? ` VS Code is running inside a Flatpak sandbox (${process.env.FLATPAK_ID}); R must either be installed inside the sandbox or the sandbox needs host filesystem access to it (e.g. "flatpak override --filesystem=host" or granting access to R's install location), and the resulting path set as vscode-flowr's "r.executable" setting.`
 							: '';
 						void vscode.window.showErrorMessage(`The R version could not be determined. R needs to be installed and part of your PATH environment variable.${sandboxHint}`, seeDoc)
 							.then(s => {
-								if(s === seeDoc){
+								if(s === seeDoc) {
 									void vscode.env.openExternal(vscode.Uri.parse('https://github.com/flowr-analysis/vscode-flowr/blob/main/README.md#using'));
 								}
 							});
@@ -294,7 +294,7 @@ export class FlowrInternalSession implements FlowrSession {
 				simplified,
 				includeEnvironments: false,
 				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
-				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(String)) : undefined,
 			}).string;
 		}, FlowrDiagramType.Dataflow, true, '');
 	}
@@ -312,7 +312,7 @@ export class FlowrInternalSession implements FlowrSession {
 				simplified,
 				includeEnvironments: false,
 				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
-				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(String)) : undefined,
 			}).string;
 		}, FlowrDiagramType.CallGraph, true, '');
 	}
@@ -461,9 +461,7 @@ interface CachedAnalyzer {
 const analyzerCache = new Map<string, CachedAnalyzer>();
 const maxAnalyzerCache = 4;
 
-/**
- *
- */
+/** drops all cached per-document analyzers */
 export function clearAnalyzerCache(): void {
 	analyzerCache.clear();
 }

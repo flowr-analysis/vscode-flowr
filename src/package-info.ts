@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getFlowrSession } from './extension';
 import { locationSearch, rangeToVscodeRange, toDataflowNode } from './flowr/utils';
-import { getOriginInDfg, OriginType } from '@eagleoutice/flowr/dataflow/origin/dfg-get-origin';
+import { OriginType } from '@eagleoutice/flowr/dataflow/origin/dfg-get-origin';
 import type { Origin } from '@eagleoutice/flowr/dataflow/origin/dfg-get-origin';
 import { Identifier } from '@eagleoutice/flowr/dataflow/environments/identifier';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
@@ -9,7 +9,11 @@ import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/mod
 import type { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
 import { DfgVertex } from '@eagleoutice/flowr/dataflow/graph/vertex';
 import { DfEdge, EdgeType } from '@eagleoutice/flowr/dataflow/graph/edge';
-import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
+import { RFunctionCall } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-function-call';
+import { RSymbol } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-symbol';
+import { RString } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-string';
+import { RArgument } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-argument';
+import { Dataflow } from '@eagleoutice/flowr/dataflow/graph/df-helper';
 import { baseRPackages, defaultLoadedPackages, getSigDbScopeState, findSigDbPackageSource, resolveSigDbPackageVersion, rMajorVersionPageUrl, allKnownPackageNames, closestPackageNames, cranPageUrl } from './package-db';
 import { getHelpDoc, getInstalledVersion } from './installed-packages';
 import type { SignatureFunctionView, SignaturePackageView, SignatureQueryResult, SignatureDependencyView, SignatureParameterView } from '@eagleoutice/flowr/queries/catalog/signature-query/signature-query-format';
@@ -150,7 +154,7 @@ function formatGroupedDependencies(dependencies: readonly SignatureDependencyVie
 /** the name of the function called at (or named by) the node at `id`, if it is a named call */
 function functionNameAt(ast: NormalizedAst, id: NodeId): string | undefined {
 	const node = ast.idMap.get(toDataflowNode(ast, id));
-	return node?.type === RType.FunctionCall && node.named ? node.functionName.lexeme ?? undefined : undefined;
+	return RFunctionCall.isNamed(node) ? node.functionName.lexeme ?? undefined : undefined;
 }
 
 /** the package + function of a `pkg::fn`/`pkg:::fn` call at `id`, from flowR's already-namespaced call identifier - the namespace is explicit in the source, so no `library()` is needed to attribute it */
@@ -171,19 +175,19 @@ function unquote(lexeme: string | undefined): string | undefined {
 function loadedPackageAt(ast: NormalizedAst, id: NodeId): { package: string, viaFunctionName: boolean } | undefined {
 	const node = ast.idMap.get(id);
 	// (a) hovering the package name argument: value -> RArgument -> call
-	if(node && (node.type === RType.Symbol || node.type === RType.String)) {
+	if(node && (RSymbol.is(node) || RString.is(node))) {
 		const argId = node.info.parent;
 		const call = argId !== undefined ? ast.idMap.get(ast.idMap.get(argId)?.info.parent ?? '') : undefined;
-		if(call?.type === RType.FunctionCall && call.named && libraryLoadFunctions.has(call.functionName.lexeme ?? '')) {
+		if(RFunctionCall.isNamed(call) && libraryLoadFunctions.has(call.functionName.lexeme ?? '')) {
 			const pkg = unquote(node.lexeme);
 			return pkg ? { package: pkg, viaFunctionName: false } : undefined;
 		}
 	}
 	// (b) hovering the load function itself: take its first argument as the package
 	const call = ast.idMap.get(toDataflowNode(ast, id));
-	if(call?.type === RType.FunctionCall && call.named && libraryLoadFunctions.has(call.functionName.lexeme ?? '')) {
+	if(RFunctionCall.isNamed(call) && libraryLoadFunctions.has(call.functionName.lexeme ?? '')) {
 		const first = call.arguments[0];
-		const pkg = first && typeof first === 'object' && first.type === RType.Argument ? unquote(first.value?.lexeme) : undefined;
+		const pkg = first && typeof first === 'object' && RArgument.is(first) ? unquote(first.value?.lexeme) : undefined;
 		return pkg ? { package: pkg, viaFunctionName: true } : undefined;
 	}
 	return undefined;
@@ -267,14 +271,14 @@ function isLocalOrigin(origin: Origin): origin is Exclude<Origin, { readonly pro
 
 /** a location search resolves to the innermost symbol, but flowR attaches origins to the enclosing call - climb to the parent call if the symbol itself has none */
 function originsForNode(graph: DataflowGraph, ast: NormalizedAst, id: NodeId): ResolvedOrigins | undefined {
-	const direct = getOriginInDfg(graph, id);
+	const direct = Dataflow.origin(graph, id);
 	if(direct && direct.length > 0) {
 		return { origins: direct, id };
 	}
 	// the location search resolves to the function-name symbol; the origins live on the enclosing call node
 	const callId = toDataflowNode(ast, id);
 	if(callId !== id) {
-		const viaCall = getOriginInDfg(graph, callId);
+		const viaCall = Dataflow.origin(graph, callId);
 		if(viaCall && viaCall.length > 0) {
 			return { origins: viaCall, id: callId };
 		}
@@ -521,7 +525,7 @@ export class FlowrReferenceProvider implements vscode.ReferenceProvider {
 		if(context.includeDeclaration) {
 			addLocation(defId);
 		}
-		for(const [sourceId, edge] of resolved.graph.ingoingEdges(defId) ?? []) {
+		for(const [sourceId, edge] of resolved.graph.edgesTo(defId)) {
 			if(DfEdge.includesType(edge, EdgeType.Reads)) {
 				addLocation(sourceId);
 			}

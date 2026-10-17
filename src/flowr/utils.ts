@@ -9,8 +9,8 @@ import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { RNode } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/model';
 import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
-import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
-import type { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';
+import { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';
+import { RFunctionCall } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-function-call';
 import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 import { Q, type FlowrSearch } from '@eagleoutice/flowr/search/flowr-search-builder';
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert';
@@ -40,10 +40,7 @@ export interface FlowrSession {
 	runRepl:                  (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }
 
-// Snaps to the enclosing word so positions on adjacent whitespace still hit the identifier.
-/**
- *
- */
+/** builds a fuzzy flowR location search for the symbol under `position` */
 export function locationSearch(position: vscode.Position, document: vscode.TextDocument): FlowrSearch {
 	const pos = getPositionAt(position, document)?.start ?? position;
 	return Q.locFuzzy(pos.line + 1, pos.character + 1, true).build();
@@ -64,24 +61,20 @@ export function toDataflowNode(ast: NormalizedAst, id: NodeId): NodeId {
 		return id;
 	}
 	const parent = ast.idMap.get(parentId);
-	if(parent?.type === RType.FunctionCall && parent.named && parent.functionName.info.id === id) {
+	if(RFunctionCall.isNamed(parent) && parent.functionName.info.id === id) {
 		return parentId;
 	}
 	return id;
 }
 
-/**
- *
- */
+/** the word range (R identifier characters) at `position`, if any */
 export function getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {
 	const re = /([a-zA-Z0-9._])+/;
 	const wordRange = document.getWordRangeAtPosition(position, re);
 	return wordRange;
 }
 
-/**
- *
- */
+/** normalizes CRLF line endings to LF */
 export function consolidateNewlines(text: string) {
 	return text.replace(/\r\n/g, '\n');
 }
@@ -105,14 +98,12 @@ export async function makeSlicingCriteriaForPositions(positions: vscode.Position
 		.map(id => `$${id}` as SlicingCriterion);
 }
 
-/**
- *
- */
+/** maps slice node ids to their locations, dropping ids without one, sorted by start position */
 export function makeSliceElements(sliceResponse: ReadonlySet<NodeId>, idToLocation: (id: NodeId) => SourceRange | undefined): { id: NodeId, location: SourceRange }[] {
 	const sliceElements: { id: NodeId, location: SourceRange }[] = [];
-	for(const id of sliceResponse){
+	for(const id of sliceResponse) {
 		const location = idToLocation(id);
-		if(location){
+		if(location) {
 			sliceElements.push({ id, location });
 		}
 	}
@@ -130,9 +121,7 @@ export function rangeToVscodeRange(range: SourceRange): vscode.Range {
 	return new vscode.Range(clamp(range[0] - 1), clamp(range[1] - 1), clamp(range[2] - 1), clamp(range[3]));
 }
 
-/**
- *
- */
+/** collects the ids of AST nodes covered by the selections, or `undefined` if the selection is empty */
 export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<ParentInformation>[]), selectionsRaw: readonly vscode.Selection[]): ReadonlySet<NodeId> | undefined {
 	if(selectionsRaw.length === 0 || selectionsRaw[0].isEmpty) {
 		return undefined;
@@ -148,7 +137,7 @@ export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<Pare
 	));
 
 	RNode.visitAst(root, node => {
-		if(node.type === RType.ExpressionList) {
+		if(RExpressionList.is(node)) {
 			maybeIncluded.push(node);
 			return;
 		}
@@ -178,12 +167,12 @@ export class RotaryBuffer<T> {
 	private readonly buffer: T[];
 	private index:           number = 0;
 
-	constructor(size: number){
+	constructor(size: number) {
 		this.buffer = new Array<T>(size);
 	}
 
 	push(item: T): void {
-		if(this.buffer.length === 0){
+		if(this.buffer.length === 0) {
 			return;
 		}
 		this.buffer[this.index] = item;
@@ -191,7 +180,7 @@ export class RotaryBuffer<T> {
 	}
 
 	get(item: (t: T | undefined) => boolean): T | undefined {
-		if(this.buffer.length === 0){
+		if(this.buffer.length === 0) {
 			return undefined;
 		}
 		return this.buffer.find(item);

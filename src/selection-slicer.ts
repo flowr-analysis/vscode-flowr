@@ -24,19 +24,13 @@ const selectionSlicerPath = 'Selection Slice';
 // Get the active SelectionSlicer instance
 // currently only one instance is used and never disposed
 export let selectionSlicer: SelectionSlicer | undefined;
-/**
- *
- */
+/** returns the singleton selection slicer */
 export function getSelectionSlicer(): SelectionSlicer {
 	selectionSlicer ??= new SelectionSlicer();
 	return selectionSlicer;
 }
 
-// Show the selection slice in an editor
-// If nothing is sliced, slice at the current cursor position
-/**
- *
- */
+/** slices the current selection (or cursor) and shows the result in an editor */
 export async function showSelectionSliceInEditor(direction: SliceDirection): Promise<vscode.TextEditor> {
 	const slicer = getSelectionSlicer();
 	// always (re-)slice the current selection so "show slice in editor" reflects the cursor the user is on now,
@@ -69,14 +63,14 @@ class SelectionSlicer {
 		updateStatusBar();
 	}
 	async toggleFollowSelection(direction: SliceDirection): Promise<void> {
-		if(this.changeListeners.length){
+		if(this.changeListeners.length) {
 			this.stopFollowSelection();
 		} else {
 			await this.startFollowSelection(direction);
 		}
 	}
 	stopFollowSelection(): void {
-		while(this.changeListeners.length){
+		while(this.changeListeners.length) {
 			this.changeListeners.pop()?.dispose();
 		}
 		updateStatusBar();
@@ -103,19 +97,19 @@ class SelectionSlicer {
 
 	// Clear all slice decos or only the ones affecting a specific editor/document
 	clearSliceDecos(editor?: vscode.TextEditor, doc?: vscode.TextDocument): void {
-		if(!this.decos){
+		if(!this.decos) {
 			return;
 		}
-		if(editor){
+		if(editor) {
 			editor.setDecorations(this.decos.lineSlice, []);
 			editor.setDecorations(this.decos.tokenSlice, []);
-			if(!doc){
+			if(!doc) {
 				return;
 			}
 		}
-		if(doc){
-			for(const editor of vscode.window.visibleTextEditors){
-				if(editor.document === doc){
+		if(doc) {
+			for(const editor of vscode.window.visibleTextEditors) {
+				if(editor.document === doc) {
 					this.clearSliceDecos(editor);
 				}
 			}
@@ -126,7 +120,7 @@ class SelectionSlicer {
 	}
 
 	protected async update(direction: SliceDirection): Promise<SliceReturn | undefined> {
-		if(this.updating){
+		if(this.updating) {
 			// never let update() recurse into itself (e.g. via an auto-reconstruct that re-slices)
 			return undefined;
 		}
@@ -140,7 +134,7 @@ class SelectionSlicer {
 
 	private async doUpdate(direction: SliceDirection): Promise<SliceReturn | undefined> {
 		const ret = await getSelectionSlice(direction);
-		if(ret === undefined){
+		if(ret === undefined) {
 			return undefined;
 		}
 		getCriteriaSlicer().clearSliceDecos();
@@ -149,18 +143,18 @@ class SelectionSlicer {
 		provider.updateContents(uri, direction === SliceDirection.Backward ? ret.code : '');
 		this.hasDoc = true;
 		const clearOtherDecos = getConfig().get<boolean>(Settings.StyleOnlyHighlightActiveSelection, false);
-		for(const editor of this.decoratedEditors){
-			if(editor === ret.editor){
+		for(const editor of this.decoratedEditors) {
+			if(editor === ret.editor) {
 				continue;
 			}
-			if(clearOtherDecos || positionSlicers.has(editor.document)){
+			if(clearOtherDecos || positionSlicers.has(editor.document)) {
 				this.clearSliceDecos(editor);
 			}
 		}
 		this.decos ||= makeSliceDecorationTypes();
 		displaySlice(ret.editor, ret.sliceElements, this.decos);
 		this.decoratedEditors.push(ret.editor);
-		if(direction === SliceDirection.Backward && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
+		if(direction === SliceDirection.Backward && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)) {
 			// the slice is already computed and written to the reconstruction URI above; just reveal it.
 			// (calling showSelectionSliceInEditor here would re-slice and recurse back into update())
 			void showUri(this.makeUri());
@@ -177,26 +171,26 @@ interface SelectionSliceReturn extends SliceReturn {
 }
 async function getSelectionSlice(direction: SliceDirection): Promise<SelectionSliceReturn | undefined> {
 	const editor = vscode.window.activeTextEditor;
-	if(!editor){
+	if(!editor) {
 		return undefined;
 	}
-	if(editor.document.uri.scheme === flowrScheme){
+	if(editor.document.uri.scheme === flowrScheme) {
 		return undefined;
 	}
-	if(!isRTypeLanguage(editor.document)){
+	if(!isRTypeLanguage(editor.document)) {
 		return undefined;
 	}
-	if(positionSlicers.has(editor.document)){
+	if(positionSlicers.has(editor.document)) {
 		return undefined;
 	}
 	const positions = editor.selections.map(sel => sel.active);
-	if(!positions.length){
+	if(!positions.length) {
 		// (should not happen)
 		return undefined;
 	}
 	const flowrSession = await getFlowrSession();
 	const ret = await flowrSession.retrieveSlice(await makeSlicingCriteriaForPositions(positions, editor.document, flowrSession), direction, editor.document, false);
-	if(!ret.sliceElements.length){
+	if(!ret.sliceElements.length) {
 		return {
 			code:          '# No slice',
 			sliceElements: [],

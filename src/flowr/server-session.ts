@@ -77,11 +77,11 @@ export class FlowrServerSession implements FlowrSession {
 		let host = getConfig().get<string>(Settings.ServerHost, 'localhost');
 		const port = getConfig().get<number>(Settings.ServerPort, 1042);
 		// we also set configType when overriding the type to use because that's the only one we want to try even in auto mode!
-		if(host.startsWith('ws://')){
-			host = host.substring(5);
+		if(host.startsWith('ws://')) {
+			host = host.slice(5);
 			configType = typeToUse = 'websocket';
-		} else if(host.startsWith('wss://')){
-			host = host.substring(6);
+		} else if(host.startsWith('wss://')) {
+			host = host.slice(6);
 			configType = typeToUse = 'websocket-secure';
 		}
 		const [base, suff] = splitHost(host);
@@ -110,7 +110,7 @@ export class FlowrServerSession implements FlowrSession {
 						if(v === useLocal) {
 							void establishInternalSession();
 						} else if(v === openSettings) {
-							void vscode.commands.executeCommand( 'workbench.action.openSettings', 'vscode-flowr.server' );
+							void vscode.commands.executeCommand('workbench.action.openSettings', 'vscode-flowr.server');
 						}
 					});
 			}
@@ -181,7 +181,7 @@ export class FlowrServerSession implements FlowrSession {
 			simplified,
 			includeEnvironments: false,
 			includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
-			mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+			mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(String)) : undefined,
 		}).string;
 	}
 
@@ -195,7 +195,7 @@ export class FlowrServerSession implements FlowrSession {
 			simplified,
 			includeEnvironments: false,
 			includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
-			mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+			mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(String)) : undefined,
 		}).string;
 	}
 

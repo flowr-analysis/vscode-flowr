@@ -30,9 +30,7 @@ export async function activateExtension(): Promise<FlowrExtensionApi> {
 	return api;
 }
 
-/**
- *
- */
+/** opens a file from the test workspace in an editor, optionally setting its selection */
 export async function openTestFile(name: string, selection?: vscode.Selection): Promise<vscode.TextEditor> {
 	const file = path.resolve(__dirname, '..', '..', 'test-workspace', name);
 	const doc = await vscode.workspace.openTextDocument(file);

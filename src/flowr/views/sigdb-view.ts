@@ -179,7 +179,7 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 		}
 		names.sort((a, b) => a.localeCompare(b));
 		const packages = this.capped(
-			names.map(pkg => ({ kind: 'package', scope, pkg } as SigDbNode)),
+			names.map(pkg => ({ kind: 'package', scope, pkg })),
 			offset,
 			nextOffset => ({ kind: 'more', scope, offset: nextOffset, remaining: names.length - nextOffset })
 		);
@@ -208,13 +208,13 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 		try {
 			const releases = source.releaseDates(pkg);
 			if(releases.length > 0) {
-				return releases.slice().reverse().map(r => ({ kind: 'version', scope, pkg, version: r.version.str } as SigDbNode));
+				return releases.slice().reverse().map(r => ({ kind: 'version', scope, pkg, version: r.version.str }));
 			}
 			// base R packages carry no release dates; their per-R-release version history lives in coreVersions instead
 			if(source.isBaseR(pkg)) {
 				const core = source.coreVersions(pkg) ?? [];
 				if(core.length > 0) {
-					return core.slice().reverse().map(v => ({ kind: 'version', scope, pkg, version: v.str } as SigDbNode));
+					return core.slice().reverse().map(v => ({ kind: 'version', scope, pkg, version: v.str }));
 				}
 			}
 			const latest = source.latestVersion(pkg);
@@ -234,7 +234,7 @@ export class SigDbTreeDataProvider implements vscode.TreeDataProvider<SigDbNode>
 			const functions = source?.functions(pkg, version) ?? [];
 			const names = functions.map(f => f.name).sort((a, b) => a.localeCompare(b));
 			return this.capped(
-				names.map(name => ({ kind: 'function', scope, pkg, version: version ?? '', name } as SigDbNode)),
+				names.map(name => ({ kind: 'function', scope, pkg, version: version ?? '', name })),
 				offset,
 				nextOffset => ({ kind: 'more', scope, pkg, version, offset: nextOffset, remaining: names.length - nextOffset })
 			);

@@ -12,9 +12,7 @@ import { rangeToVscodeRange } from './flowr/utils';
 import { registerCommand } from './extension';
 import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
-/**
- *
- */
+/** registers the slice commands (cursor, selection, dependency, clear, and position slicing) */
 export function registerSliceCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	registerCommand(context, 'vscode-flowr.slice.cursor', async() => {
 		return await getSelectionSlicer().sliceSelectionOnce(SliceDirection.Backward);
@@ -53,7 +51,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 		if(e.affectsConfiguration(Settings.Category)) {
 			const selSlicer = getSelectionSlicer();
 			selSlicer.clearSliceDecos();
-			for(const [, positionSlicer] of positionSlicers){
+			for(const [, positionSlicer] of positionSlicers) {
 				void positionSlicer.updateOutput(true);
 			}
 		}
@@ -62,7 +60,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 
 async function showReconstructionInEditor(): Promise<vscode.TextEditor | undefined> {
 	const positionSlicer = getActivePositionSlicer();
-	if(positionSlicer){
+	if(positionSlicer) {
 		return await positionSlicer.showReconstruction();
 	}
 	return await showSelectionSliceInEditor(SliceDirection.Backward);
@@ -70,11 +68,11 @@ async function showReconstructionInEditor(): Promise<vscode.TextEditor | undefin
 
 function clearSliceOutput(): void {
 	const editor = vscode.window.activeTextEditor;
-	if(!editor){
+	if(!editor) {
 		return;
 	}
 	const clearedPositionSlicer = disposeActivePositionSlicer();
-	if(clearedPositionSlicer){
+	if(clearedPositionSlicer) {
 		return;
 	}
 	const slicer = getSelectionSlicer();
@@ -104,7 +102,7 @@ function showDependencySlice(output: vscode.OutputChannel, dependency: Dependenc
 	setTimeout(() => {
 		void (async() => {
 			await slicer.sliceFor([`$${nodeId}`], direction, info ? { ...info, id: nodeId } : undefined);
-			if(direction === SliceDirection.Backward && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)){
+			if(direction === SliceDirection.Backward && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)) {
 				setTimeout(() => {
 					void slicer.showReconstruction();
 				}, 20);
@@ -118,22 +116,20 @@ function showDependencySlice(output: vscode.OutputChannel, dependency: Dependenc
 	}, 1);
 }
 
-/**
- *
- */
+/** decorates `editor` to highlight the slice elements according to the configured display style */
 export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[], decos: DecoTypes) {
 	const sliceLines = new Set<number>(sliceElements.map(s => s.location[0] - 1));
 	switch(getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay)) {
 		case 'tokens': {
 			const ranges = [];
-			for(const el of sliceElements){
+			for(const el of sliceElements) {
 				ranges.push(rangeToVscodeRange(el.location));
 			}
 			editor.setDecorations(decos.tokenSlice, ranges);
 			break;
 		}
 		case 'text': {
-			if(sliceLines.size === 0){
+			if(sliceLines.size === 0) {
 				return; // do not grey out the entire document
 			}
 			const decorations: vscode.DecorationOptions[] = [];
@@ -147,8 +143,8 @@ export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: Nod
 		}
 		case 'diff': {
 			const sliceContent = [];
-			for(let i = 0; i < editor.document.lineCount; i++){
-				if(!sliceLines.has(i)){
+			for(let i = 0; i < editor.document.lineCount; i++) {
+				if(!sliceLines.has(i)) {
 					sliceContent.push(editor.document.lineAt(i).text);
 				}
 			}
@@ -156,9 +152,9 @@ export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: Nod
 			const uri = makeUri('slice-diff-view', 'Slice Diff View');
 			getReconstructionContentProvider().updateContents(uri, sliceContent.join('\n'));
 			// only ever open one diff view to avoid "stuttering" between multiple or between the reconstruct
-			if(!vscode.workspace.textDocuments.find(e => e.uri.authority === uri.authority)){
+			if(!vscode.workspace.textDocuments.some(e => e.uri.authority === uri.authority)) {
 				void vscode.commands.executeCommand('vscode.diff', uri, editor.document.uri, 'Slice Diff View',
-					{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true } as vscode.TextDocumentShowOptions);
+					{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true });
 			}
 			break;
 		}
@@ -171,9 +167,7 @@ export interface DecoTypes {
 	slicedPos:  vscode.TextEditorDecorationType
 	dispose(): void
 }
-/**
- *
- */
+/** creates the editor decoration types used to render slices from the current style settings */
 export function makeSliceDecorationTypes(): DecoTypes {
 	const config = getConfig();
 	const tokenColor = config.get<string>(Settings.StyleTokenBackground, 'green');

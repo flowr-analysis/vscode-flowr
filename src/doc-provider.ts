@@ -27,13 +27,13 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 	}
 
 	notifyListeners(uri: vscode.Uri): void {
-		for(const listener of this.listeners){
+		for(const listener of this.listeners) {
 			listener(uri);
 		}
 	}
 
 	updateContents(uri: vscode.Uri, content?: string) {
-		if(content !== undefined){
+		if(content !== undefined) {
 			this.contents.set(uri.toString(), content);
 		} else {
 			this.contents.delete(uri.toString());
@@ -46,11 +46,9 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 	}
 }
 
-/**
- *
- */
-export function makeUri(authority: string, path: string){
-	if(authority && path && !path.startsWith('/')){
+/** builds a `flowr:` URI for the given authority and path, normalizing the path to start with `/` */
+export function makeUri(authority: string, path: string) {
+	if(authority && path && !path.startsWith('/')) {
 		path = '/' + path;
 	}
 	const uri = vscode.Uri.from({
@@ -70,7 +68,7 @@ export function makeUri(authority: string, path: string){
  */
 async function waitForFreshContent(doc: vscode.TextDocument): Promise<void> {
 	const expected = getReconstructionContentProvider().contents.get(doc.uri.toString()) ?? '';
-	if(doc.getText() === expected){
+	if(doc.getText() === expected) {
 		return;
 	}
 	await new Promise<void>(resolve => {
@@ -79,7 +77,7 @@ async function waitForFreshContent(doc: vscode.TextDocument): Promise<void> {
 			resolve();
 		}, 2000);
 		const dispo = vscode.workspace.onDidChangeTextDocument(e => {
-			if(e.document === doc && doc.getText() === expected){
+			if(e.document === doc && doc.getText() === expected) {
 				clearTimeout(timeout);
 				dispo.dispose();
 				resolve();
@@ -88,12 +86,10 @@ async function waitForFreshContent(doc: vscode.TextDocument): Promise<void> {
 	});
 }
 
-/**
- *
- */
+/** shows the reconstruction document at `uri` in an editor (reusing a visible one) once its content is fresh */
 export async function showUri(uri: vscode.Uri, language: string = 'r', viewColumn: vscode.ViewColumn = vscode.ViewColumn.Beside): Promise<Thenable<vscode.TextEditor>> {
-	for(const editor of vscode.window.visibleTextEditors){
-		if(editor.document.uri.toString() === uri.toString()){
+	for(const editor of vscode.window.visibleTextEditors) {
+		if(editor.document.uri.toString() === uri.toString()) {
 			await waitForFreshContent(editor.document);
 			return editor;
 		}
@@ -121,9 +117,7 @@ export async function showUri(uri: vscode.Uri, language: string = 'r', viewColum
 }
 
 let reconstructionContentProvider: ReconstructionContentProvider | undefined;
-/**
- *
- */
+/** returns the reconstruction content provider, registering it on first use */
 export function getReconstructionContentProvider(): ReconstructionContentProvider {
 	if(!reconstructionContentProvider) {
 		reconstructionContentProvider = new ReconstructionContentProvider();

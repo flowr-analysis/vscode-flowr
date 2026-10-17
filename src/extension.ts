@@ -42,9 +42,7 @@ let flowrSession: FlowrSession | undefined;
 /** coalesces concurrent lazy session inits so a burst of feature calls doesn't spawn (and tear down) duplicates */
 let sessionInitPromise: Promise<FlowrSession> | undefined;
 
-/**
- *
- */
+/** activates the extension: registers commands, telemetry and the status bar, and returns its API */
 export async function activate(context: vscode.ExtensionContext): Promise<FlowrExtensionApi> {
 	extensionContext = context;
 	outputChannel = vscode.window.createOutputChannel('flowR');
@@ -87,7 +85,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FlowrE
 	registerCommand(context, 'vscode-flowr.repl', async() => {
 		try {
 			showRepl(context, await getFlowrSession());
-		} catch(e){
+		} catch(e) {
 			vscode.window.showErrorMessage('Failed to start flowR REPL');
 			console.error(e);
 		}
@@ -163,18 +161,14 @@ ${JSON.stringify(getConfig(), null, 2)}
 	};
 }
 
-/**
- *
- */
+/** replaces the current session with a freshly initialized internal flowR session */
 export async function establishInternalSession() {
 	destroySession();
 	flowrSession = new FlowrInternalSession(outputChannel);
 	await flowrSession.initialize();
 	return flowrSession;
 }
-/**
- *
- */
+/** returns the active flowR session, lazily creating an internal one (concurrent callers share one init) */
 export async function getFlowrSession() {
 	if(flowrSession) {
 		return flowrSession;
@@ -186,9 +180,7 @@ export async function getFlowrSession() {
 	return await sessionInitPromise;
 }
 
-/**
- *
- */
+/** replaces the current session with a freshly initialized flowR server session */
 export async function establishServerSession() {
 	destroySession();
 	flowrSession = new FlowrServerSession(outputChannel);
@@ -196,17 +188,13 @@ export async function establishServerSession() {
 	return flowrSession;
 }
 
-/**
- *
- */
+/** destroys the active flowR session, if any */
 export function destroySession() {
 	flowrSession?.destroy();
 	flowrSession = undefined;
 }
 
-/**
- *
- */
+/** refreshes the status bar item from the current session, telemetry and recording state */
 export function updateStatusBar() {
 	// telemetry/recording may sync from settings before the status bar exists; activate() refreshes it right after creation
 	if(!statusBarItem) {
@@ -221,7 +209,7 @@ export function updateStatusBar() {
 		if(connected) {
 			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrSession.flowrVersion}`);
 		}
-		if(flowrSession.working){
+		if(flowrSession.working) {
 			text.push('$(loading~spin) Analyzing');
 		}
 	} else if(flowrSession instanceof FlowrInternalSession) {
@@ -235,7 +223,7 @@ export function updateStatusBar() {
 			info += `  \n${sigDbSummary()}`;
 			tooltip.push(info);
 		}
-		if(flowrSession.working){
+		if(flowrSession.working) {
 			text.push('$(loading~spin) Analyzing');
 		}
 	}
@@ -262,10 +250,10 @@ export function updateStatusBar() {
 		}
 	}
 
-	if(telemetry instanceof RecordingTelemetry){
+	if(telemetry instanceof RecordingTelemetry) {
 		text.push('$(record) Recording');
 		tooltip.push(`Recording this session to ${telemetry.filePath}`);
-	} else if(!(telemetry instanceof NoTelemetry)){
+	} else if(!(telemetry instanceof NoTelemetry)) {
 		text.push('$(record) Telemetry active');
 	}
 
@@ -283,9 +271,7 @@ export function isWeb() {
 	return !(typeof process === 'object' && process.versions.node);
 }
 
-/**
- *
- */
+/** root path from which the extension loads its WASM assets (a vscode URI string on web) */
 export function getWasmRootPath(): string {
 	if(!isWeb()) {
 		return __dirname;
@@ -297,9 +283,7 @@ export function getWasmRootPath(): string {
 }
 
 
-/**
- *
- */
+/** registers a vscode command that reports its use to telemetry before invoking `callback` */
 // we're just passing through vscode's command args syntax here :)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerCommand(context: vscode.ExtensionContext, command: string, callback: (...args: any[]) => any, thisArg?: any): void {

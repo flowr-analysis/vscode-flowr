@@ -51,7 +51,7 @@ suite('dependencies', () => {
 			assert.strictEqual(unknownGuardedName({ nodeId: 0, functionName: 'x', value: ['map', 'purrr', false] } as unknown as Info), 'purrr::map');
 		});
 		test('passes a plain string value through unchanged', () => {
-			assert.strictEqual(unknownGuardedName({ nodeId: 0, functionName: 'x', value: 'dplyr' } as unknown as Info), 'dplyr');
+			assert.strictEqual(unknownGuardedName({ nodeId: 0, functionName: 'x', value: 'dplyr' }), 'dplyr');
 		});
 	});
 

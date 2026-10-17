@@ -268,7 +268,7 @@ async function downloadToWeb(url: string, dest: string, signal?: AbortSignal): P
 	} catch(e) {
 		if(e instanceof TypeError) {
 			// GitHub's release-asset host sends no CORS headers, so a browser blocks the request outright
-			throw new Error(`the browser blocked the download of ${url} (cross-origin requests to this host are not allowed); base-R signatures are bundled with the extension, but additional scopes cannot be synced from the web version`);
+			throw new Error(`the browser blocked the download of ${url} (cross-origin requests to this host are not allowed); base-R signatures are bundled with the extension, but additional scopes cannot be synced from the web version`, { cause: e });
 		}
 		throw e;
 	} finally {
@@ -347,7 +347,7 @@ export async function downloadSigDbScope(
 		fs.mkdirSync(dir, { recursive: true });
 	} catch(e) {
 		const message = e instanceof Error ? e.message : String(e);
-		throw new Error(`cannot create the signature database cache directory (${dir}): ${message}. If this environment is sandboxed, set vscode-flowr's FLOWR_SIGDB_CACHE/FLOWR_CACHE_DIR env var to a writable path.`);
+		throw new Error(`cannot create the signature database cache directory (${dir}): ${message}. If this environment is sandboxed, set vscode-flowr's FLOWR_SIGDB_CACHE/FLOWR_CACHE_DIR env var to a writable path.`, { cause: e });
 	}
 
 	const scopeShardNames = Object.keys(pointer.shards).filter(name => name.startsWith(`${scope}.`));

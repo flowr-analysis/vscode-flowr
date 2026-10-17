@@ -201,9 +201,7 @@ function mermaidMaxTextLength() {
 	return getConfig().get<number>(Settings.StyleMermaidMaxTextLength, 500000);
 }
 
-/**
- *
- */
+/** opens a beside-column webview panel rendering the diagram described by `data` */
 export function createDiagramWebview(data: DiagramGeneratorData): vscode.WebviewPanel | undefined {
 	const panel = vscode.window.createWebviewPanel(data.id, data.name, vscode.ViewColumn.Beside, { enableScripts: true });
 	panel.webview.html = createDiagramDocument(data);
