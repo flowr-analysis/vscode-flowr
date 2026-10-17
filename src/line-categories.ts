@@ -76,6 +76,30 @@ function collectLines(dependencies: DependenciesQueryResult, locations: Location
 	return [...lines.entries()].sort((a, b) => a[0] - b[0]).map(([line, e]) => ({ line, categories: [...e.categories].sort(), labels: [...e.labels] }));
 }
 
+/** decorates every visible editor of `doc` with the given lines */
+function applyLines(doc: vscode.TextDocument, lines: LineInfo[]) {
+	const byCombo = new Map<string, { categories: DisplayedCategoryName[], options: vscode.DecorationOptions[] }>();
+	for(const l of lines) {
+		const combo = l.categories.join(',');
+		const group = byCombo.get(combo) ?? { categories: l.categories, options: [] };
+		group.options.push({ range: doc.lineAt(Math.min(l.line, doc.lineCount - 1)).range, hoverMessage: new vscode.MarkdownString(l.labels.join('\n\n')) });
+		byCombo.set(combo, group);
+	}
+	for(const editor of vscode.window.visibleTextEditors.filter(e => e.document === doc)) {
+		const used = new Set<vscode.TextEditorDecorationType>();
+		for(const g of byCombo.values()) {
+			const type = typeFor(g.categories);
+			used.add(type);
+			editor.setDecorations(type, g.options);
+		}
+		for(const type of decorationTypes.values()) {
+			if(!used.has(type)) {
+				editor.setDecorations(type, []);
+			}
+		}
+	}
+}
+
 /** registers the line category gutter indicators and the internal `vscode-flowr.internal.lineCategories` command */
 export function registerLineCategories(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	let lastKey: string | undefined;
@@ -102,6 +126,8 @@ export function registerLineCategories(context: vscode.ExtensionContext, output:
 		const queries = buildDependencyQueries();
 		const key = `${doc.uri.toString()}@${version}@${JSON.stringify(queries)}`;
 		if(key === lastKey) {
+			// the same document may have just become visible in another editor
+			applyLines(doc, lastLines);
 			return;
 		}
 		try {
@@ -111,30 +137,16 @@ export function registerLineCategories(context: vscode.ExtensionContext, output:
 				return;
 			}
 			const lines = collectLines(result.dependencies, result['location-map'], doc);
+			// without a usable result, outdated bars would point at shifted lines
 			if(hasError && lines.length === 0) {
+				applyLines(doc, []);
+				reset();
 				return;
 			}
 			lastKey = key;
 			lastLines = lines;
 			lastUri = doc.uri.toString();
-			const byCombo = new Map<string, { categories: DisplayedCategoryName[], options: vscode.DecorationOptions[] }>();
-			for(const l of lines) {
-				const combo = l.categories.join(',');
-				const group = byCombo.get(combo) ?? { categories: l.categories, options: [] };
-				group.options.push({ range: doc.lineAt(Math.min(l.line, doc.lineCount - 1)).range, hoverMessage: new vscode.MarkdownString(l.labels.join('\n\n')) });
-				byCombo.set(combo, group);
-			}
-			const used = new Set<vscode.TextEditorDecorationType>();
-			for(const g of byCombo.values()) {
-				const type = typeFor(g.categories);
-				used.add(type);
-				editor.setDecorations(type, g.options);
-			}
-			for(const type of decorationTypes.values()) {
-				if(!used.has(type)) {
-					editor.setDecorations(type, []);
-				}
-			}
+			applyLines(doc, lines);
 		} catch(e) {
 			output.appendLine(`[Line Categories] failed: ${e instanceof Error ? e.message : String(e)}`);
 			clearEditor(editor);

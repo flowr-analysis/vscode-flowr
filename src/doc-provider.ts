@@ -146,6 +146,8 @@ export async function showUri(uri: vscode.Uri, language: string = 'r', viewColum
 	const editor = await vscode.window.showTextDocument(doc, {
 		viewColumn:    viewColumn,
 		preserveFocus: true,
+		// a pinned tab only closes when the user closes it, which is what the closed-tab tracking relies on
+		preview:       false,
 		selection:     new vscode.Selection(doc.lineCount - 1, 0, doc.lineCount - 1, 0)
 	});
 	// scroll to bottom

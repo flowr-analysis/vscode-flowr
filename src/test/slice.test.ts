@@ -222,6 +222,17 @@ suite('empty slice explanations', () => {
 		assert.ok(slice?.code.startsWith('# No slice: '), `got: ${slice?.code}`);
 	});
 
+	test('folding an empty slice folds nothing', async() => {
+		const doc = await vscode.workspace.openTextDocument({ language: 'r', content: 'x <- 1\n\n\ny <- x\nz <- 2\n' });
+		const editor = await vscode.window.showTextDocument(doc);
+		editor.selection = new vscode.Selection(1, 0, 1, 0);
+		await vscode.commands.executeCommand('vscode-flowr.slice.cursor');
+		await vscode.commands.executeCommand('vscode-flowr.slice.fold');
+		assert.deepStrictEqual(editor.visibleRanges.map(r => [r.start.line, r.end.line]), [[0, doc.lineCount - 1]]);
+		await vscode.commands.executeCommand('vscode-flowr.slice.clear');
+		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+	});
+
 	test('points to syntax errors when they may be the cause', async() => {
 		const slice = await sliceUntitled('x <- 1\n\n\nbroken <- (\n', 1, 0);
 		assert.ok(slice?.problem?.includes('syntax errors'), `got: ${slice?.problem}`);

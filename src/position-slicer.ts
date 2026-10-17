@@ -296,7 +296,8 @@ export class PositionSlicer {
 				setTimeout(() => this.setShowErrors(), getConfig().get<number>(Settings.ErrorMessageTimer));
 				this.showErrors = false;
 			}
-			return slice?.code === undefined ? undefined : emptySliceCode(slice.problem);
+			// only an explicit request opens a reconstruction that just explains the empty slice
+			return slice?.code === undefined || !explicit ? undefined : emptySliceCode(slice.problem);
 		}
 
 		for(const editor of vscode.window.visibleTextEditors) {

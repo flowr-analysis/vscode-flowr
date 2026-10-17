@@ -13,6 +13,7 @@ import { getFlowrSession, registerCommand } from './extension';
 import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 let sliceOutput: vscode.OutputChannel | undefined;
+let lastReport = { reason: '', at: 0 };
 
 /** slices for the flowR nodes at `positions`; an empty result carries the reason in {@link SliceReturn.problem} */
 export async function sliceAtPositions(positions: vscode.Position[], doc: vscode.TextDocument, direction: SliceDirection, showErrorMessage: boolean, combine?: SliceCombination): Promise<SliceReturn> {
@@ -21,6 +22,9 @@ export async function sliceAtPositions(positions: vscode.Position[], doc: vscode
 		const { criteria, problem } = await resolveSlicingCriteria(positions, doc, session);
 		if(problem) {
 			return { code: '', sliceElements: [], problem };
+		}
+		if(combine === 'intersection' && criteria.length < positions.length) {
+			return { code: '', sliceElements: [], problem: 'not every marked position is on an R expression, so their slices cannot be intersected' };
 		}
 		return await session.retrieveSlice(criteria, direction, doc, showErrorMessage, undefined, combine);
 	} catch(e) {
@@ -36,6 +40,12 @@ export function emptySliceCode(problem: string | undefined): string {
 /** tells the user why a slice is empty: a warning for an explicit request, a status bar message while slicing continuously */
 export function reportEmptySlice(problem: string | undefined, explicit: boolean): void {
 	const reason = problem ?? 'flowR found no code for the slicing criterion';
+	const now = Date.now();
+	// while slicing continuously, repeat the same explanation at most once per error message interval
+	if(!explicit && reason === lastReport.reason && now - lastReport.at < getConfig().get<number>(Settings.ErrorMessageTimer, 5000)) {
+		return;
+	}
+	lastReport = { reason, at: now };
 	sliceOutput?.appendLine(`[Slice] Empty slice: ${reason}`);
 	if(explicit) {
 		void vscode.window.showWarningMessage(`flowR: The slice is empty because ${reason}.`);
@@ -117,6 +127,8 @@ async function showReconstructionInEditor(): Promise<vscode.TextEditor | undefin
 }
 
 function clearSliceOutput(): void {
+	lastSlice = undefined;
+	void unfoldSlice();
 	const editor = vscode.window.activeTextEditor;
 	if(!editor) {
 		return;
@@ -168,10 +180,17 @@ function showDependencySlice(output: vscode.OutputChannel, dependency: Dependenc
 
 /** decorates `editor` to highlight the slice elements according to the configured display style */
 export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: NodeId, location: SourceRange }[], decos: DecoTypes) {
+	if(sliceElements.length === 0) {
+		// never dim, highlight or fold a whole document for a slice that has nothing in it
+		lastSlice = undefined;
+		editor.setDecorations(decos.tokenSlice, []);
+		editor.setDecorations(decos.lineSlice, []);
+		return;
+	}
 	const sliceLines = new Set<number>(sliceElements.map(s => s.location[0] - 1));
 	const negative = isNegative();
 	const allLines = Array.from({ length: editor.document.lineCount }, (_, i) => i);
-	lastSlice = { editor, dimmedLines: allLines.filter(i => sliceLines.has(i) === negative) };
+	lastSlice = { editor, version: editor.document.version, dimmedLines: allLines.filter(i => sliceLines.has(i) === negative) };
 	const lineRanges = (lines: number[]) => lines.map(i => new vscode.Range(i, 0, i, editor.document.lineAt(i).text.length));
 	switch(getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay)) {
 		case 'tokens': {
@@ -179,9 +198,6 @@ export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: Nod
 			break;
 		}
 		case 'text': {
-			if(sliceLines.size === 0) {
-				return; // do not grey out the entire document
-			}
 			editor.setDecorations(decos.lineSlice, lineRanges(lastSlice.dimmedLines).map(range => ({ range })));
 			break;
 		}
@@ -193,15 +209,15 @@ export function displaySlice(editor: vscode.TextEditor, sliceElements: { id: Nod
 			// only ever open one diff view to avoid "stuttering" between multiple or between the reconstruct
 			if(!wasClosedByUser(uri) && !vscode.workspace.textDocuments.some(e => e.uri.authority === uri.authority)) {
 				void vscode.commands.executeCommand('vscode.diff', uri, editor.document.uri, 'Slice Diff View',
-					{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true });
+					{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true, preview: false });
 			}
 			break;
 		}
 	}
 }
 
-let lastSlice: { editor: vscode.TextEditor, dimmedLines: number[] } | undefined;
-let folded: { editor: vscode.TextEditor, ranges: vscode.Range[] } | undefined;
+let lastSlice: { editor: vscode.TextEditor, version: number, dimmedLines: number[] } | undefined;
+let folded: { document: vscode.TextDocument, viewColumn: vscode.ViewColumn | undefined } | undefined;
 
 function isNegative(): boolean {
 	return getConfig().get<boolean>(Settings.SliceNegative, false);
@@ -218,9 +234,10 @@ export function sliceReconstruction(code: string, doc: vscode.TextDocument, slic
 	return Array.from({ length: doc.lineCount }, (_, i) => i).filter(i => !sliceLines.has(i)).map(i => doc.lineAt(i).text).join('\n');
 }
 
-async function withManualFolds(editor: vscode.TextEditor, ranges: vscode.Range[], command: string): Promise<void> {
+/** runs a folding `command` on each range (the commands act on the selection), restoring the user's selections afterwards */
+async function withManualFolds(document: vscode.TextDocument, viewColumn: vscode.ViewColumn | undefined, ranges: vscode.Range[], command: string): Promise<void> {
+	const editor = await vscode.window.showTextDocument(document, viewColumn);
 	const selections = editor.selections;
-	await vscode.window.showTextDocument(editor.document, editor.viewColumn);
 	for(const range of ranges) {
 		editor.selection = new vscode.Selection(range.start, range.end);
 		await vscode.commands.executeCommand(command);
@@ -228,16 +245,24 @@ async function withManualFolds(editor: vscode.TextEditor, ranges: vscode.Range[]
 	editor.selections = selections;
 }
 
+/** removes the folds created by {@link foldSlice}; edits move them, so this clears all manual folds of the document */
 async function unfoldSlice(): Promise<void> {
 	if(folded) {
-		const { editor, ranges } = folded;
+		const { document, viewColumn } = folded;
 		folded = undefined;
-		await withManualFolds(editor, ranges, 'editor.removeManualFoldingRanges');
+		if(!document.isClosed) {
+			await withManualFolds(document, viewColumn, [new vscode.Range(0, 0, document.lineCount, 0)], 'editor.removeManualFoldingRanges');
+		}
 	}
 }
 
 async function foldSlice(): Promise<void> {
 	if(!lastSlice || lastSlice.dimmedLines.length === 0) {
+		void vscode.window.showInformationMessage('flowR: There is no slice to fold.');
+		return;
+	}
+	if(lastSlice.editor.document.isClosed || lastSlice.editor.document.version !== lastSlice.version) {
+		void vscode.window.showInformationMessage('flowR: The document changed since the slice was shown, slice again to fold it.');
 		return;
 	}
 	await unfoldSlice();
@@ -252,8 +277,8 @@ async function foldSlice(): Promise<void> {
 		}
 	}
 	const multiLine = ranges.filter(r => r.end.line > r.start.line);
-	await withManualFolds(editor, multiLine, 'editor.createFoldingRangeFromSelection');
-	folded = { editor, ranges: multiLine };
+	await withManualFolds(editor.document, editor.viewColumn, multiLine, 'editor.createFoldingRangeFromSelection');
+	folded = { document: editor.document, viewColumn: editor.viewColumn };
 }
 
 export interface DecoTypes {

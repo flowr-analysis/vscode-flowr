@@ -102,7 +102,8 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 			name:            'Lint',
 			keys:            LinterRefresherConfigKeys,
 			refreshCallback: async() => {
-				await this.updateDiagnostics();
+				// re-run even for an unchanged version, as sourced scripts or the signature database may have changed
+				await this.updateDiagnostics(true);
 			},
 			output: output
 		});
@@ -170,15 +171,15 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 			}
 			const run = this.runLinter(document, rules);
 			// bound the cache (one entry per file+version otherwise grows without limit)
-			if(this.resultsPerFile.size >= LinterService.maxResultCacheEntries) {
+			if(!this.resultsPerFile.has(cacheKey) && this.resultsPerFile.size >= LinterService.maxResultCacheEntries) {
 				const oldest = this.resultsPerFile.keys().next().value;
 				if(oldest !== undefined) {
 					this.resultsPerFile.delete(oldest);
 				}
 			}
 			this.resultsPerFile.set(cacheKey, run);
-			// a failed run must not stay cached
-			void run.then(r => r === undefined && this.resultsPerFile.delete(cacheKey));
+			// a failed run must not stay cached (nor remove a newer run for the same key)
+			void run.then(r => r === undefined && this.resultsPerFile.get(cacheKey) === run && this.resultsPerFile.delete(cacheKey));
 			return run;
 		});
 	}
@@ -215,13 +216,13 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 	}
 
 	private async runLinter(document: vscode.TextDocument, rules: (LintingRuleNames | ConfiguredLintingRule)[]): Promise<LinterQueryResult | undefined> {
-		const session = await getFlowrSession();
 		if(isVerbose()) {
 			this.output.appendLine(`[Lint] Analyzing ${document.fileName} with rules: ${rules.map(r => typeof r === 'string' ? r : r.name).join(', ')}`);
 		}
 
 		let lint;
 		try {
+			const session = await getFlowrSession();
 			lint = await session.retrieveQuery(document, [{
 				type:  'linter',
 				rules: rules

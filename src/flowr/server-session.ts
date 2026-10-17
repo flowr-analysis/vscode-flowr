@@ -281,7 +281,7 @@ export class FlowrServerSession implements FlowrSession {
 		if(combine === 'intersection' && criteria.length > 1) {
 			const ids = intersectIds((await Promise.all(criteria.map(c => sliceFor([c])))).map(r => new Set(r.slice.result)));
 			const ast: NormalizedAst = { ...response.results.normalize, idMap };
-			const reconstructed = reconstructToCode(ast, { nodes: ids }, makeMagicCommentHandler(doNotAutoSelect));
+			const reconstructed = reconstructToCode(ast, inlineSources ? { nodes: ids, inlineSources: true, reconstructFiles: [0] } : { nodes: ids }, makeMagicCommentHandler(doNotAutoSelect));
 			return {
 				code:          reconstructed.code,
 				sliceElements: makeSliceElements(ids, id => idToLocation.get(id))
