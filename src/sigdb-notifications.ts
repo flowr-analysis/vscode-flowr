@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { isSigDbEnabled } from './package-db';
+import { findSigDbPackageSource, isSigDbEnabled } from './package-db';
 
 /**
  * Watches the `undefined-symbol` lint diagnostics (see `src/lint.ts`) for symbols flowR could resolve if a
@@ -58,7 +58,7 @@ async function promptForPackages(packages: string[], output: vscode.OutputChanne
 
 /** Check undefined-symbol diagnostics and offer to sync the signature database for packages they mention */
 export function watchForUndefinedSymbols(output: vscode.OutputChannel): vscode.Disposable {
-	return vscode.languages.onDidChangeDiagnostics(e => {
+	return vscode.languages.onDidChangeDiagnostics(async e => {
 		if(!isSigDbEnabled()) {
 			return;
 		}
@@ -75,7 +75,11 @@ export function watchForUndefinedSymbols(output: vscode.OutputChannel): vscode.D
 					continue;
 				}
 				for(const pkg of packagesFromDiagnosticMessage(diag.message)) {
-					packages.add(pkg);
+					const hasPackageLocally = await findSigDbPackageSource(pkg);
+					if(hasPackageLocally === undefined) {
+						// Only promt if the package is not known locally
+						packages.add(pkg);
+					}
 				}
 			}
 			if(packages.size > 0) {
