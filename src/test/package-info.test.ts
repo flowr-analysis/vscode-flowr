@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile } from './test-util';
+import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile, skipWithoutFullSigDb } from './test-util';
 import assert from 'assert';
 
 suite('package info', () => {
@@ -179,14 +179,16 @@ suite('package info', () => {
 
 	// a call to a package function has never had any click-through before; it must not be underlined in the
 	// source (no DocumentLink), but a real click should still open its source, via the same redirect mechanism
-	test('a real click on a call to a package function opens its source', async() => {
+	test('a real click on a call to a package function opens its source', async function() {
+		skipWithoutFullSigDb(this);
 		const editor = await openTestFile('definition-self-example.R'); // `ggplot()` on line 3
 		const opened = await simulateClickAndCaptureExternalOpen(editor, new vscode.Position(2, 2));
 		assert.ok(opened?.startsWith('https://github.com/cran/ggplot2/'), `expected a ggplot2 GitHub source link, got: ${opened}`);
 	});
 
 	// regression test: `library(ggplot)` is a plausible typo of `ggplot2` - the hover must offer a "did you mean" guess, not just report unknown
-	test('hovering an unresolved library() package suggests a close match when one exists', async() => {
+	test('hovering an unresolved library() package suggests a close match when one exists', async function() {
+		skipWithoutFullSigDb(this);
 		const editor = await openTestFile('library-typo-example.R');
 		const result: vscode.Hover[] = await vscode.commands.executeCommand('vscode.executeHoverProvider', editor.document.uri, new vscode.Position(0, 9));
 		const contents = (result ?? [])

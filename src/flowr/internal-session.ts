@@ -475,7 +475,8 @@ function buildAnalyzerForDocument(document: vscode.TextDocument, parser: KnownPa
 		.setConfig(config)
 		.build()
 		.then(analyzer => {
-			if(document.uri.scheme === 'file') {
+			// web workspace files have no 'file' scheme, but R Markdown is only recognized by its file name; plain scripts stay on the text path since a named script there hangs the analysis on library() calls
+			if(document.uri.scheme === 'file' || (isWeb() && !document.isUntitled && /\.(rmd|qmd)$/i.test(document.fileName))) {
 				const file = new FlowrInlineTextFile(document.fileName, document.getText());
 				analyzer.reset();
 				analyzer.addFile(file);

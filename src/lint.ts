@@ -33,17 +33,18 @@ async function fileExists(uri: vscode.Uri): Promise<boolean> {
 
 /** whether a document lives in an R package: walks up (bounded by the workspace) for a `DESCRIPTION` file */
 export async function isInRPackage(document: Pick<vscode.TextDocument, 'uri'>): Promise<boolean> {
-	if(document.uri.scheme !== 'file') {
+	const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+	if(!folder) {
 		return false;
 	}
-	const root = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+	const root = folder.uri.toString();
 	let dir = vscode.Uri.joinPath(document.uri, '..');
 	for(let i = 0; i < 20; i++) {
 		if(await fileExists(vscode.Uri.joinPath(dir, 'DESCRIPTION'))) {
 			return true;
 		}
 		const parent = vscode.Uri.joinPath(dir, '..');
-		if(dir.fsPath === root || parent.fsPath === dir.fsPath) {
+		if(dir.toString() === root || parent.toString() === dir.toString()) {
 			break; // reached the workspace or filesystem root
 		}
 		dir = parent;

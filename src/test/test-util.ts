@@ -2,11 +2,10 @@
 
 import * as vscode from 'vscode';
 import * as assert from 'assert';
-import * as path from 'path';
 import type { FlowrInternalSession } from '../flowr/internal-session';
 import type { FlowrExtensionApi } from '../extension';
 import { downloadSigDbScope, readSigDbRemotePointer } from '../package-db';
-import { refreshSigDbConfig } from '../extension';
+import { isWeb, refreshSigDbConfig } from '../extension';
 
 /**
  * Activate the extension and return its {@link FlowrExtensionApi}
@@ -32,8 +31,9 @@ export async function activateExtension(): Promise<FlowrExtensionApi> {
 
 /** opens a file from the test workspace in an editor, optionally setting its selection */
 export async function openTestFile(name: string, selection?: vscode.Selection): Promise<vscode.TextEditor> {
-	const file = path.resolve(__dirname, '..', '..', 'test-workspace', name);
-	const doc = await vscode.workspace.openTextDocument(file);
+	const folder = vscode.workspace.workspaceFolders?.[0];
+	assert.ok(folder, 'expected the test-workspace folder to be open');
+	const doc = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(folder.uri, name));
 	const editor = await vscode.window.showTextDocument(doc);
 	if(selection) {
 		editor.selection = selection;
@@ -49,12 +49,12 @@ let sigDbCurrentEnsured: Promise<void> | undefined;
  * runner has none of this synced yet, unlike a machine that has already used the extension for a while.
  * `current` alone only carries each package's *latest* version - even a currently-maintained package's full
  * per-version history (needed for evidence like "parameter X only exists since version Y") lives in `history`.
- * Memoized so repeated calls across suites only download once per test run. A no-op (not a skip) when no
+ * Memoized so repeated calls across suites only download once per test run. A no-op (not a skip) on web (no release downloads there) or when no
  * release pointer is bundled in this build.
  */
 export function ensureSigDbCurrentDownloaded(): Promise<void> {
 	sigDbCurrentEnsured ??= (async() => {
-		if(!readSigDbRemotePointer()) {
+		if(isWeb() || !readSigDbRemotePointer()) {
 			return;
 		}
 		await Promise.all([downloadSigDbScope('current'), downloadSigDbScope('history')]);
@@ -65,3 +65,10 @@ export function ensureSigDbCurrentDownloaded(): Promise<void> {
 	return sigDbCurrentEnsured;
 }
 
+
+/** skips the running test on web, where only the bundled base-R signature scope exists (no `current`/`history` download: the release host sends no CORS headers) */
+export function skipWithoutFullSigDb(ctx: Mocha.Context): void {
+	if(isWeb()) {
+		ctx.skip();
+	}
+}

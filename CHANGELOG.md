@@ -14,6 +14,8 @@
 - Linting failures and failing linting rules are reported, and the dependency view marks results that are stale or incomplete because of syntax errors
 - Following the cursor with a slice waits until the cursor rests instead of re-slicing on every selection change
 - New setting `vscode-flowr.packageInfo.enabled` turns off flowR's package information hovers, Go to Definition and Find References
+- In the browser, the bundled Base R signature database is now loaded, so hovers and suggestions for base packages work and scripts that load a base package with `library()` no longer fail to analyze
+- In the browser, R Markdown files are recognized, and the linting rules for R package code apply to files in an R package
 
 # Version 0.8.4 (2026-08-01)
 - Update to flowR 2.13.8: a braceless loop body (`for(f in files) read.csv(f)`) is no longer mistaken for a quotation, so its reads/writes show up in the dependency view and its symbols are linted; `.Rmd` chunk options parse correctly; and package versions are also guessed for orphan dependencies

@@ -315,11 +315,10 @@ async function hydrateBundledSigDbForWeb(): Promise<void> {
 	}
 	try {
 		const sourceDir = vscode.Uri.joinPath(extensionContext.extensionUri, 'dist', 'web', 'sigdb');
-		const entries = await vscode.workspace.fs.readDirectory(sourceDir);
-		await Promise.all(entries.map(async([name, type]) => {
-			if(type !== vscode.FileType.File) {
-				return;
-			}
+		// static hosting has no directory listing (readDirectory fails with EntryNotADirectory), so the build writes an index
+		const index = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(sourceDir, 'index.json')))) as string[];
+		const names = ['sigdb.remote.json', ...index];
+		await Promise.all(names.map(async name => {
 			const virtualPath = `${WebBundledSigDbVirtualPath}/${name}`;
 			if(fs.existsSync(virtualPath)) {
 				return;

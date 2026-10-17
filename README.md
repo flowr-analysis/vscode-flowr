@@ -246,6 +246,8 @@ Use the download icon on the view's title bar to sync everything that is missing
 
 The active database (which scopes are downloaded) is shown when hovering the flowR status-bar item and in the REPL banner.
 
+In the browser (e.g. on [vscode.dev](https://vscode.dev)), the extension ships with the **Base R** scope bundled, since the other scopes cannot be downloaded there. Package information and suggestions for CRAN packages such as `dplyr` or `ggplot2` are therefore unavailable in the browser.
+
 ### Value Resolution
 
 You can get information on the values inferred by flowR by hovering over variables in R source files. This will show you a summary of the inferred values, including types and possible values.
