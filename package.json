@@ -1198,7 +1198,7 @@
     "test-web": "vscode-test-web --quality stable --extensionDevelopmentPath=. --extensionTestsPath=$PWD/dist/web/test/suite/index.js --headless test-workspace",
     "prepackage-web": "npm run copy-wasm-web",
     "package-web": "webpack --mode production --devtool hidden-source-map --config-name web && node scripts/fetch-web-sigdb.mjs",
-    "prewatch-web": "npm run copy-wasm-web",
+    "prewatch-web": "npm run copy-wasm-web && node scripts/fetch-web-sigdb.mjs",
     "watch-web": "webpack --watch"
   },
   "dependencies": {

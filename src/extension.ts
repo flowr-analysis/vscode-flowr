@@ -42,6 +42,9 @@ let statusBarItem: vscode.StatusBarItem;
 let flowrSession: FlowrSession | undefined;
 /** coalesces concurrent lazy session inits so a burst of feature calls doesn't spawn (and tear down) duplicates */
 let sessionInitPromise: Promise<FlowrSession> | undefined;
+/** resolves once activation has built flowR's configuration, so features started early cannot initialize a session without it */
+let markConfigured: () => void;
+const configured = new Promise<void>(resolve => markConfigured = resolve);
 
 /** activates the extension: registers commands, telemetry and the status bar, and returns its API */
 export async function activate(context: vscode.ExtensionContext): Promise<FlowrExtensionApi> {
@@ -61,6 +64,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FlowrE
 	// make flowR's bundled signature database discoverable before the first analysis runs
 	configureSigDb();
 	updateFlowrConfig();
+	markConfigured();
 	// pre-download base R signatures on first activation for better UX
 	void predownloadBaseRSignatures();
 	vscode.workspace.onDidChangeConfiguration(e => {
@@ -176,7 +180,7 @@ export async function getFlowrSession() {
 		return flowrSession;
 	}
 	// initialize a default session if none is active, coalescing concurrent callers onto a single init
-	sessionInitPromise ??= establishInternalSession().finally(() => {
+	sessionInitPromise ??= configured.then(establishInternalSession).finally(() => {
 		sessionInitPromise = undefined;
 	});
 	return await sessionInitPromise;
