@@ -8,7 +8,7 @@ import { getFlowrSession } from './extension';
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
 import { rangeToVscodeRange, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
-import { displaySlice, makeSliceDecorationTypes, sliceReconstruction } from './slice';
+import { displaySlice, emptySliceCode, makeSliceDecorationTypes, reportEmptySlice, sliceReconstruction } from './slice';
 import { positionSlicers } from './position-slicer';
 import { Settings, getConfig } from './settings';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
@@ -146,9 +146,11 @@ async function getSliceFor(criteria: SlicingCriteria, direction: SliceDirection,
 	}
 	const ret = await flowrSession.retrieveSlice(criteria, direction, editor.document, true, info);
 	if(!ret.sliceElements.length) {
+		reportEmptySlice(ret.problem, true);
 		return {
-			code:          '# No slice',
+			code:          emptySliceCode(ret.problem),
 			sliceElements: [],
+			problem:       ret.problem,
 			editor:        editor
 		};
 	}

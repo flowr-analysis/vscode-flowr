@@ -4,11 +4,11 @@
 // (either per command or updating as the cursor moves)
 
 import * as vscode from 'vscode';
-import { getFlowrSession, updateStatusBar } from './extension';
+import { updateStatusBar } from './extension';
 import { flowrScheme, makeUri, getReconstructionContentProvider, showUri, shouldAutoReconstruct } from './doc-provider';
-import { makeSlicingCriteriaForPositions, type SliceReturn } from './flowr/utils';
+import type { SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
-import { displaySlice, makeSliceDecorationTypes, sliceReconstruction } from './slice';
+import { displaySlice, emptySliceCode, makeSliceDecorationTypes, reportEmptySlice, sliceAtPositions, sliceReconstruction } from './slice';
 import { positionSlicers } from './position-slicer';
 import { Settings, getConfig } from './settings';
 import { getCriteriaSlicer } from './criteria-slicer';
@@ -146,6 +146,9 @@ class SelectionSlicer {
 		if(ret === undefined) {
 			return undefined;
 		}
+		if(ret.sliceElements.length === 0) {
+			reportEmptySlice(ret.problem, this.changeListeners.length === 0);
+		}
 		getCriteriaSlicer().clearSliceDecos();
 		const provider = getReconstructionContentProvider();
 		const uri = this.makeUri();
@@ -199,12 +202,12 @@ async function getSelectionSlice(direction: SliceDirection): Promise<SelectionSl
 		// (should not happen)
 		return undefined;
 	}
-	const flowrSession = await getFlowrSession();
-	const ret = await flowrSession.retrieveSlice(await makeSlicingCriteriaForPositions(positions, editor.document, flowrSession), direction, editor.document, false);
+	const ret = await sliceAtPositions(positions, editor.document, direction, false);
 	if(!ret.sliceElements.length) {
 		return {
-			code:          '# No slice',
+			code:          emptySliceCode(ret.problem),
 			sliceElements: [],
+			problem:       ret.problem,
 			editor:        editor
 		};
 	}

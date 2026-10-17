@@ -328,7 +328,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		);
 	}
 
-	async getDependenciesForActiveFile(document?: vscode.TextDocument): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult, ast?: NormalizedAst, dfi?: DataflowInformation } | 'error'> {
+	async getDependenciesForActiveFile(document?: vscode.TextDocument): Promise<{ dep: DependenciesQueryResult, loc: LocationMapQueryResult, ast?: NormalizedAst, dfi?: DataflowInformation, partial?: boolean } | 'error'> {
 		// use the document captured by the caller so a mid-analysis editor switch can't store A's deps under B
 		const doc = document ?? vscode.window.activeTextEditor?.document;
 		if(!doc) {
@@ -342,7 +342,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			this.output.appendLine('[Dependency View] Error: Could not retrieve dependencies (parser error)');
 			if(result.dependencies && result['location-map']) {
 				this.output.appendLine(`[Dependency View] Refreshed (partially) in ${total}ms! (Dependencies: ${result.dependencies['.meta'].timing}ms, Locations: ${result['location-map']['.meta'].timing}ms)`);
-				return { dep: result.dependencies, loc: result['location-map'], ast, dfi };
+				return { dep: result.dependencies, loc: result['location-map'], ast, dfi, partial: true };
 			} else {
 				return 'error';
 			}
@@ -357,6 +357,13 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private textBuffer: RotaryBuffer<[{ content: string, path: string }, { dep: DependenciesQueryResult, loc: LocationMapQueryResult, ast?: NormalizedAst, dfi?: DataflowInformation }]> = new RotaryBuffer(0);
 	private lastText = '';
 	private lastFile = '';
+
+	/** shows why the view may be stale or incomplete next to its title (cleared with `undefined`) */
+	private setProblem(problem: string | undefined) {
+		if(this.parent) {
+			this.parent.description = problem && `⚠ ${problem}`;
+		}
+	}
 
 	public async refresh(force = false) {
 		// clear `working` on a forced refresh, or if a prior run has been stuck implausibly long (never wedge auto-refresh)
@@ -406,7 +413,9 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			await vscode.window.withProgress({ location: { viewId: FlowrDependencyViewId } }, () => {
 				return this.getDependenciesForActiveFile(document).then(async res => {
 					if(res === 'error') {
-						if(getConfig().get<boolean>(Settings.DependencyViewKeepOnError, Defaults.DependencyViewKeepOnError)) {
+						const keep = getConfig().get<boolean>(Settings.DependencyViewKeepOnError, Defaults.DependencyViewKeepOnError);
+						this.setProblem(keep ? 'flowR could not analyze the file, showing the last result' : 'flowR could not analyze the file');
+						if(keep) {
 							// keep the old tree but forget the fingerprint, so the next edit re-analyzes instead of being deduped
 							this.lastText = '';
 							return;
@@ -418,6 +427,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 							return;
 						}
 					}
+					this.setProblem(res.partial ? 'the file has syntax errors, results may be incomplete' : undefined);
 					this.activeDependencies = res.dep;
 					this.locationMap = res.loc;
 					this.textBuffer.push([{ content: text, path: document?.uri.fsPath ?? '' }, res]);

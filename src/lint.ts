@@ -229,6 +229,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 		} catch(e) {
 			this.output.appendLine(`[Lint] Error while analyzing ${document.fileName}: ${(e as Error).message}`);
 			this.output.appendLine((e as Error).stack ?? '');
+			vscode.window.setStatusBarMessage(`$(warning) flowR: linting failed: ${(e as Error).message}`, getConfig().get<number>(Settings.ErrorMessageTimer, 5000));
 			return undefined;
 		}
 		return lint.result.linter;
@@ -245,6 +246,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 		const perRuleCounts: string[] = [];
 		for(const [ruleName, findings] of Object.entries(results?.results ?? {})) {
 			if('error' in findings) {
+				this.output.appendLine(`[Lint] Rule ${ruleName} failed: ${String((findings.error as Error)?.message ?? findings.error)}`);
 				continue;
 			}
 			const rule = LintingRules[ruleName as LintingRuleNames];

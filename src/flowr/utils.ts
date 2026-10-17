@@ -21,7 +21,19 @@ import { isNotUndefined } from '@eagleoutice/flowr/util/assert';
 export interface SliceReturn {
 	code:          string,
 	sliceElements: { id: NodeId, location: SourceRange }[]
+	/** why the slice is empty, if it is */
+	problem?:      string
 }
+
+/** explains a slice without any element, given what it was computed for */
+export function emptySliceProblem(criteria: SlicingCriteria, combine?: SliceCombination): string {
+	if(criteria.length === 0) {
+		return 'there is nothing to slice for';
+	}
+	return combine === 'intersection' && criteria.length > 1 ? 'the slices of the marked positions have no code in common' : 'flowR found no code for the slicing criterion';
+}
+
+const SyntaxErrorHint = 'the file has syntax errors flowR could only partially recover from (enable the `syntactically-valid` linting rule to see them)';
 
 /**
  * Returns the ids contained in every one of the given sets.
@@ -92,21 +104,30 @@ export function consolidateNewlines(text: string) {
 
 /** resolves each position to a slicing criterion in one analysis pass, dropping positions that don't map to a flowR node */
 export async function makeSlicingCriteriaForPositions(positions: vscode.Position[], doc: vscode.TextDocument, session: FlowrSession): Promise<SlicingCriteria> {
+	return (await resolveSlicingCriteria(positions, doc, session)).criteria;
+}
+
+/** like {@link makeSlicingCriteriaForPositions}, but also explains why no criterion could be resolved */
+export async function resolveSlicingCriteria(positions: vscode.Position[], doc: vscode.TextDocument, session: FlowrSession): Promise<{ criteria: SlicingCriteria, problem?: string }> {
 	if(positions.length === 0) {
-		return [];
+		return { criteria: [], problem: 'there is no cursor position to slice for' };
 	}
 	const result = await session.retrieveQuery(doc, positions.map(pos => ({ type: 'search', search: locationSearch(pos, doc) } as const)));
 	// a syntax error elsewhere still leaves a usable (partial) AST, so only bail out when there is no result at all
 	if(!result.result.search) {
-		return [];
+		return { criteria: [], problem: result.hasError ? 'flowR could not parse the file' : 'flowR could not analyze the file' };
 	}
 	const ast = result.ast;
-	return result.result.search.results
+	const criteria = result.result.search.results
 		.map(r => r.ids[0])
 		.filter(isNotUndefined)
 		// map a function-name symbol to its call node so slicing on e.g. `print(x)` slices the call, not the bare name
 		.map(id => ast ? toDataflowNode(ast, id) : id)
 		.map(id => `$${id}` as SlicingCriterion);
+	if(criteria.length === 0) {
+		return { criteria, problem: `the cursor is not on an R expression flowR knows${result.hasError ? `; ${SyntaxErrorHint}` : ''}` };
+	}
+	return { criteria };
 }
 
 /** maps slice node ids to their locations, dropping ids without one, sorted by start position */

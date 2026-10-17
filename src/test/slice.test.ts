@@ -200,3 +200,30 @@ suite('position slice', () => {
 		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
 	});
 });
+
+suite('empty slice explanations', () => {
+	suiteSetup(async() => {
+		await activateExtension();
+	});
+
+	async function sliceUntitled(content: string, line: number, character: number): Promise<SliceReturn | undefined> {
+		const doc = await vscode.workspace.openTextDocument({ language: 'r', content });
+		const editor = await vscode.window.showTextDocument(doc);
+		editor.selection = new vscode.Selection(line, character, line, character);
+		const slice: SliceReturn | undefined = await vscode.commands.executeCommand('vscode-flowr.slice.cursor');
+		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+		return slice;
+	}
+
+	test('explains a cursor that is not on an R expression', async() => {
+		const slice = await sliceUntitled('x <- 1\n\n\ny <- x\n', 1, 0);
+		assert.deepStrictEqual(slice?.sliceElements, []);
+		assert.ok(slice?.problem?.includes('not on an R expression'), `got: ${slice?.problem}`);
+		assert.ok(slice?.code.startsWith('# No slice: '), `got: ${slice?.code}`);
+	});
+
+	test('points to syntax errors when they may be the cause', async() => {
+		const slice = await sliceUntitled('x <- 1\n\n\nbroken <- (\n', 1, 0);
+		assert.ok(slice?.problem?.includes('syntax errors'), `got: ${slice?.problem}`);
+	});
+});

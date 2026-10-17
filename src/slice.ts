@@ -8,12 +8,45 @@ import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/proc
 import { getReconstructionContentProvider, makeUri, resetClosedReconstructions, shouldAutoReconstruct, trackClosedReconstructions, wasClosedByUser } from './doc-provider';
 import type { Dependency } from './flowr/views/dependency-view';
 import { getCriteriaSlicer } from './criteria-slicer';
-import { rangeToVscodeRange } from './flowr/utils';
-import { registerCommand } from './extension';
+import { rangeToVscodeRange, resolveSlicingCriteria, type SliceReturn } from './flowr/utils';
+import { getFlowrSession, registerCommand } from './extension';
 import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
+
+let sliceOutput: vscode.OutputChannel | undefined;
+
+/** slices for the flowR nodes at `positions`; an empty result carries the reason in {@link SliceReturn.problem} */
+export async function sliceAtPositions(positions: vscode.Position[], doc: vscode.TextDocument, direction: SliceDirection, showErrorMessage: boolean, combine?: SliceCombination): Promise<SliceReturn> {
+	try {
+		const session = await getFlowrSession();
+		const { criteria, problem } = await resolveSlicingCriteria(positions, doc, session);
+		if(problem) {
+			return { code: '', sliceElements: [], problem };
+		}
+		return await session.retrieveSlice(criteria, direction, doc, showErrorMessage, undefined, combine);
+	} catch(e) {
+		return { code: '', sliceElements: [], problem: `flowR failed: ${e instanceof Error ? e.message : String(e)}` };
+	}
+}
+
+/** the reconstruction text shown for an empty slice */
+export function emptySliceCode(problem: string | undefined): string {
+	return `# No slice: ${problem ?? 'flowR found no code for the slicing criterion'}`;
+}
+
+/** tells the user why a slice is empty: a warning for an explicit request, a status bar message while slicing continuously */
+export function reportEmptySlice(problem: string | undefined, explicit: boolean): void {
+	const reason = problem ?? 'flowR found no code for the slicing criterion';
+	sliceOutput?.appendLine(`[Slice] Empty slice: ${reason}`);
+	if(explicit) {
+		void vscode.window.showWarningMessage(`flowR: The slice is empty because ${reason}.`);
+	} else {
+		vscode.window.setStatusBarMessage(`$(warning) flowR: empty slice, ${reason}`, getConfig().get<number>(Settings.ErrorMessageTimer, 5000));
+	}
+}
 
 /** registers the slice commands (cursor, selection, dependency, clear, and position slicing) */
 export function registerSliceCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
+	sliceOutput = output;
 	registerCommand(context, 'vscode-flowr.slice.cursor', async() => {
 		return await getSelectionSlicer().sliceSelectionOnce(SliceDirection.Backward);
 	});

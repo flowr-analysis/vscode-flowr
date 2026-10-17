@@ -3,11 +3,11 @@
 // and display their slices
 
 import * as vscode from 'vscode';
-import { getFlowrSession, updateStatusBar } from './extension';
+import { updateStatusBar } from './extension';
 import { makeUri, getReconstructionContentProvider, showUri, shouldAutoReconstruct } from './doc-provider';
-import { getPositionAt, makeSlicingCriteriaForPositions, type SliceReturn } from './flowr/utils';
+import { getPositionAt, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
-import { displaySlice, makeSliceDecorationTypes, sliceReconstruction } from './slice';
+import { displaySlice, emptySliceCode, makeSliceDecorationTypes, reportEmptySlice, sliceAtPositions, sliceReconstruction } from './slice';
 import { getSelectionSlicer } from './selection-slicer';
 import type { SliceCombination } from './settings';
 import { Settings, getConfig } from './settings';
@@ -67,7 +67,7 @@ export async function addPositions(positions: vscode.Position[], direction: Slic
 	const ret = flowrSlicer.togglePositions(positions, direction);
 	if(ret) {
 		// Update the output if any positions were toggled
-		await flowrSlicer.updateOutput();
+		await flowrSlicer.updateOutput(false, true);
 	}
 
 	if(flowrSlicer.positions.length === 0) {
@@ -160,7 +160,7 @@ export class PositionSlicer {
 		return showUri(uri);
 	}
 
-	async updateOutput(resetDecos: boolean = false): Promise<void> {
+	async updateOutput(resetDecos: boolean = false, explicit: boolean = false): Promise<void> {
 		if(resetDecos) {
 			this.clearSliceDecos();
 			this.positionDeco.dispose();
@@ -173,7 +173,7 @@ export class PositionSlicer {
 		if(generation !== this.generation) {
 			return;
 		}
-		const code = this.showSlices(slice);
+		const code = this.showSlices(slice, explicit);
 		const provider = getReconstructionContentProvider();
 		const uri = this.makeUri();
 		provider.updateContents(uri, code);
@@ -254,24 +254,26 @@ export class PositionSlicer {
 	private generation = 0;
 
 	protected async computeSlices(): Promise<PositionSlice | undefined> {
-		const session = await getFlowrSession();
 		if(this.positions.length === 0) {
 			return undefined;
 		}
 
 		let code: string | undefined;
+		let problem: string | undefined;
 		let sliceElements: SliceReturn['sliceElements'] = [];
 		const combine = getConfig().get<SliceCombination>(Settings.SlicePositionCombination, 'union');
 
 		const positions = this.positions.map(p => ({ direction: p.direction, docPos: this.doc.positionAt(p.offset) }));
 		const { backward, forward } = Object.groupBy(positions, p => p.direction.toString());
 		if(backward && backward.length > 0) {
-			const results = await session.retrieveSlice(await makeSlicingCriteriaForPositions(backward.map(p => p.docPos), this.doc, session), SliceDirection.Backward, this.doc, this.showErrors, undefined, combine);
+			const results = await sliceAtPositions(backward.map(p => p.docPos), this.doc, SliceDirection.Backward, this.showErrors, combine);
+			problem = results.problem;
 			code = results.code;
 			sliceElements.push(...results.sliceElements);
 		}
 		if(forward && forward.length > 0) {
-			const results = await session.retrieveSlice(await makeSlicingCriteriaForPositions(forward.map(p => p.docPos), this.doc, session), SliceDirection.Forward, this.doc, this.showErrors, undefined, combine);
+			const results = await sliceAtPositions(forward.map(p => p.docPos), this.doc, SliceDirection.Forward, this.showErrors, combine);
+			problem ??= results.problem;
 			if(combine === 'intersection' && backward && backward.length > 0) {
 				const forwardIds = new Set(results.sliceElements.map(e => e.id));
 				sliceElements = sliceElements.filter(e => forwardIds.has(e.id));
@@ -281,19 +283,20 @@ export class PositionSlicer {
 			// we don't return code if we have at least one forward slice in our list, because forward slices don't ensure executability!
 			code = undefined;
 		}
-		return { code, sliceElements };
+		return { code, sliceElements, problem: sliceElements.length > 0 ? undefined : problem ?? 'the slices of the marked positions have no code in common' };
 	}
 
 	/** decorates the slice in all visible editors of the document and returns the reconstructed code, if any */
-	protected showSlices(slice: PositionSlice | undefined): string | undefined {
+	protected showSlices(slice: PositionSlice | undefined, explicit: boolean): string | undefined {
 		this.lastSlice = slice;
 		if(!slice || slice.sliceElements.length === 0) {
 			this.clearSliceDecos();
 			if(slice && this.showErrors) {
+				reportEmptySlice(slice.problem, explicit);
 				setTimeout(() => this.setShowErrors(), getConfig().get<number>(Settings.ErrorMessageTimer));
 				this.showErrors = false;
 			}
-			return undefined;
+			return slice?.code === undefined ? undefined : emptySliceCode(slice.problem);
 		}
 
 		for(const editor of vscode.window.visibleTextEditors) {

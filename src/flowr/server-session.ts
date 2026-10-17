@@ -7,7 +7,7 @@ import type { ConnectionType, SliceCombination } from '../settings';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { FlowrSession, SliceReturn } from './utils';
-import { consolidateNewlines, intersectIds, makeSliceElements, selectionsToNodeIds } from './utils';
+import { consolidateNewlines, emptySliceProblem, intersectIds, makeSliceElements, selectionsToNodeIds } from './utils';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { DataflowGraphJson } from '@eagleoutice/flowr/dataflow/graph/graph';
 import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
@@ -233,6 +233,16 @@ export class FlowrServerSession implements FlowrSession {
 	}
 
 	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument, _showErrorMessage?: boolean, _info?: unknown, combine: SliceCombination = 'union'): Promise<SliceReturn> {
+		try {
+			const slice = await this.computeSlice(criteria, direction, document, combine);
+			return slice.sliceElements.length > 0 ? slice : { ...slice, problem: emptySliceProblem(criteria, combine) };
+		} catch(e) {
+			this.outputChannel.appendLine(`[Slice (Server)] Error: ${(e as Error)?.message}`);
+			return { code: '', sliceElements: [], problem: `the flowR server failed: ${(e as Error)?.message}` };
+		}
+	}
+
+	private async computeSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument, combine: SliceCombination): Promise<SliceReturn> {
 		const response = await this.requestFileAnalysis(document);
 		const includeCallees = getConfig().get<boolean>(Settings.SliceIncludeCallees, false);
 		const inlineSources = getConfig().get<boolean>(Settings.SliceInlineSources, false);

@@ -3,7 +3,7 @@ import { BEST_R_MAJOR, MINIMUM_R_MAJOR, VSCodeFlowrConfiguration, getWasmRootPat
 import type { SliceCombination } from '../settings';
 import { Settings, getConfig, isVerbose } from '../settings';
 import type { FlowrSession, SliceReturn } from './utils';
-import { intersectIds, makeSliceElements, selectionsToNodeIds } from './utils';
+import { emptySliceProblem, intersectIds, makeSliceElements, selectionsToNodeIds } from './utils';
 import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { RShell, RShellReviveOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
@@ -125,7 +125,8 @@ export class FlowrInternalSession implements FlowrSession {
 		updateStatusBar();
 	}
 
-	private async startWorkWithProgressBar<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer, progress: ProgressReporter) => Promise<T>, action: WorkActions, showErrorMessage: boolean, defaultOnErr = {} as T): Promise<T> {
+	private async startWorkWithProgressBar<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer, progress: ProgressReporter) => Promise<T>, action: WorkActions, showErrorMessage: boolean, defaultOnErr: T | ((error: Error) => T) = {} as T): Promise<T> {
+		const fallback = (error: Error) => typeof defaultOnErr === 'function' ? (defaultOnErr as (error: Error) => T)(error) : defaultOnErr;
 		this.setWorking(true);
 
 		// Wait for the flowr session
@@ -143,7 +144,7 @@ export class FlowrInternalSession implements FlowrSession {
 
 			if(!this.parser) {
 				this.setWorking(false);
-				return defaultOnErr;
+				return fallback(new Error('the flowR engine is not available (see the flowR output)'));
 			}
 		}
 
@@ -173,7 +174,7 @@ export class FlowrInternalSession implements FlowrSession {
 				if(showErrorMessage) {
 					void vscode.window.showErrorMessage(`There was an error: ${(e as Error)?.message}. See the flowR output for more information.`);
 				}
-				return defaultOnErr;
+				return fallback(e instanceof Error ? e : new Error(String(e)));
 			} finally {
 				this.setWorking(false);
 			}
@@ -276,12 +277,10 @@ export class FlowrInternalSession implements FlowrSession {
 
 	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument, showErrorMessage: boolean = true, info?: { dfi: DataflowInformation, ast: NormalizedAst }, combine: SliceCombination = 'union'): Promise<SliceReturn> {
 		if(!this.parser) {
-			return {
-				code:          '',
-				sliceElements: []
-			};
+			return { code: '', sliceElements: [], problem: 'the flowR engine is not available (see the flowR output)' };
 		}
-		return await this.startWorkWithProgressBar(document, (analyzer, progress) => this.extractSlice(analyzer, progress, criteria, direction, info, combine), 'slice', showErrorMessage, { code: '', sliceElements: [] });
+		return await this.startWorkWithProgressBar(document, (analyzer, progress) => this.extractSlice(analyzer, progress, criteria, direction, info, combine), 'slice', showErrorMessage,
+			e => ({ code: '', sliceElements: [], problem: `flowR failed: ${e.message}` }));
 	}
 
 	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
@@ -392,7 +391,8 @@ export class FlowrInternalSession implements FlowrSession {
 
 		return {
 			code,
-			sliceElements
+			sliceElements,
+			problem: sliceElements.length > 0 ? undefined : emptySliceProblem(criteria, combine)
 		};
 	}
 

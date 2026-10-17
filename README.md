@@ -181,6 +181,8 @@ You can also view the reconstruction of a piece of code based on the current bac
 
 To clear the slice highlighting, use the "Clear Current Slice Presentation" command or the crossed out eye icon in the upper right of the editor.
 
+If a slice comes out empty, flowR tells you why (for example, the cursor is not on an R expression, the file has syntax errors flowR could only partially recover from, the slices of the marked positions have nothing in common, or flowR itself failed): as a warning when you sliced explicitly, in the status bar while the slice updates continuously, and in the reconstruction.
+
 If you close the reconstruction (or the diff view, see the `vscode-flowr.style.sliceDisplay` setting), it stays closed until you clear the slice or explicitly open it again with "Show Current Slice in Editor (Reconstruct)".
 
 When you mark multiple positions (<kbd>Alt</kbd>+<kbd>P</kbd>), the editor shows the union of their slices by default. Use "Toggle Union/Intersection of Position Slices" (setting `vscode-flowr.slice.positionCombination`) to only show the code that is part of the slice of *every* marked position.
