@@ -5,14 +5,12 @@
 import * as vscode from 'vscode';
 import { getFlowrSession, updateStatusBar } from './extension';
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
-import { getPositionAt, makeSlicingCriteriaForPositions } from './flowr/utils';
+import { getPositionAt, makeSlicingCriteriaForPositions, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
 import { displaySlice, makeSliceDecorationTypes } from './slice';
 import { getSelectionSlicer } from './selection-slicer';
 import type { SliceDisplay } from './settings';
 import { Settings, getConfig } from './settings';
-import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
-import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 
@@ -31,7 +29,7 @@ export async function addCurrentPositions(direction: SliceDirection): Promise<Po
 		return undefined;
 	}
 	const positions = editor.selections.map(sel => sel.start);
-	await addPositions(positions, direction, editor.document);
+	return await addPositions(positions, direction, editor.document);
 }
 
 
@@ -84,6 +82,9 @@ export async function addPositions(positions: vscode.Position[], direction: Slic
 	}
 	return flowrSlicer;
 }
+
+/** forward slices carry no code, as they do not ensure executability */
+export type PositionSlice = Omit<SliceReturn, 'code'> & { code: string | undefined };
 
 interface Position {
 	readonly offset:    number;
@@ -166,7 +167,13 @@ export class PositionSlicer {
 			this.positionDeco = makeSliceDecorationTypes().slicedPos;
 		}
 		this.updateTargetDecos();
-		const code = await this.updateSlices();
+		const generation = ++this.generation;
+		const slice = await this.computeSlices();
+		// a later edit started a newer update meanwhile, whose result must not be overwritten by this stale one
+		if(generation !== this.generation) {
+			return;
+		}
+		const code = this.showSlices(slice);
 		const provider = getReconstructionContentProvider();
 		const uri = this.makeUri();
 		provider.updateContents(uri, code);
@@ -241,18 +248,19 @@ export class PositionSlicer {
 		}
 	}
 
+	/** the slice currently shown, if any */
+	lastSlice: PositionSlice | undefined;
 	private showErrors = true;
+	private generation = 0;
 
-	protected async updateSlices(): Promise<string | undefined> {
-		// Update the decos that show the slice results
+	protected async computeSlices(): Promise<PositionSlice | undefined> {
 		const session = await getFlowrSession();
 		if(this.positions.length === 0) {
-			this.clearSliceDecos();
-			return;
+			return undefined;
 		}
 
 		let code: string | undefined;
-		const sliceElements: { id: NodeId, location: SourceRange }[] = [];
+		const sliceElements: SliceReturn['sliceElements'] = [];
 
 		const positions = this.positions.map(p => ({ direction: p.direction, docPos: this.doc.positionAt(p.offset) }));
 		const { backward, forward } = Object.groupBy(positions, p => p.direction.toString());
@@ -267,24 +275,28 @@ export class PositionSlicer {
 			// we don't return code if we have at least one forward slice in our list, because forward slices don't ensure executability!
 			code = undefined;
 		}
+		return { code, sliceElements };
+	}
 
-		if(sliceElements.length === 0) {
+	/** decorates the slice in all visible editors of the document and returns the reconstructed code, if any */
+	protected showSlices(slice: PositionSlice | undefined): string | undefined {
+		this.lastSlice = slice;
+		if(!slice || slice.sliceElements.length === 0) {
 			this.clearSliceDecos();
-			if(this.showErrors) {
+			if(slice && this.showErrors) {
 				setTimeout(() => this.setShowErrors(), getConfig().get<number>(Settings.ErrorMessageTimer));
+				this.showErrors = false;
 			}
-			this.showErrors = false;
-			return;
+			return undefined;
 		}
 
 		for(const editor of vscode.window.visibleTextEditors) {
 			if(editor.document === this.doc) {
 				this.sliceDecos ||= makeSliceDecorationTypes();
-				displaySlice(editor, sliceElements, this.sliceDecos);
+				displaySlice(editor, slice.sliceElements, this.sliceDecos);
 			}
 		}
-
-		return code;
+		return slice.code;
 	}
 
 	protected clearSliceDecos(): void {

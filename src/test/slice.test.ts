@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { activateExtension, openTestFile } from './test-util';
 import type { SliceReturn } from '../flowr/utils';
+import type { PositionSlicer } from '../position-slicer';
 
 suite('slice', () => {
 	suiteSetup(async() => {
@@ -61,5 +62,38 @@ for(i in 1:(n - 1)) product <- product * i
 		assert.ok(slice, 'expected a slice result');
 		assert.ok(slice.code.includes('ggplot()'), `expected the ggplot call in the slice, got: ${slice.code}`);
 		assert.ok(slice.code.includes('library(ggplot2)'), `expected the library load in the slice, got: ${slice.code}`);
+	});
+});
+
+suite('position slice', () => {
+	suiteSetup(async() => {
+		await activateExtension();
+	});
+
+	async function waitFor(condition: () => boolean, timeoutMs = 20000): Promise<void> {
+		const start = Date.now();
+		while(!condition()) {
+			assert.ok(Date.now() - start < timeoutMs, 'timed out waiting for the position slice to update');
+			await new Promise(resolve => setTimeout(resolve, 50));
+		}
+	}
+
+	// typing in quick succession must leave the forward slice of the latest text, never that of an earlier keystroke
+	test('forward position slice follows uses typed afterwards', async() => {
+		const doc = await vscode.workspace.openTextDocument({ language: 'r', content: 'x <- 1\nprint(x)\n' });
+		const editor = await vscode.window.showTextDocument(doc);
+		editor.selection = new vscode.Selection(0, 0, 0, 0);
+		const slicer: PositionSlicer | undefined = await vscode.commands.executeCommand('vscode-flowr.forward-slice.position');
+		assert.ok(slicer);
+		const lines = () => new Set(slicer.lastSlice?.sliceElements.map(e => e.location[0]));
+		await waitFor(() => lines().has(2));
+
+		for(const ch of 'y <- x + 1\n') {
+			await editor.edit(eb => eb.insert(new vscode.Position(doc.lineCount - 1, doc.lineAt(doc.lineCount - 1).text.length), ch));
+		}
+		await waitFor(() => lines().has(3));
+		assert.deepStrictEqual([...lines()].sort(), [1, 2, 3]);
+		await vscode.commands.executeCommand('vscode-flowr.slice.clear');
+		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
 	});
 });

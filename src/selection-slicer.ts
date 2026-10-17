@@ -46,8 +46,9 @@ class SelectionSlicer {
 	hasDoc:           boolean = false;
 	decos:            DecoTypes | undefined;
 	decoratedEditors: vscode.TextEditor[] = [];
-	/** re-entrancy guard: prevents `update()` from recursing into itself (see the guard in {@link update}) */
-	private updating = false;
+	private inFlight: Promise<SliceReturn | undefined> | undefined;
+	/** at most one update waits for the running one; later requests only replace its direction (latest wins) */
+	private queued:   { direction: SliceDirection, result: Promise<SliceReturn | undefined> } | undefined;
 
 	// Turn on/off following of the cursor
 	async startFollowSelection(direction: SliceDirection): Promise<void> {
@@ -119,17 +120,25 @@ class SelectionSlicer {
 		this.decos = undefined;
 	}
 
-	protected async update(direction: SliceDirection): Promise<SliceReturn | undefined> {
-		if(this.updating) {
-			// never let update() recurse into itself (e.g. via an auto-reconstruct that re-slices)
-			return undefined;
+	protected update(direction: SliceDirection): Promise<SliceReturn | undefined> {
+		if(!this.inFlight) {
+			this.inFlight = this.doUpdate(direction).finally(() => {
+				this.inFlight = undefined;
+			});
+			return this.inFlight;
 		}
-		this.updating = true;
-		try {
-			return await this.doUpdate(direction);
-		} finally {
-			this.updating = false;
+		if(this.queued) {
+			this.queued.direction = direction;
+			return this.queued.result;
 		}
+		const queued = { direction, result: Promise.resolve<SliceReturn | undefined>(undefined) };
+		const next = () => {
+			this.queued = undefined;
+			return this.update(queued.direction);
+		};
+		queued.result = this.inFlight.then(next, next);
+		this.queued = queued;
+		return queued.result;
 	}
 
 	private async doUpdate(direction: SliceDirection): Promise<SliceReturn | undefined> {
@@ -153,7 +162,9 @@ class SelectionSlicer {
 		}
 		this.decos ||= makeSliceDecorationTypes();
 		displaySlice(ret.editor, ret.sliceElements, this.decos);
-		this.decoratedEditors.push(ret.editor);
+		if(!this.decoratedEditors.includes(ret.editor)) {
+			this.decoratedEditors.push(ret.editor);
+		}
 		if(direction === SliceDirection.Backward && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)) {
 			// the slice is already computed and written to the reconstruction URI above; just reveal it.
 			// (calling showSelectionSliceInEditor here would re-slice and recurse back into update())

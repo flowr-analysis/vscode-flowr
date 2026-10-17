@@ -124,7 +124,9 @@ class CriteriaSlicer {
 		}
 		this.decos ??= makeSliceDecorationTypes();
 		displaySlice(ret.editor, ret.sliceElements, this.decos);
-		this.decoratedEditors.push(ret.editor);
+		if(!this.decoratedEditors.includes(ret.editor)) {
+			this.decoratedEditors.push(ret.editor);
+		}
 		return ret.code;
 	}
 }
