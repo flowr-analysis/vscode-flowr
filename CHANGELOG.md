@@ -5,6 +5,9 @@
 - Continuous slices (position slices and following the cursor) always show the slice of the latest edit: results of earlier keystrokes that finish late are discarded, and updates requested while slicing are no longer dropped
 - Parse with the official r-lib release of tree-sitter-r (1.3.0)
 - Show a small color indicator next to the line numbers for lines that load libraries, import data, source scripts, write outputs, visualize, or test (`vscode-flowr.style.lineCategoryIndicators`)
+- Position slices can show the intersection instead of the union of all marked positions (`vscode-flowr.slice.positionCombination`, "Toggle Union/Intersection of Position Slices")
+- Negative slices (`vscode-flowr.slice.negative`, "Toggle Negative Slice") gray out the slice and reconstruct the remaining code, and "Fold Code Outside the Slice" folds the grayed out regions
+- The diff view and the reconstruction no longer open each other in turn, and a closed reconstruction or diff view is not reopened automatically until the slice is cleared
 
 # Version 0.8.4 (2026-08-01)
 - Update to flowR 2.13.8: a braceless loop body (`for(f in files) read.csv(f)`) is no longer mistaken for a quotation, so its reads/writes show up in the dependency view and its symbols are linted; `.Rmd` chunk options parse correctly; and package versions are also guessed for orphan dependencies

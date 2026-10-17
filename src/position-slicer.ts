@@ -4,12 +4,12 @@
 
 import * as vscode from 'vscode';
 import { getFlowrSession, updateStatusBar } from './extension';
-import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
+import { makeUri, getReconstructionContentProvider, showUri, shouldAutoReconstruct } from './doc-provider';
 import { getPositionAt, makeSlicingCriteriaForPositions, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
-import { displaySlice, makeSliceDecorationTypes } from './slice';
+import { displaySlice, makeSliceDecorationTypes, sliceReconstruction } from './slice';
 import { getSelectionSlicer } from './selection-slicer';
-import type { SliceDisplay } from './settings';
+import type { SliceCombination } from './settings';
 import { Settings, getConfig } from './settings';
 import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
@@ -177,7 +177,7 @@ export class PositionSlicer {
 		const provider = getReconstructionContentProvider();
 		const uri = this.makeUri();
 		provider.updateContents(uri, code);
-		if(code !== undefined && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct) && getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay) !== 'diff') {
+		if(code !== undefined && shouldAutoReconstruct(uri)) {
 			void this.showReconstruction();
 		}
 		updateStatusBar();
@@ -260,18 +260,24 @@ export class PositionSlicer {
 		}
 
 		let code: string | undefined;
-		const sliceElements: SliceReturn['sliceElements'] = [];
+		let sliceElements: SliceReturn['sliceElements'] = [];
+		const combine = getConfig().get<SliceCombination>(Settings.SlicePositionCombination, 'union');
 
 		const positions = this.positions.map(p => ({ direction: p.direction, docPos: this.doc.positionAt(p.offset) }));
 		const { backward, forward } = Object.groupBy(positions, p => p.direction.toString());
 		if(backward && backward.length > 0) {
-			const results = await session.retrieveSlice(await makeSlicingCriteriaForPositions(backward.map(p => p.docPos), this.doc, session), SliceDirection.Backward, this.doc, this.showErrors);
+			const results = await session.retrieveSlice(await makeSlicingCriteriaForPositions(backward.map(p => p.docPos), this.doc, session), SliceDirection.Backward, this.doc, this.showErrors, undefined, combine);
 			code = results.code;
 			sliceElements.push(...results.sliceElements);
 		}
 		if(forward && forward.length > 0) {
-			const results = await session.retrieveSlice(await makeSlicingCriteriaForPositions(forward.map(p => p.docPos), this.doc, session), SliceDirection.Forward, this.doc, this.showErrors);
-			sliceElements.push(...results.sliceElements);
+			const results = await session.retrieveSlice(await makeSlicingCriteriaForPositions(forward.map(p => p.docPos), this.doc, session), SliceDirection.Forward, this.doc, this.showErrors, undefined, combine);
+			if(combine === 'intersection' && backward && backward.length > 0) {
+				const forwardIds = new Set(results.sliceElements.map(e => e.id));
+				sliceElements = sliceElements.filter(e => forwardIds.has(e.id));
+			} else {
+				sliceElements.push(...results.sliceElements);
+			}
 			// we don't return code if we have at least one forward slice in our list, because forward slices don't ensure executability!
 			code = undefined;
 		}
@@ -296,7 +302,7 @@ export class PositionSlicer {
 				displaySlice(editor, slice.sliceElements, this.sliceDecos);
 			}
 		}
-		return slice.code;
+		return slice.code === undefined ? undefined : sliceReconstruction(slice.code, this.doc, slice.sliceElements);
 	}
 
 	protected clearSliceDecos(): void {

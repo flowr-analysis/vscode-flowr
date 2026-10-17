@@ -181,6 +181,12 @@ You can also view the reconstruction of a piece of code based on the current bac
 
 To clear the slice highlighting, use the "Clear Current Slice Presentation" command or the crossed out eye icon in the upper right of the editor.
 
+If you close the reconstruction (or the diff view, see the `vscode-flowr.style.sliceDisplay` setting), it stays closed until you clear the slice or explicitly open it again with "Show Current Slice in Editor (Reconstruct)".
+
+When you mark multiple positions (<kbd>Alt</kbd>+<kbd>P</kbd>), the editor shows the union of their slices by default. Use "Toggle Union/Intersection of Position Slices" (setting `vscode-flowr.slice.positionCombination`) to only show the code that is part of the slice of *every* marked position.
+
+"Toggle Negative Slice" (setting `vscode-flowr.slice.negative`) inverts every slice: the slice itself is grayed out and the reconstruction shows the remaining code, which is useful to see what you can cut. "Fold Code Outside the Slice" folds the grayed out regions (in negative mode, the slice itself); clearing the slice unfolds them again.
+
 ![A screenshot of the extension being used to reconstruct a slice](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/reconstruct.png)
 
 ### Dependency View

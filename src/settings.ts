@@ -22,6 +22,8 @@ export enum Settings {
 	SliceRevisitThreshold = 'slice.revisitThreshold',
 	SliceIncludeCallees = 'slice.includeCallees',
 	SliceInlineSources = 'slice.inlineSources',
+	SlicePositionCombination = 'slice.positionCombination',
+	SliceNegative = 'slice.negative',
 
 	TreeSitterTimeout = 'tree-sitter.timeout',
 	TreeSitterLax = 'tree-sitter.lax',
@@ -111,6 +113,8 @@ export const DependencyViewRefresherConfigKeys =  {
 	adaptiveBreak: Settings.DependencyViewAdaptiveBreak
 } satisfies RefresherConfigKeys;
 
+/** how the slices of several tracked positions are combined */
+export type SliceCombination = 'union' | 'intersection';
 export type SliceDisplay = 'text' | 'diff' | 'tokens';
 export type ConnectionType = 'auto' | 'websocket' | 'websocket-secure' | 'tcp';
 

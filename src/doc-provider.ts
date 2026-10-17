@@ -9,6 +9,8 @@
 // To show a file, use the showUri function, defined below.
 
 import * as vscode from 'vscode';
+import type { SliceDisplay } from './settings';
+import { Settings, getConfig } from './settings';
 
 export const flowrScheme = 'flowr';
 
@@ -44,6 +46,48 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 	provideTextDocumentContent(uri: vscode.Uri): vscode.ProviderResult<string> {
 		return this.contents.get(uri.toString());
 	}
+}
+
+const closedByUser = new Set<string>();
+
+/**
+ * Remembers reconstruction and slice-diff tabs the user closes, so they are not auto-opened again until {@link resetClosedReconstructions}.
+ */
+export function trackClosedReconstructions(): vscode.Disposable {
+	return vscode.window.tabGroups.onDidChangeTabs(e => {
+		for(const tab of e.closed) {
+			const uris = tab.input instanceof vscode.TabInputText ? [tab.input.uri]
+				: tab.input instanceof vscode.TabInputTextDiff ? [tab.input.original, tab.input.modified] : [];
+			for(const uri of uris) {
+				if(uri.scheme === flowrScheme) {
+					closedByUser.add(uri.toString());
+				}
+			}
+		}
+	});
+}
+
+/**
+ * Allows auto-opening previously user-closed reconstruction tabs again.
+ */
+export function resetClosedReconstructions(): void {
+	closedByUser.clear();
+}
+
+/**
+ * Whether the reconstruction at `uri` may be opened automatically (never in diff mode or after the user closed it).
+ */
+export function shouldAutoReconstruct(uri: vscode.Uri): boolean {
+	return getConfig().get<boolean>(Settings.SliceAutomaticReconstruct, true)
+		&& getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay) !== 'diff'
+		&& !wasClosedByUser(uri);
+}
+
+/**
+ * Whether the user closed the tab showing `uri` since the last {@link resetClosedReconstructions}.
+ */
+export function wasClosedByUser(uri: vscode.Uri): boolean {
+	return closedByUser.has(uri.toString());
 }
 
 /** builds a `flowr:` URI for the given authority and path, normalizing the path to start with `/` */

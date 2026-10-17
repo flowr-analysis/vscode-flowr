@@ -183,6 +183,21 @@
         "category": "flowR"
       },
       {
+        "command": "vscode-flowr.slice.position.toggleCombination",
+        "title": "Toggle Union/Intersection of Position Slices",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.slice.toggleNegative",
+        "title": "Toggle Negative Slice",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.slice.fold",
+        "title": "Fold Code Outside the Slice",
+        "category": "flowR"
+      },
+      {
         "command": "vscode-flowr.dataflow",
         "title": "Show Dataflow Graph",
         "icon": "$(graph)",
@@ -362,6 +377,17 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Do you want to automatically view the reconstruction of every slice (i.e., see the standalone slice in an extra window)?"
+        },
+        "vscode-flowr.slice.positionCombination": {
+          "type": "string",
+          "enum": ["union", "intersection"],
+          "default": "union",
+          "markdownDescription": "How the slices of all tracked positions (see the position slicing commands) are combined. `union` shows everything contained in any slice, `intersection` only the code contained in the slice of every tracked position. With both backward and forward positions, `intersection` also intersects the backward slices with the forward slices."
+        },
+        "vscode-flowr.slice.negative": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Show the complement of every slice: the code in the slice is dimmed (or, with the `tokens` display, the code outside it is highlighted) and the reconstruction shows only the lines without any slice element."
         },
         "vscode-flowr.slice.includeCallees": {
           "type": "boolean",

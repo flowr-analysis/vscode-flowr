@@ -5,10 +5,10 @@
 
 import * as vscode from 'vscode';
 import { getFlowrSession, updateStatusBar } from './extension';
-import { flowrScheme, makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
+import { flowrScheme, makeUri, getReconstructionContentProvider, showUri, shouldAutoReconstruct } from './doc-provider';
 import { makeSlicingCriteriaForPositions, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
-import { displaySlice, makeSliceDecorationTypes } from './slice';
+import { displaySlice, makeSliceDecorationTypes, sliceReconstruction } from './slice';
 import { positionSlicers } from './position-slicer';
 import { Settings, getConfig } from './settings';
 import { getCriteriaSlicer } from './criteria-slicer';
@@ -149,7 +149,7 @@ class SelectionSlicer {
 		getCriteriaSlicer().clearSliceDecos();
 		const provider = getReconstructionContentProvider();
 		const uri = this.makeUri();
-		provider.updateContents(uri, direction === SliceDirection.Backward ? ret.code : '');
+		provider.updateContents(uri, direction === SliceDirection.Backward ? sliceReconstruction(ret.code, ret.editor.document, ret.sliceElements) : '');
 		this.hasDoc = true;
 		const clearOtherDecos = getConfig().get<boolean>(Settings.StyleOnlyHighlightActiveSelection, false);
 		for(const editor of this.decoratedEditors) {
@@ -165,7 +165,7 @@ class SelectionSlicer {
 		if(!this.decoratedEditors.includes(ret.editor)) {
 			this.decoratedEditors.push(ret.editor);
 		}
-		if(direction === SliceDirection.Backward && getConfig().get<boolean>(Settings.SliceAutomaticReconstruct)) {
+		if(direction === SliceDirection.Backward && shouldAutoReconstruct(this.makeUri())) {
 			// the slice is already computed and written to the reconstruction URI above; just reveal it.
 			// (calling showSelectionSliceInEditor here would re-slice and recurse back into update())
 			void showUri(this.makeUri());

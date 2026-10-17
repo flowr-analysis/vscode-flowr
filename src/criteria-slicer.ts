@@ -8,7 +8,7 @@ import { getFlowrSession } from './extension';
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
 import { rangeToVscodeRange, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
-import { displaySlice, makeSliceDecorationTypes } from './slice';
+import { displaySlice, makeSliceDecorationTypes, sliceReconstruction } from './slice';
 import { positionSlicers } from './position-slicer';
 import { Settings, getConfig } from './settings';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
@@ -110,7 +110,7 @@ class CriteriaSlicer {
 		if(direction === SliceDirection.Backward) {
 			const provider = getReconstructionContentProvider();
 			const uri = this.makeUri();
-			provider.updateContents(uri, ret.code);
+			provider.updateContents(uri, sliceReconstruction(ret.code, ret.editor.document, ret.sliceElements));
 		}
 		this.hasDoc = true;
 		const clearOtherDecos = getConfig().get<boolean>(Settings.StyleOnlyHighlightActiveSelection, false);

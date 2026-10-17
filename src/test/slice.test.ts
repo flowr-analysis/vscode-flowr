@@ -63,6 +63,99 @@ for(i in 1:(n - 1)) product <- product * i
 		assert.ok(slice.code.includes('ggplot()'), `expected the ggplot call in the slice, got: ${slice.code}`);
 		assert.ok(slice.code.includes('library(ggplot2)'), `expected the library load in the slice, got: ${slice.code}`);
 	});
+
+	suite('position slices', () => {
+		const sumPos = new vscode.Selection(6, 2, 6, 2); // `sum` in the loop
+		const productPos = new vscode.Selection(7, 2, 7, 2); // `product` in the loop
+		const cfg = () => vscode.workspace.getConfiguration('vscode-flowr');
+
+		async function reconstruction(): Promise<string> {
+			const editor: vscode.TextEditor = await vscode.commands.executeCommand('vscode-flowr.slice.show.in.editor');
+			return editor.document.getText();
+		}
+
+		async function sliceBoth(): Promise<string> {
+			const editor = await openTestFile('example.R');
+			editor.selections = [sumPos, productPos];
+			await vscode.commands.executeCommand('vscode-flowr.slice.position');
+			return await reconstruction();
+		}
+
+		async function closeReconstruction(): Promise<void> {
+			const isRecon = (e: vscode.TextEditor) => e.document.uri.scheme === 'flowr';
+			const editor = vscode.window.visibleTextEditors.find(isRecon);
+			assert.ok(editor, 'reconstruction should be open');
+			await vscode.window.showTextDocument(editor.document, editor.viewColumn);
+			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+			await new Promise(r => setTimeout(r, 300));
+			assert.ok(!vscode.window.visibleTextEditors.some(isRecon), 'reconstruction should be closed');
+		}
+
+		teardown(async() => {
+			await vscode.commands.executeCommand('vscode-flowr.slice.clear');
+			await cfg().update('slice.positionCombination', undefined, vscode.ConfigurationTarget.Global);
+			await cfg().update('slice.negative', undefined, vscode.ConfigurationTarget.Global);
+			await cfg().update('style.sliceDisplay', undefined, vscode.ConfigurationTarget.Global);
+			await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+		});
+
+		test('union and intersection of two positions', async() => {
+			const union = await sliceBoth();
+			assert.ok(union.includes('sum <- sum + i + w') && union.includes('product <- product * i'), union);
+			await vscode.commands.executeCommand('vscode-flowr.slice.clear');
+
+			await vscode.commands.executeCommand('vscode-flowr.slice.position.toggleCombination');
+			assert.equal(cfg().get('slice.positionCombination'), 'intersection');
+			const intersection = await sliceBoth();
+			assert.equal(intersection, 'n <- 10\nfor(i in 1:(n - 1)) {}');
+			assert.ok(union.includes('n <- 10') && union.includes('for(i in 1:(n - 1))'), 'intersection must be a subset of the union');
+			assert.ok(!intersection.includes('sum <- sum') && !intersection.includes('product <- product'));
+		});
+
+		test('negative slice reconstruction shows lines outside the slice', async() => {
+			await vscode.commands.executeCommand('vscode-flowr.slice.toggleNegative');
+			assert.equal(cfg().get('slice.negative'), true);
+			const editor = await openTestFile('example.R', sumPos);
+			await vscode.commands.executeCommand('vscode-flowr.slice.position');
+			const text = await reconstruction();
+			assert.equal(text, 'product <- 1\n\n  product <- product * i\n}\n\ncat("Sum:", sum, "\\n")\ncat("Product:", product, "\\n")\n');
+			assert.ok(editor.document.getText().includes('sum <- 0'));
+		});
+
+		test('a closed reconstruction is not reopened until cleared', async() => {
+			const editor = await openTestFile('example.R', sumPos);
+			await vscode.commands.executeCommand('vscode-flowr.slice.position');
+			await reconstruction();
+			await closeReconstruction();
+
+			await vscode.window.showTextDocument(editor.document);
+			editor.selection = productPos;
+			await vscode.commands.executeCommand('vscode-flowr.slice.position');
+			await new Promise(r => setTimeout(r, 500));
+			assert.ok(!vscode.window.visibleTextEditors.some(e => e.document.uri.scheme === 'flowr'), 'must not auto reopen');
+
+			await reconstruction();
+			assert.ok(vscode.window.visibleTextEditors.some(e => e.document.uri.scheme === 'flowr'), 'explicit command must open');
+		});
+
+		test('fold hides code outside the slice and clear unfolds it', async() => {
+			const editor = await openTestFile('example.R', new vscode.Selection(6, 2, 6, 2));
+			await vscode.commands.executeCommand('vscode-flowr.slice.position');
+			await vscode.commands.executeCommand('vscode-flowr.slice.fold');
+			const visible = () => editor.visibleRanges.flatMap(r => [r.start.line, r.end.line]);
+			assert.ok(!editor.visibleRanges.some(r => r.start.line <= 10 && r.end.line >= 11), `lines 10-11 should be folded: ${JSON.stringify(visible())}`);
+			await vscode.commands.executeCommand('vscode-flowr.slice.clear');
+			assert.ok(editor.visibleRanges.some(r => r.start.line <= 1 && r.end.line >= 11), `should be unfolded: ${JSON.stringify(visible())}`);
+		});
+
+		test('diff display never auto-opens the reconstruction', async() => {
+			await cfg().update('style.sliceDisplay', 'diff', vscode.ConfigurationTarget.Global);
+			await openTestFile('example.R', sumPos);
+			await vscode.commands.executeCommand('vscode-flowr.slice.cursor');
+			await new Promise(r => setTimeout(r, 500));
+			assert.ok(!vscode.window.visibleTextEditors.some(e => e.document.uri.authority === 'selection-slicer'));
+		});
+	});
 });
 
 suite('position slice', () => {

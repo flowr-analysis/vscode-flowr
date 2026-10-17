@@ -12,6 +12,7 @@ import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/
 import { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';
 import { RFunctionCall } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-function-call';
 import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
+import type { SliceCombination } from '../settings';
 import { Q, type FlowrSearch } from '@eagleoutice/flowr/search/flowr-search-builder';
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert';
 
@@ -22,6 +23,14 @@ export interface SliceReturn {
 	sliceElements: { id: NodeId, location: SourceRange }[]
 }
 
+/**
+ * Returns the ids contained in every one of the given sets.
+ */
+export function intersectIds(sets: readonly ReadonlySet<NodeId>[]): Set<NodeId> {
+	const [first, ...rest] = sets;
+	return new Set([...first ?? []].filter(id => rest.every(s => s.has(id))));
+}
+
 export interface FlowrSession {
 	initialize:    () => void | Promise<void>
 	destroy:       () => void
@@ -30,7 +39,8 @@ export interface FlowrSession {
 		direction: SliceDirection,
 		document: vscode.TextDocument,
 		showErrorMessage?: boolean,
-		info?: { dfi: DataflowInformation, ast: NormalizedAst }
+		info?: { dfi: DataflowInformation, ast: NormalizedAst },
+		combine?: SliceCombination
 	) => Promise<SliceReturn>
 	retrieveDataflowMermaid:  (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified?: boolean) => Promise<string>
 	retrieveAstMermaid:       (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode) => Promise<string>

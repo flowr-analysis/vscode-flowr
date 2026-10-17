@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, VSCodeFlowrConfiguration, getWasmRootPath, isWeb, updateStatusBar } from '../extension';
+import type { SliceCombination } from '../settings';
 import { Settings, getConfig, isVerbose } from '../settings';
 import type { FlowrSession, SliceReturn } from './utils';
-import { makeSliceElements, selectionsToNodeIds } from './utils';
+import { intersectIds, makeSliceElements, selectionsToNodeIds } from './utils';
 import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { RShell, RShellReviveOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
@@ -273,14 +274,14 @@ export class FlowrInternalSession implements FlowrSession {
 		this.parser?.close();
 	}
 
-	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument, showErrorMessage: boolean = true, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
+	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument, showErrorMessage: boolean = true, info?: { dfi: DataflowInformation, ast: NormalizedAst }, combine: SliceCombination = 'union'): Promise<SliceReturn> {
 		if(!this.parser) {
 			return {
 				code:          '',
 				sliceElements: []
 			};
 		}
-		return await this.startWorkWithProgressBar(document, (analyzer, progress) => this.extractSlice(analyzer, progress, criteria, direction, info), 'slice', showErrorMessage, { code: '', sliceElements: [] });
+		return await this.startWorkWithProgressBar(document, (analyzer, progress) => this.extractSlice(analyzer, progress, criteria, direction, info, combine), 'slice', showErrorMessage, { code: '', sliceElements: [] });
 	}
 
 	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
@@ -354,7 +355,7 @@ export class FlowrInternalSession implements FlowrSession {
 	}
 
 	// takes the analyzer from its caller's withAnalyzer scope (opening its own would deadlock the queue)
-	private async extractSlice(analyzer: FlowrAnalyzer, progress: ProgressReporter, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
+	private async extractSlice(analyzer: FlowrAnalyzer, progress: ProgressReporter, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }, combine: SliceCombination = 'union'): Promise<SliceReturn> {
 		const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
 		const includeCallees = getConfig().get<boolean>(Settings.SliceIncludeCallees, false);
 		const inlineSources = getConfig().get<boolean>(Settings.SliceInlineSources, false);
@@ -363,15 +364,17 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 		progress.report({ message: 'Computing slice…' });
 		const sliceStart = Date.now();
-		const elements = staticSlice({
+		const { dfi, ast } = info;
+		const sliceIds = (cs: SlicingCriteria) => staticSlice({
 			ctx:  analyzer.inspectContext(),
-			info: info.dfi,
-			ast:  info.ast,
-			ids:  SlicingCriterion.convertAll(criteria, info.ast.idMap),
+			info: dfi,
+			ast,
+			ids:  SlicingCriterion.convertAll(cs, ast.idMap),
 			direction,
 			threshold,
 			includeCallees
 		}).result;
+		const elements = combine === 'intersection' && criteria.length > 1 ? intersectIds(criteria.map(c => sliceIds([c]))) : sliceIds(criteria);
 		const sliceMs = Date.now() - sliceStart;
 
 		progress.report({ message: 'Reconstructing…' });
