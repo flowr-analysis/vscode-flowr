@@ -380,7 +380,10 @@
         },
         "vscode-flowr.slice.positionCombination": {
           "type": "string",
-          "enum": ["union", "intersection"],
+          "enum": [
+            "union",
+            "intersection"
+          ],
           "default": "union",
           "markdownDescription": "How the slices of all tracked positions (see the position slicing commands) are combined. `union` shows everything contained in any slice, `intersection` only the code contained in the slice of every tracked position. With both backward and forward positions, `intersection` also intersects the backward slices with the forward slices."
         },
@@ -470,6 +473,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Whether to use flowR's more advanced data frame shape inference."
+        },
+        "vscode-flowr.packageInfo.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Whether flowR provides hovers with package and function information, *Go to Definition* and *Find References* for R files. Turn this off to only use other language support for these (for example, the R extension)."
         },
         "vscode-flowr.completion.enabled": {
           "type": "boolean",

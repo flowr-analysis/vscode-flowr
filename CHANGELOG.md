@@ -12,6 +12,8 @@
 - Large files no longer stall the editor after opening them: the linter runs once per document version, shared by diagnostics and quick fixes, instead of twice
 - An empty slice now explains why it is empty (no R expression at the cursor, syntax errors, no code in common, or a flowR failure) instead of silently showing nothing
 - Linting failures and failing linting rules are reported, and the dependency view marks results that are stale or incomplete because of syntax errors
+- Following the cursor with a slice waits until the cursor rests instead of re-slicing on every selection change
+- New setting `vscode-flowr.packageInfo.enabled` turns off flowR's package information hovers, Go to Definition and Find References
 
 # Version 0.8.4 (2026-08-01)
 - Update to flowR 2.13.8: a braceless loop body (`for(f in files) read.csv(f)`) is no longer mistaken for a quotation, so its reads/writes show up in the dependency view and its symbols are linted; `.Rmd` chunk options parse correctly; and package versions are also guessed for orphan dependencies

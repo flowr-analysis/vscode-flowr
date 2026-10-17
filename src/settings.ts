@@ -78,6 +78,8 @@ export enum Settings {
 	ValuesOnHover = 'values.hover',
 	ValuesHoverResolve = 'values.hover.resolve',
 	ValuesHoverDataFrames = 'values.hover.dataFrames',
+
+	PackageInfoEnabled = 'packageInfo.enabled',
 }
 
 export enum DiagramSettingsKeys {

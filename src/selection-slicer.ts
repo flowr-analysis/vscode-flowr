@@ -18,6 +18,7 @@ import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 
 const selectionSlicerAuthority = 'selection-slicer';
+const FollowDebounceMs = 150;
 const selectionSlicerPath = 'Selection Slice';
 
 
@@ -53,13 +54,20 @@ class SelectionSlicer {
 	// Turn on/off following of the cursor
 	async startFollowSelection(direction: SliceDirection): Promise<void> {
 		await this.update(direction);
+		// moving the cursor fires many selection events in a row; only slice once it rests
+		let timer: NodeJS.Timeout | undefined;
+		const schedule = () => {
+			clearTimeout(timer);
+			timer = setTimeout(() => void this.update(direction), FollowDebounceMs);
+		};
 		this.changeListeners.push(
 			vscode.window.onDidChangeTextEditorSelection(e => {
 				if(this.decoratedEditors.includes(e.textEditor)) {
-					void this.update(direction);
+					schedule();
 				}
 			}),
-			vscode.window.onDidChangeActiveTextEditor(() => void this.update(direction))
+			vscode.window.onDidChangeActiveTextEditor(schedule),
+			new vscode.Disposable(() => clearTimeout(timer))
 		);
 		updateStatusBar();
 	}

@@ -94,6 +94,19 @@ suite('package info', () => {
 		);
 	});
 
+	test('provides no definitions or references when package information is turned off', async() => {
+		const editor = await openTestFile('definition-self-example.R');
+		const cfg = vscode.workspace.getConfiguration('vscode-flowr');
+		try {
+			await cfg.update('packageInfo.enabled', false, vscode.ConfigurationTarget.Workspace);
+			const definitions: vscode.Location[] = await vscode.commands.executeCommand('vscode.executeDefinitionProvider', editor.document.uri, new vscode.Position(4, 0));
+			const references: vscode.Location[] = await vscode.commands.executeCommand('vscode.executeReferenceProvider', editor.document.uri, new vscode.Position(4, 0));
+			assert.deepStrictEqual([definitions.length, references.length], [0, 0]);
+		} finally {
+			await cfg.update('packageInfo.enabled', undefined, vscode.ConfigurationTarget.Workspace);
+		}
+	});
+
 	// regression test: "Find All References" used to always report nothing, since no ReferenceProvider was registered at all
 	test('finds all references to a local variable, including its own definition', async() => {
 		const editor = await openTestFile('definition-self-example.R');

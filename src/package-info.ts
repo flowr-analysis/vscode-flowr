@@ -16,6 +16,7 @@ import { RArgument } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/
 import { Dataflow } from '@eagleoutice/flowr/dataflow/graph/df-helper';
 import { baseRPackages, defaultLoadedPackages, getSigDbScopeState, findSigDbPackageSource, resolveSigDbPackageVersion, rMajorVersionPageUrl, allKnownPackageNames, closestPackageNames, cranPageUrl } from './package-db';
 import { getHelpDoc, getInstalledVersion } from './installed-packages';
+import { getConfig, Settings } from './settings';
 import type { SignatureFunctionView, SignaturePackageView, SignatureQueryResult, SignatureDependencyView, SignatureParameterView } from '@eagleoutice/flowr/queries/catalog/signature-query/signature-query-format';
 import {
 	DefaultBuiltinConfig, GgPlotCreate, TinyPlotCrate, GraphicsPlotCreate, PlotCreate,
@@ -434,6 +435,9 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 	}
 
 	async provideHover(document: vscode.TextDocument, pos: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover | undefined> {
+		if(!getConfig().get<boolean>(Settings.PackageInfoEnabled, true)) {
+			return undefined;
+		}
 		const resolved = await this.resolveNode(document, pos, token);
 		if(!resolved || token.isCancellationRequested) {
 			return undefined;
@@ -443,6 +447,9 @@ export class FlowrPackageInfoProvider implements vscode.HoverProvider, vscode.De
 	}
 
 	async provideDefinition(document: vscode.TextDocument, pos: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Definition | undefined> {
+		if(!getConfig().get<boolean>(Settings.PackageInfoEnabled, true)) {
+			return undefined;
+		}
 		const resolved = await this.resolveNode(document, pos, token);
 		if(!resolved || token.isCancellationRequested) {
 			return undefined;
@@ -504,6 +511,9 @@ export class FlowrReferenceProvider implements vscode.ReferenceProvider {
 	}
 
 	async provideReferences(document: vscode.TextDocument, pos: vscode.Position, context: vscode.ReferenceContext, token: vscode.CancellationToken): Promise<vscode.Location[]> {
+		if(!getConfig().get<boolean>(Settings.PackageInfoEnabled, true)) {
+			return [];
+		}
 		const resolved = await resolveNode(document, pos, token, this.output);
 		if(!resolved || token.isCancellationRequested) {
 			return [];

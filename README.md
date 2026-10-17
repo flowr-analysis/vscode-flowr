@@ -220,6 +220,8 @@ Hovering over a call in an R file tells you which package it stems from — for 
 
 <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+click (Go to Definition) resolves to: a locally defined function or variable's own definition; a package function's exact source line on GitHub (e.g. `ggplot()` opens `github.com/cran/ggplot2/blob/<version>/R/plot.R#L106`); or a `library(pkg)`/`require(pkg)` name's CRAN page.
 
+Set `vscode-flowr.packageInfo.enabled` to `false` to turn these hovers, Go to Definition and Find References off, for example to rely only on another R language server.
+
 ### Autocompletion
 
 Once a script `library()`s a package the [signature database](#signature-database) knows, the extension suggests that package's exported functions as you type, and — once you're inside a call's parentheses — its documented argument names (already-supplied named arguments are excluded). A signature-help tooltip, triggered by `(` and `,`, shows the full parameter list as you fill in a call. Suggestions are labeled with their originating package, and note on hover that they come from flowR's signature database.
