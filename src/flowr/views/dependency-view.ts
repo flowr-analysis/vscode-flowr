@@ -230,6 +230,11 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	};
 }
 
+/** drops edits that cannot move or change any dependency (trailing whitespace, comment-only lines) while keeping line positions intact */
+export function textFingerprint(text: string): string {
+	return text.replace(/[ \t]+$|^[ \t]*#.*$/gm, '').trimEnd();
+}
+
 const emptyDependencies: DependenciesQueryResult = {
 	library: [], source: [], read: [], write: [], visualize: [], test: [], undeclared: [], unused: [], '.meta': { timing: -1 }
 } as unknown as DependenciesQueryResult;
@@ -348,10 +353,6 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private lastText = '';
 	private lastFile = '';
 
-	private textFingerprint(text: string): string {
-		return text.trim().replace(/[ \t]+$|^[ \t]*#.*$/gm, '');
-	}
-
 	public async refresh(force = false) {
 		// clear `working` on a forced refresh, or if a prior run has been stuck implausibly long (never wedge auto-refresh)
 		if(this.working && (force || Date.now() - this.workingSince > 15_000)) {
@@ -367,7 +368,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		}
 		// capture the active document once so an editor switch mid-analysis can't mix up which file the results belong to
 		const document = vscode.window.activeTextEditor?.document;
-		const text = this.textFingerprint(document?.getText());
+		const text = textFingerprint(document?.getText());
 		const file = document?.uri.fsPath;
 		if(!force && text === this.lastText && file === this.lastFile) {
 			if(isVerbose()) {

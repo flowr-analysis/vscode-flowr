@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile } from './test-util';
 import type { Dependency } from '../flowr/views/dependency-view';
-import { unknownGuardedName } from '../flowr/views/dependency-view';
+import { textFingerprint, unknownGuardedName } from '../flowr/views/dependency-view';
 import { downloadSigDbScope } from '../package-db';
 import { refreshSigDbConfig } from '../extension';
 
@@ -52,6 +52,15 @@ suite('dependencies', () => {
 		});
 		test('passes a plain string value through unchanged', () => {
 			assert.strictEqual(unknownGuardedName({ nodeId: 0, functionName: 'x', value: 'dplyr' }), 'dplyr');
+		});
+	});
+
+	suite('textFingerprint', () => {
+		test('a newline inserted before the code changes the fingerprint (locations shift)', () => {
+			assert.notStrictEqual(textFingerprint('library(x)'), textFingerprint('\nlibrary(x)'));
+		});
+		test('trailing whitespace and comment edits keep the fingerprint', () => {
+			assert.strictEqual(textFingerprint('# a\nlibrary(x)\n'), textFingerprint('# b  \nlibrary(x)  \n\n'));
 		});
 	});
 
