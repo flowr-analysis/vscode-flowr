@@ -189,6 +189,23 @@ To clear the slice highlighting, use the "Clear Current Slice Presentation" comm
 
 Using the extension, the sidebar should contain a flowR icon whose **Overview** view holds more information on the current file, listing the libraries loaded, the files read and written, and the sourced scripts. If you expand the respective sections, clicking on the found entries should open them in the editor. The context menu (available with a right click) allows you to [slice](#slicing) for the selected entry.
 
+#### Line Category Indicators
+
+The same information is shown directly in the editor: a small colored bar next to the line numbers (and a mark in the overview ruler) tells you what a line does, without switching to the view. Hover the line for details.
+
+| Color | Category |
+|-------|----------|
+| blue | library loads |
+| green | imported data |
+| pink | sourced scripts |
+| orange | outputs |
+| vermillion | visualizations |
+| yellow | tests |
+| purple | statistical tests |
+| grey | remote installs |
+
+Lines are marked for the categories enabled in the dependency view, and refreshed using its update policy. Use `vscode-flowr.style.lineCategoryIndicators` to turn the indicators off.
+
 ### Package Information
 
 Hovering over a call in an R file tells you which package it stems from — for example, hovering over `map` after `library(purrr)` shows *`map` is provided by the `purrr` package*, together with details resolved from flowR's [signature database](#signature-database): its recorded version, a link to its real source and documentation, and whether it is deprecated, can throw, or is an S3 generic. Hovering over the package name inside `library(pkg)`/`require(pkg)` shows that package's database version, function count, and CRAN link.

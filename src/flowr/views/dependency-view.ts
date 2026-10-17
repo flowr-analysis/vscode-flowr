@@ -32,6 +32,22 @@ const Defaults = {
 } satisfies DefaultsMaps;
 
 
+/** the `dependencies` + `location-map` queries the dependency view runs, built from the user's settings (shared with the line indicators) */
+export function buildDependencyQueries() {
+	const config = getConfig();
+	return [
+		{
+			type:                   'dependencies',
+			ignoreDefaultFunctions: config.get<boolean>(Settings.DependenciesQueryIgnoreDefaults, false),
+			enabledCategories:      config.get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories),
+			...config.get<Omit<DependenciesQuery, 'type' | 'ignoreDefaultFunctions'>>(Settings.DependenciesQueryOverrides)
+		},
+		{
+			type: 'location-map'
+		}
+	] as const satisfies [DependenciesQuery, { type: 'location-map' }];
+}
+
 /** registers the Dependency View's internal commands (go-to, enable/disable category, guess versions) */
 export function registerDependencyInternalCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	registerCommand(context, 'vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {
@@ -242,10 +258,10 @@ const emptyLocationMap: LocationMapQueryResult = { map: {
 	files: [],
 	ids:   {}
 }, '.meta': { timing: -1 } };
-interface DependencyCategoryInfo { name: string, verb: string, icon: string, useReverseLinks?: boolean }
+export interface DependencyCategoryInfo { name: string, verb: string, icon: string, useReverseLinks?: boolean }
 /** the categories shown in the overview; `undeclared`/`unused` are deliberately excluded */
-type DisplayedCategoryName = Exclude<DefaultDependencyCategoryName, 'undeclared' | 'unused'>;
-const dependencyDisplayInfo: Record<DisplayedCategoryName, DependencyCategoryInfo> = {
+export type DisplayedCategoryName = Exclude<DefaultDependencyCategoryName, 'undeclared' | 'unused'>;
+export const dependencyDisplayInfo: Record<DisplayedCategoryName, DependencyCategoryInfo> = {
 	'library':    { name: 'Libraries', verb: 'loads the library', icon: 'library' },
 	'read':       { name: 'Imported Data', verb: 'imports the data', icon: 'file-text' },
 	'source':     { name: 'Sourced Scripts', verb: 'sources the script', icon: 'file-code' },
@@ -318,20 +334,9 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		if(!doc) {
 			return { dep: emptyDependencies, loc: emptyLocationMap };
 		}
-		const config = getConfig();
 		const session = await getFlowrSession();
 		const now = Date.now();
-		const { result, hasError, dfi, ast } = await session.retrieveQuery(doc, [
-			{
-				type:                   'dependencies',
-				ignoreDefaultFunctions: config.get<boolean>(Settings.DependenciesQueryIgnoreDefaults, false),
-				enabledCategories:      config.get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories),
-				...config.get<Omit<DependenciesQuery, 'type' | 'ignoreDefaultFunctions'>>(Settings.DependenciesQueryOverrides)
-			},
-			{
-				type: 'location-map'
-			}
-		]);
+		const { result, hasError, dfi, ast } = await session.retrieveQuery(doc, buildDependencyQueries());
 		const total = Date.now() - now;
 		if(hasError) {
 			this.output.appendLine('[Dependency View] Error: Could not retrieve dependencies (parser error)');

@@ -4,6 +4,7 @@
 - Findings of scripts loaded with `source()` no longer appear in R Markdown files that source them, and quick fixes are now also offered in R Markdown
 - Continuous slices (position slices and following the cursor) always show the slice of the latest edit: results of earlier keystrokes that finish late are discarded, and updates requested while slicing are no longer dropped
 - Parse with the official r-lib release of tree-sitter-r (1.3.0)
+- Show a small color indicator next to the line numbers for lines that load libraries, import data, source scripts, write outputs, visualize, or test (`vscode-flowr.style.lineCategoryIndicators`)
 
 # Version 0.8.4 (2026-08-01)
 - Update to flowR 2.13.8: a braceless loop body (`for(f in files) read.csv(f)`) is no longer mistaken for a quotation, so its reads/writes show up in the dependency view and its symbols are linted; `.Rmd` chunk options parse correctly; and package versions are also guessed for orphan dependencies

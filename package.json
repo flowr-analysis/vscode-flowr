@@ -305,6 +305,11 @@
           ],
           "markdownDescription": "The flowR engine to use when parsing R code. For more information, see the [engines documentation](https://github.com/flowr-analysis/flowr/wiki/Engines). This setting is ignored when running the extension in the browser, as tree-sitter mode is always used."
         },
+        "vscode-flowr.style.lineCategoryIndicators": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show a small colored bar next to the line numbers (and in the overview ruler) for lines that flowR's dependency query classifies, so you see a line's role without opening the dependency view. Respects the dependency view's enabled categories and update policy. Colors: library `#0072B2` (blue), imported data / read `#009E73` (green), sourced script `#CC79A7` (pink), output / write `#E69F00` (orange), visualization `#D55E00` (vermillion), test `#F0E442` (yellow), statistical test `#7B3294` (purple), remote install `#999999` (grey). Several categories on one line are shown as stripes."
+        },
         "vscode-flowr.style.sliceOpacity": {
           "type": "number",
           "default": 0.25,

@@ -16,6 +16,7 @@ import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environment
 import type { MergeableRecord } from '@eagleoutice/flowr/util/objects';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
+import { registerLineCategories } from './line-categories';
 import { NoTelemetry, RecordingTelemetry, registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
 import { registerHoverOverValues } from './hover-values';
 import { registerPackageInfo } from './package-info';
@@ -51,6 +52,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FlowrE
 	registerDiagramCommands(context, outputChannel);
 	registerSliceCommands(context, outputChannel);
 	registerLintCommands(context, outputChannel);
+	registerLineCategories(context, outputChannel);
 	registerDependencyInternalCommands(context, outputChannel);
 	registerTelemetry(context, outputChannel);
 

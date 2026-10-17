@@ -16,6 +16,7 @@ export enum Settings {
 	StyleOnlyHighlightActiveSelection = 'style.onlyHighlightActiveSelection',
 	StyleMermaidMaxTextLength = 'style.mermaidMaxTextLength',
 	StyleTokenBackground = 'style.tokenBackgroundColor',
+	StyleLineCategoryIndicators = 'style.lineCategoryIndicators',
 
 	SliceAutomaticReconstruct = 'slice.automaticReconstruct',
 	SliceRevisitThreshold = 'slice.revisitThreshold',
