@@ -690,7 +690,11 @@
               "software-has-tests",
               "no-leaked-credentials",
               "undefined-symbol",
-              "syntactically-valid"
+              "syntactically-valid",
+              "unused-import",
+              "unclosed-connection",
+              "unescaped-arguments",
+              "namespace-access"
             ],
             "enumDescriptions": [
               "Marks deprecated functions that should not be used anymore.",
@@ -710,7 +714,11 @@
               "Checks whether the project has tests.",
               "Detects hardcoded credentials (experimental).",
               "Flags calls to functions that are neither defined locally, a known builtin, nor exported by a loaded package (experimental).",
-              "Reports syntax errors the parser had to recover from, with quick fixes where possible (off by default)."
+              "Reports syntax errors the parser had to recover from, with quick fixes where possible (off by default).",
+              "Highlights packages that are attached but never used (requires the signature database).",
+              "Flags connections that are opened but not closed on every path.",
+              "Detects unescaped arguments to critical system, evaluation, database and HTML/JavaScript calls.",
+              "Flags pkg:::name where pkg::name would do, and pkg::name for names pkg does not export."
             ]
           },
           "default": [
@@ -728,7 +736,11 @@
             "software-has-license",
             "software-has-tests",
             "no-leaked-credentials",
-            "undefined-symbol"
+            "undefined-symbol",
+            "unused-import",
+            "unclosed-connection",
+            "unescaped-arguments",
+            "namespace-access"
           ],
           "markdownDescription": "The names of the linting rules that should be enabled. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their identifiers. By default, all rules except `naming-convention`, `roxygen-arguments` and `syntactically-valid` are enabled. An empty array causes _all_ linting rules (including those three) to be enabled."
         },
@@ -1059,7 +1071,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.15.10",
+    "@eagleoutice/flowr": "^2.16.2",
     "assert": "^2.1.0",
     "brotli-dec-wasm": "^2.3.2",
     "browserify-zlib": "^0.2.0",

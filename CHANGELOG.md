@@ -1,3 +1,6 @@
+# Version 0.9.0 (unreleased)
+- Update to flowR 2.16.2 and offer its new `unused-import`, `unclosed-connection`, `unescaped-arguments` and `namespace-access` linting rules (enabled by default)
+
 # Version 0.8.4 (2026-08-01)
 - Update to flowR 2.13.8: a braceless loop body (`for(f in files) read.csv(f)`) is no longer mistaken for a quotation, so its reads/writes show up in the dependency view and its symbols are linted; `.Rmd` chunk options parse correctly; and package versions are also guessed for orphan dependencies
 - No longer suggest function and argument names inside a string literal, including multi-line and raw strings (`r"(...)"`), while still completing package names inside `library("...")`

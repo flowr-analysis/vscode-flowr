@@ -3,6 +3,7 @@ import { activateExtension, openTestFile } from './test-util';
 import assert from 'assert';
 import type { SourceLocation } from '@eagleoutice/flowr/util/range';
 import { isInRPackage, isLocInDocument, stripFilePath } from '../lint';
+import { LintingRules } from '@eagleoutice/flowr/linter/linter-rules';
 
 suite('linter', () => {
 	suiteSetup(async() => {
@@ -52,6 +53,12 @@ suite('linter', () => {
 			const editor = await openTestFile('example.R');
 			assert.ok(!(await isInRPackage(editor.document)));
 		});
+	});
+
+	test('enabledRules setting offers every flowR linting rule', () => {
+		const pkg = vscode.extensions.getExtension('code-inspect.vscode-flowr')?.packageJSON as { contributes: { configuration: { properties: Record<string, { items: { enum: string[] } }> } } };
+		const setting = pkg.contributes.configuration.properties['vscode-flowr.linter.enabledRules'];
+		assert.deepStrictEqual([...setting.items.enum].sort(), Object.keys(LintingRules).sort());
 	});
 
 	test('quick fix', async() => {
