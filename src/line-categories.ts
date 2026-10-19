@@ -3,23 +3,27 @@ import { getFlowrSession, registerCommand } from './extension';
 import { ConfigurableRefresher, isRTypeLanguage } from './configurable-refresher';
 import { DependencyViewRefresherConfigKeys, Settings, getConfig } from './settings';
 import type { DisplayedCategoryName } from './flowr/views/dependency-view';
-import { buildDependencyQueries, dependencyDisplayInfo, renderFunctionName } from './flowr/views/dependency-view';
+import { buildDependencyQueries, dependencyDisplayInfo, isImplicitPlotPrint, renderFunctionName } from './flowr/views/dependency-view';
 import { Unknown } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { DependenciesQueryResult, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
 import type { SourceLocation } from '@eagleoutice/flowr/util/range';
 import { isLocInDocument } from './lint';
 
-/** colorblind-friendly (Okabe-Ito based) color per dependency category, also contributed as theme colors for the dependency view */
+/**
+ * one color per category, from muted setup over cool data handling to warm results (mostly Okabe-Ito, so colorblind-friendly);
+ * the defaults of the contributed `vscodeFlowr.category.*` theme colors of the dependency view must match
+ */
 export const CategoryColors: Record<DisplayedCategoryName, string> = {
-	library:    '#0072B2',
-	read:       '#009E73',
-	source:     '#CC79A7',
-	write:      '#E69F00',
-	visualize:  '#D55E00',
-	test:       '#F0E442',
+	library:    '#4CAF50',
+	remote:     '#26A69A',
+	source:     '#9CCC65',
+	read:       '#0072B2',
+	transform:  '#56B4E9',
 	statistics: '#7B3294',
-	remote:     '#999999'
+	test:       '#CC79A7',
+	visualize:  '#E69F00',
+	write:      '#D55E00'
 };
 
 /** hover text of a line's indicator: the category in its color, what the line does, and why it counts */
@@ -28,8 +32,10 @@ function describe(category: DisplayedCategoryName, display: { name: string, verb
 	const value = info.value && info.value !== Unknown ? ` \`${info.value}\`` : '';
 	const namespaceAccess = (info.functionName as unknown) === '::' || (info.functionName as unknown) === ':::';
 	const why = namespaceAccess
-		? `\`${info.value ?? 'pkg'}${String(info.functionName)}…\` uses the package without \`library()\`, so it counts as a library dependency`
-		: `\`${fn}\` ${display.verb}${value}`;
+		? `\`${info.value ?? 'pkg'}${String(info.functionName)}…\` loads the package without \`library()\``
+		: isImplicitPlotPrint(info)
+			? 'R prints this top-level ggplot'
+			: `\`${fn}\` ${display.verb}${value}`;
 	return `<span style="color:${colorOf(category)};">■</span> **${display.name}** (flowR): ${why}`;
 }
 
@@ -38,27 +44,31 @@ interface LineInfo { line: number, categories: DisplayedCategoryName[], labels: 
 const colorOf = (category: DisplayedCategoryName) => CategoryColors[category];
 const indicatorsEnabled = () => getConfig().get<boolean>(Settings.StyleLineCategoryIndicators, true);
 
-/** a narrow bar made of one vertical stripe per category, as a data URI (works without node APIs) */
-function barIcon(categories: DisplayedCategoryName[]): vscode.Uri {
-	const w = 3 / categories.length;
-	const rects = categories.map((c, i) => `<rect x='${6 + i * w}' y='0' width='${w}' height='16' fill='${colorOf(c)}'/>`).join('');
-	const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>${rects}</svg>`;
+const CategoryOrder = Object.keys(dependencyDisplayInfo) as DisplayedCategoryName[];
+
+/** the category whose color a line shows: the one furthest along the analysis (e.g. the plot, not the library it uses) */
+export function primaryCategory(categories: readonly DisplayedCategoryName[]): DisplayedCategoryName {
+	return categories.reduce((a, b) => CategoryOrder.indexOf(b) > CategoryOrder.indexOf(a) ? b : a);
+}
+
+/** a narrow bar in the category's color, as a data URI (works without node APIs) */
+function barIcon(category: DisplayedCategoryName): vscode.Uri {
+	const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='6' y='0' width='3' height='16' fill='${colorOf(category)}'/></svg>`;
 	return vscode.Uri.parse(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`);
 }
 
 const decorationTypes = new Map<string, vscode.TextEditorDecorationType>();
 
-function typeFor(categories: DisplayedCategoryName[]): vscode.TextEditorDecorationType {
-	const key = categories.join(',');
-	let type = decorationTypes.get(key);
+function typeFor(category: DisplayedCategoryName): vscode.TextEditorDecorationType {
+	let type = decorationTypes.get(category);
 	if(!type) {
 		type = vscode.window.createTextEditorDecorationType({
-			gutterIconPath:     barIcon(categories),
+			gutterIconPath:     barIcon(category),
 			gutterIconSize:     'contain',
-			overviewRulerColor: colorOf(categories[0]),
+			overviewRulerColor: colorOf(category),
 			overviewRulerLane:  vscode.OverviewRulerLane.Right
 		});
-		decorationTypes.set(key, type);
+		decorationTypes.set(category, type);
 	}
 	return type;
 }
@@ -73,7 +83,7 @@ function clearEditor(editor: vscode.TextEditor) {
 function collectLines(dependencies: DependenciesQueryResult, locations: LocationMapQueryResult, document: vscode.TextDocument): LineInfo[] {
 	const lines = new Map<number, { categories: Set<DisplayedCategoryName>, labels: Set<string> }>();
 	for(const [category, display] of Object.entries(dependencyDisplayInfo) as [DisplayedCategoryName, { name: string, verb: string }][]) {
-		for(const info of (dependencies[category] as DependencyInfo[] | undefined) ?? []) {
+		for(const info of dependencies[category] ?? []) {
 			const loc = info.nodeId === undefined ? undefined : locations.map.ids[info.nodeId];
 			if(!loc || !isLocInDocument([...loc[1], locations.map.files[loc[0]]] as SourceLocation, document)) {
 				continue;
@@ -85,26 +95,22 @@ function collectLines(dependencies: DependenciesQueryResult, locations: Location
 			lines.set(line, entry);
 		}
 	}
-	return [...lines.entries()].sort((a, b) => a[0] - b[0]).map(([line, e]) => ({ line, categories: [...e.categories].sort(), labels: [...e.labels] }));
+	return [...lines.entries()].sort((a, b) => a[0] - b[0]).map(([line, e]) => ({ line, categories: CategoryOrder.filter(c => e.categories.has(c)), labels: [...e.labels] }));
 }
 
 /** decorates every visible editor of `doc` with the given lines */
 function applyLines(doc: vscode.TextDocument, lines: LineInfo[]) {
-	const byCombo = new Map<string, { categories: DisplayedCategoryName[], options: vscode.DecorationOptions[] }>();
+	const byCategory = new Map<DisplayedCategoryName, vscode.Range[]>();
 	for(const l of lines) {
-		const combo = l.categories.join(',');
-		const group = byCombo.get(combo) ?? { categories: l.categories, options: [] };
-		const hover = new vscode.MarkdownString(l.labels.join('\n\n'));
-		hover.supportHtml = true;
-		group.options.push({ range: doc.lineAt(Math.min(l.line, doc.lineCount - 1)).range, hoverMessage: hover });
-		byCombo.set(combo, group);
+		const category = primaryCategory(l.categories);
+		byCategory.set(category, [...byCategory.get(category) ?? [], doc.lineAt(Math.min(l.line, doc.lineCount - 1)).range]);
 	}
 	for(const editor of vscode.window.visibleTextEditors.filter(e => e.document === doc)) {
 		const used = new Set<vscode.TextEditorDecorationType>();
-		for(const g of byCombo.values()) {
-			const type = typeFor(g.categories);
+		for(const [category, ranges] of byCategory) {
+			const type = typeFor(category);
 			used.add(type);
-			editor.setDecorations(type, g.options);
+			editor.setDecorations(type, ranges);
 		}
 		for(const type of decorationTypes.values()) {
 			if(!used.has(type)) {
@@ -189,15 +195,42 @@ export function registerLineCategories(context: vscode.ExtensionContext, output:
 			decorationTypes.clear();
 		} },
 		vscode.workspace.onDidChangeConfiguration(e => {
-			if(e.affectsConfiguration(`${Settings.Category}.${Settings.StyleLineCategoryIndicators}`) && !indicatorsEnabled()) {
+			if(!e.affectsConfiguration(`${Settings.Category}.${Settings.StyleLineCategoryIndicators}`)) {
+				return;
+			}
+			if(indicatorsEnabled()) {
+				void refresh();
+			} else {
 				vscode.window.visibleTextEditors.forEach(clearEditor);
 				reset();
 			}
 		})
 	);
 
+	// VS Code has no hovers for the gutter, so the explanation shows when hovering the line's code
+	context.subscriptions.push(vscode.languages.registerHoverProvider([{ language: 'r' }, { language: 'rmd' }], {
+		provideHover(document, position) {
+			if(!indicatorsEnabled() || document.uri.toString() !== lastUri || !lastKey?.startsWith(`${lastUri}@${document.version}@`)) {
+				return undefined;
+			}
+			const labels = lastLines.find(l => l.line === position.line)?.labels;
+			if(!labels) {
+				return undefined;
+			}
+			const hover = new vscode.MarkdownString(labels.join('\n\n'));
+			hover.supportHtml = true;
+			return new vscode.Hover(hover, document.lineAt(position.line).range);
+		}
+	}));
+
 	// the refresher only reacts to changes, so start the analysis for an R file that is already open on activation
 	void refresh();
+
+	registerCommand(context, 'vscode-flowr.style.toggleLineCategoryIndicators', async() => {
+		const set = getConfig().inspect<boolean>(Settings.StyleLineCategoryIndicators);
+		const target = set?.workspaceFolderValue !== undefined ? vscode.ConfigurationTarget.WorkspaceFolder : set?.workspaceValue !== undefined ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+		await getConfig().update(Settings.StyleLineCategoryIndicators, !indicatorsEnabled(), target);
+	});
 
 	registerCommand(context, 'vscode-flowr.internal.lineCategories', async(): Promise<{ line: number, categories: string[], labels: string[] }[]> => {
 		await refresh();

@@ -22,6 +22,9 @@ const testFiles: (() => void)[] = [
 	() => void require('../../../test/completion.test'),
 	() => void require('../../../test/package-info.test'),
 	() => void require('../../../test/web-smoke.test'),
+	() => void require('../../../test/search.test'),
+	() => void require('../../../test/symbols.test'),
+	() => void require('../../../test/removal-slice.test'),
 ];
 /* eslint-enable @typescript-eslint/no-require-imports */
 

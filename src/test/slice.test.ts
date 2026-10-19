@@ -122,6 +122,13 @@ for(i in 1:(n - 1)) product <- product * i
 			assert.ok(!intersection.includes('sum <- sum') && !intersection.includes('product <- product'));
 		});
 
+		test('negative slices, intersection and folding are in the editor context menu', () => {
+			const menu = (vscode.extensions.getExtension('code-inspect.vscode-flowr')?.packageJSON as { contributes: { menus: Record<string, { command: string, when?: string }[]> } }).contributes.menus['editor/context'];
+			for(const command of ['vscode-flowr.slice.toggleNegative', 'vscode-flowr.slice.position.toggleCombination', 'vscode-flowr.slice.fold']) {
+				assert.ok(menu.find(m => m.command === command)?.when?.includes('rmd'), command);
+			}
+		});
+
 		test('negative slice reconstruction shows lines outside the slice', async() => {
 			await vscode.commands.executeCommand('vscode-flowr.slice.toggleNegative');
 			assert.equal(cfg().get('slice.negative'), true);

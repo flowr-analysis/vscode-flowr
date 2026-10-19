@@ -187,6 +187,8 @@ If you close the reconstruction (or the diff view, see the `vscode-flowr.style.s
 
 When you mark multiple positions (<kbd>Alt</kbd>+<kbd>P</kbd>), the editor shows the union of their slices by default. Use "Toggle Union/Intersection of Position Slices" (setting `vscode-flowr.slice.positionCombination`) to only show the code that is part of the slice of *every* marked position.
 
+"Removal Slice" (editor context menu, or the trash button next to a [dependency](#dependency-view)) marks the statements only the expression under the cursor needs, and shows the script without them in a diff view. Example: removing `plot(helper)` also removes `helper <- raw$a * 2` if nothing else uses `helper`, but keeps `raw <- read.csv(...)` if `raw` is used later. Statements the rest of the script needs in part are kept whole.
+
 "Toggle Negative Slice" (setting `vscode-flowr.slice.negative`) inverts every slice: the slice itself is grayed out and the reconstruction shows the remaining code, which is useful to see what you can cut. "Fold Code Outside the Slice" folds the grayed out regions (in negative mode, the slice itself); clearing the slice unfolds them again.
 
 ![A screenshot of the extension being used to reconstruct a slice](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/reconstruct.png)
@@ -195,24 +197,38 @@ When you mark multiple positions (<kbd>Alt</kbd>+<kbd>P</kbd>), the editor shows
 
 ![A screenshot of a dependency diagram for a piece of code](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/dependencies.png)
 
-Using the extension, the sidebar should contain a flowR icon whose **Overview** view holds more information on the current file, listing the libraries loaded, the files read and written, and the sourced scripts. If you expand the respective sections, clicking on the found entries should open them in the editor. The arrow buttons next to an entry (also in its context menu) [slice](#slicing) for it: backward for the code it depends on, forward for the code it influences. Each category and entry carries the same color as its [line indicator](#line-category-indicators); the colors can be changed in your color theme (`vscodeFlowr.category.*`).
+Using the extension, the sidebar should contain a flowR icon whose **Overview** view holds more information on the current file, listing the libraries loaded, the files read and written, and the sourced scripts. If you expand the respective sections, clicking on the found entries should open them in the editor. The arrow buttons next to an entry (also in its context menu) [slice](#slicing) for it: backward for the code it depends on, forward for the code it influences. Entries are grouped by dataset, file or package. Paths show the file name (shortened in the middle if long) with the folder aside; calls show the function with its package aside (`filter`, *from dplyr*). Entries name the variables the data comes from and goes to: `filter(df) → small`, `data.csv → raw`, `small → out.csv`. Clicking an entry highlights its code. Empty categories are grayed out at the bottom. Categories use the colors of the [line indicators](#line-category-indicators) (theme colors `vscodeFlowr.category.*`).
 
 #### Line Category Indicators
 
-The same information is shown directly in the editor: a small colored bar next to the line numbers (and a mark in the overview ruler) tells you what a line does, without switching to the view. The indicators appear as soon as you open an R file. Hover the code of the line to see what each color stands for and why flowR marked the line: for example, `dplyr::select(...)` counts as a library dependency because `::` uses the package without `library()`, while a plain `filter(...)` after `library(dplyr)` does not.
+A slim colored bar next to the line numbers (and a mark in the overview ruler) shows what a line does. It appears when you open an R file. A line with several categories shows the one furthest along the analysis (library and plot: plot). Hover the line's code for the categories and the reason, e.g. `dplyr::select(...)` counts as a library dependency because `::` loads the package without `library()`.
 
 | Color | Category |
 |-------|----------|
-| blue | library loads |
-| green | imported data |
-| pink | sourced scripts |
-| orange | outputs |
-| vermillion | visualizations |
-| yellow | tests |
+| green | library loads |
+| teal | remote installs |
+| light green | sourced scripts |
+| blue | imported data |
+| sky blue | data transformations (dplyr, tidyr, `merge`, `subset`, `aggregate`, ...) |
 | purple | statistical tests |
-| grey | remote installs |
+| pink | tests |
+| orange | visualizations |
+| vermillion | outputs |
 
-Lines are marked for the categories enabled in the dependency view, and refreshed using its update policy. Use `vscode-flowr.style.lineCategoryIndicators` to turn the indicators off.
+Only categories enabled in the dependency view are marked. Toggle the bars with the color button in the dependency view's title bar or `vscode-flowr.style.lineCategoryIndicators`.
+
+### Search
+
+"Search Variables, Functions and Strings" (search button in the dependency view, or the command palette) searches the current file using flowR's dataflow graph.
+
+- Suggestions appear as you type, with a summary such as *2 definitions · 3 uses · passed to filter() · flows into clean*. Parts of names match too: `csv` finds `measurements.csv`, `md` finds `my_data`.
+- The buttons in the search bar show or hide variables, functions, called functions and strings. `@variable`, `@function`, `@call` and `@string` (or `@v`, `@f`, `@c`, `@s`) filter a single search; typing `@` lists them.
+- Picking a result lists its definitions, uses and calls, and where its value goes, one line each. `@def`, `@use`, `@call` and `@flow` narrow the list (also in the first step, e.g. `clean @use`). Moving through it previews the location, Enter jumps there.
+- Other text is searched literally ("Find ... in the code").
+
+### Document Symbols
+
+flowR provides symbols for the outline, breadcrumbs and *Go to Symbol in Editor* (<kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>) in R and R Markdown: assigned variables and functions (nested by function), and dependencies such as libraries, imported data, plots and outputs. If the R extension's language server runs, it already lists assignments, so flowR only adds the dependencies. Change this with `vscode-flowr.symbols.withRLanguageServer` (`full`, `off`); `vscode-flowr.symbols.enabled` turns the symbols off.
 
 ### Package Information
 

@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile } from './test-util';
 import type { Dependency } from '../flowr/views/dependency-view';
-import { textFingerprint, unknownGuardedName } from '../flowr/views/dependency-view';
+import { shortenPath, textFingerprint, unknownGuardedName } from '../flowr/views/dependency-view';
 import { downloadSigDbScope } from '../package-db';
 import { refreshSigDbConfig } from '../extension';
 
@@ -21,20 +21,15 @@ function simplifyDependencies(dependencies: Dependency[] | undefined): Dependenc
 }
 
 function populateExpectedDependencies(expected: DependencyDisplay[]) {
-	const expectedSorted = [];
-
+	const found: DependencyDisplay[] = [];
+	const empty: DependencyDisplay[] = [];
 	// set default values for any that we didn't specify (undeclared/unused are not shown in the overview)
-	for(const def of ['Libraries', 'Imported Data', 'Sourced Scripts', 'Outputs', 'Visualizations', 'Tests', 'Statistical Tests', 'Remote Installs']) {
-		const idx = expected.findIndex(e => e.label === def);
-
-		if(idx < 0) {
-			expectedSorted.push({ label: def, description: '0 items', children: [] });
-		} else {
-			expectedSorted.push(expected[idx]);
-		}
+	for(const def of ['Libraries', 'Remote Installs', 'Sourced Scripts', 'Imported Data', 'Data Transformations', 'Statistical Tests', 'Tests', 'Visualizations', 'Outputs']) {
+		const given = expected.find(e => e.label === def) ?? { label: def, description: '0 items', children: [] };
+		(given.children?.length ? found : empty).push(given);
 	}
-
-	return expectedSorted;
+	// categories without findings come last, below a separator
+	return [...found, ...empty.length > 0 ? [{ label: 'No findings', description: '', children: [] }] : [], ...empty];
 }
 
 async function verifyDependencies(expected: DependencyDisplay[]) {
@@ -52,6 +47,16 @@ suite('dependencies', () => {
 		});
 		test('passes a plain string value through unchanged', () => {
 			assert.strictEqual(unknownGuardedName({ nodeId: 0, functionName: 'x', value: 'dplyr' }), 'dplyr');
+		});
+	});
+
+	suite('shortenPath', () => {
+		test('names the file, keeps the folder apart and shortens long names in the middle', () => {
+			assert.deepStrictEqual(shortenPath('OccurenceData/Absence_2017.csv'), { label: 'Absence_2017.csv', folder: 'OccurenceData' });
+			assert.deepStrictEqual(shortenPath('data.csv'), { label: 'data.csv', folder: undefined });
+			const long = shortenPath('C:\\data\\Absence_of_species_in_the_region_2017_2018.csv');
+			assert.strictEqual(long.folder, 'C:\\data');
+			assert.ok(long.label.length <= 32 && long.label.startsWith('Absence_of') && long.label.endsWith('2017_2018.csv') && long.label.includes('…'), long.label);
 		});
 	});
 
@@ -73,6 +78,43 @@ suite('dependencies', () => {
 		await ensureSigDbCurrentDownloaded();
 	});
 
+	test('names plots by their title, variable or saved file, and lists data transformations', async() => {
+		await openTestFile('plots-example.R');
+		const result = simplifyDependencies(await vscode.commands.executeCommand('vscode-flowr.dependencyView.update'));
+		const labels = (name: string) => result.find(d => d.label === name)?.children?.map(c => c.label);
+		assert.deepStrictEqual(labels('Visualizations'), ['ggplot "Growth over time" → growth.png', 'ggplot → histogram.pdf', 'plot "Scatter" → scatter.png', 'plot(small)']);
+		assert.ok(result.find(d => d.label === 'Data Transformations')?.children?.every(c => c.description.startsWith('from dplyr ')), JSON.stringify(result));
+		// a top-level ggplot `+` chain is printed by R, which flowR reports as stdout: it must not read as "`+` outputs stdout"
+		assert.deepStrictEqual(labels('Outputs'), ['growth.png', 'plot drawn (printed)', 'histogram.pdf', 'scatter.png']);
+		const printed = await vscode.commands.executeCommand<{ line: number, labels: string[] }[]>('vscode-flowr.internal.lineCategories');
+		assert.ok(printed.find(l => l.line === 6)?.labels.some(l => l.includes('R prints this top-level ggplot')), JSON.stringify(printed));
+		assert.deepStrictEqual(labels('Data Transformations'), ['filter(df) → small', 'mutate(df) → small'], 'the label names the function and the variables the data comes from and goes to');
+	});
+
+	test('groups imported data by dataset, names files by their name, and highlights an entry on click', async() => {
+		const editor = await openTestFile('datasets-example.R');
+		const raw: Dependency[] | undefined = await vscode.commands.executeCommand('vscode-flowr.dependencyView.update');
+		const data = simplifyDependencies(raw).find(d => d.label === 'Imported Data');
+		assert.deepStrictEqual(data?.children?.map(c => [c.label, c.description, c.children?.map(g => g.label)]), [
+			['Absence_2017.csv', '2 items', ['read.csv → a', 'readRDS → c']],
+			['Presence_2017.csv → b', 'OccurenceData/ · by "read.csv" in (L. 2)', []]
+		], JSON.stringify(data));
+		const roots = simplifyDependencies(raw).map(d => d.label);
+		assert.deepStrictEqual(roots.slice(0, 2), ['Imported Data', 'No findings'], 'categories without findings come last');
+
+		const entry = raw?.find(d => d.label === 'Imported Data')?.children?.find(c => c.label === 'Presence_2017.csv → b');
+		assert.ok(entry?.command, 'a click on the entry must reveal it');
+		await vscode.commands.executeCommand(entry.command.command, ...(entry.command.arguments ?? []) as unknown[]);
+		assert.strictEqual(editor.document.getText(editor.selection), 'read.csv("OccurenceData/Presence_2017.csv")');
+	});
+
+	test('names the variable an output is written from', async() => {
+		await openTestFile('line-categories-example.R');
+		const result = simplifyDependencies(await vscode.commands.executeCommand('vscode-flowr.dependencyView.update'));
+		assert.deepStrictEqual(result.find(d => d.label === 'Outputs')?.children?.map(c => c.label), ['y → out.csv']);
+		assert.deepStrictEqual(result.find(d => d.label === 'Imported Data')?.children?.map(c => c.label), ['data.csv → x']);
+	});
+
 	test('vapply', async() => {
 		await openTestFile('vapply-example.R');
 		await verifyDependencies([
@@ -85,9 +127,11 @@ suite('dependencies', () => {
 				{ label: 'f', description: 'by "library" in (L. 5)', children: [] },
 			] },
 			{
-				label:       'Outputs', description: '2 items', children:    [
-					{ label: 'stdout', description: 'by "lapply" in (L. 2)', children: [] },
-					{ label: 'stdout', description: 'by "vapply" in (L. 5)', children: [] },
+				label:       'Outputs', description: '1 item', children:    [
+					{ label:       'stdout', description: '2 items', children:    [
+						{ label: 'v → lapply', description: 'by "lapply" in (L. 2)', children: [] },
+						{ label: 'v → vapply', description: 'by "vapply" in (L. 5)', children: [] },
+					] }
 				]
 			}
 		]);

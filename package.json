@@ -41,7 +41,37 @@
     "colors": [
       {
         "id": "vscodeFlowr.category.library",
-        "description": "Color of the flowR Libraries category (line indicators use the default palette)",
+        "description": "Color of the flowR Libraries category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#4CAF50",
+          "light": "#4CAF50",
+          "highContrast": "#4CAF50",
+          "highContrastLight": "#4CAF50"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.remote",
+        "description": "Color of the flowR Remote Installs category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#26A69A",
+          "light": "#26A69A",
+          "highContrast": "#26A69A",
+          "highContrastLight": "#26A69A"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.source",
+        "description": "Color of the flowR Sourced Scripts category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#9CCC65",
+          "light": "#9CCC65",
+          "highContrast": "#9CCC65",
+          "highContrastLight": "#9CCC65"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.read",
+        "description": "Color of the flowR Imported Data category in the dependency view (the line indicators always use the default)",
         "defaults": {
           "dark": "#0072B2",
           "light": "#0072B2",
@@ -50,58 +80,18 @@
         }
       },
       {
-        "id": "vscodeFlowr.category.read",
-        "description": "Color of the flowR Imported Data category (line indicators use the default palette)",
+        "id": "vscodeFlowr.category.transform",
+        "description": "Color of the flowR Data Transformations category in the dependency view (the line indicators always use the default)",
         "defaults": {
-          "dark": "#009E73",
-          "light": "#009E73",
-          "highContrast": "#009E73",
-          "highContrastLight": "#009E73"
-        }
-      },
-      {
-        "id": "vscodeFlowr.category.source",
-        "description": "Color of the flowR Sourced Scripts category (line indicators use the default palette)",
-        "defaults": {
-          "dark": "#CC79A7",
-          "light": "#CC79A7",
-          "highContrast": "#CC79A7",
-          "highContrastLight": "#CC79A7"
-        }
-      },
-      {
-        "id": "vscodeFlowr.category.write",
-        "description": "Color of the flowR Outputs category (line indicators use the default palette)",
-        "defaults": {
-          "dark": "#E69F00",
-          "light": "#E69F00",
-          "highContrast": "#E69F00",
-          "highContrastLight": "#E69F00"
-        }
-      },
-      {
-        "id": "vscodeFlowr.category.visualize",
-        "description": "Color of the flowR Visualizations category (line indicators use the default palette)",
-        "defaults": {
-          "dark": "#D55E00",
-          "light": "#D55E00",
-          "highContrast": "#D55E00",
-          "highContrastLight": "#D55E00"
-        }
-      },
-      {
-        "id": "vscodeFlowr.category.test",
-        "description": "Color of the flowR Tests category (line indicators use the default palette)",
-        "defaults": {
-          "dark": "#F0E442",
-          "light": "#F0E442",
-          "highContrast": "#F0E442",
-          "highContrastLight": "#F0E442"
+          "dark": "#56B4E9",
+          "light": "#56B4E9",
+          "highContrast": "#56B4E9",
+          "highContrastLight": "#56B4E9"
         }
       },
       {
         "id": "vscodeFlowr.category.statistics",
-        "description": "Color of the flowR Statistical Tests category (line indicators use the default palette)",
+        "description": "Color of the flowR Statistical Tests category in the dependency view (the line indicators always use the default)",
         "defaults": {
           "dark": "#7B3294",
           "light": "#7B3294",
@@ -110,13 +100,33 @@
         }
       },
       {
-        "id": "vscodeFlowr.category.remote",
-        "description": "Color of the flowR Remote Installs category (line indicators use the default palette)",
+        "id": "vscodeFlowr.category.test",
+        "description": "Color of the flowR Tests category in the dependency view (the line indicators always use the default)",
         "defaults": {
-          "dark": "#999999",
-          "light": "#999999",
-          "highContrast": "#999999",
-          "highContrastLight": "#999999"
+          "dark": "#CC79A7",
+          "light": "#CC79A7",
+          "highContrast": "#CC79A7",
+          "highContrastLight": "#CC79A7"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.visualize",
+        "description": "Color of the flowR Visualizations category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#E69F00",
+          "light": "#E69F00",
+          "highContrast": "#E69F00",
+          "highContrastLight": "#E69F00"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.write",
+        "description": "Color of the flowR Outputs category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#D55E00",
+          "light": "#D55E00",
+          "highContrast": "#D55E00",
+          "highContrastLight": "#D55E00"
         }
       }
     ],
@@ -189,6 +199,18 @@
         "title": "Update the Dependency View",
         "category": "flowR",
         "icon": "$(sync)"
+      },
+      {
+        "command": "vscode-flowr.search",
+        "title": "Search Variables, Functions and Strings",
+        "category": "flowR",
+        "icon": "$(search)"
+      },
+      {
+        "command": "vscode-flowr.style.toggleLineCategoryIndicators",
+        "title": "Toggle Line Category Indicators",
+        "category": "flowR",
+        "icon": "$(symbol-color)"
       },
       {
         "command": "vscode-flowr.dependencyView.guessVersions",
@@ -268,6 +290,19 @@
         "command": "vscode-flowr.slice.position.toggleCombination",
         "title": "Toggle Union/Intersection of Position Slices",
         "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.slice.removal",
+        "title": "Show Removable Code (Removal Slice)",
+        "category": "flowR",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "vscode-flowr.internal.removal-slice.dependency",
+        "title": "Show Removable Code (Removal Slice)",
+        "category": "flowR",
+        "icon": "$(trash)",
+        "enablement": "sideBarFocus"
       },
       {
         "command": "vscode-flowr.slice.toggleNegative",
@@ -405,7 +440,7 @@
         "vscode-flowr.style.lineCategoryIndicators": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Show a small colored bar next to the line numbers (and in the overview ruler) for lines that flowR's dependency query classifies, so you see a line's role without opening the dependency view. Respects the dependency view's enabled categories and update policy. Colors: library `#0072B2` (blue), imported data / read `#009E73` (green), sourced script `#CC79A7` (pink), output / write `#E69F00` (orange), visualization `#D55E00` (vermillion), test `#F0E442` (yellow), statistical test `#7B3294` (purple), remote install `#999999` (grey). Several categories on one line are shown as stripes."
+          "markdownDescription": "Show colored bars next to the line numbers for lines with dependencies (libraries, data, plots, outputs, ...). Hover a line for details. Uses the dependency view's enabled categories and colors (`vscodeFlowr.category.*`)."
         },
         "vscode-flowr.style.sliceOpacity": {
           "type": "number",
@@ -587,6 +622,26 @@
           "default": false,
           "markdownDescription": "Whether to suggest dotted function names (e.g. `print.data.frame`, usually S3 methods) before you've typed the dot yourself. Off by default, so typing `print` only suggests `print` itself; typing `print.` still suggests `print.data.frame`."
         },
+        "vscode-flowr.symbols.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Provide symbols (outline, breadcrumbs, *Go to Symbol*) for assigned variables and functions, and for dependencies such as libraries, data, plots and outputs."
+        },
+        "vscode-flowr.symbols.withRLanguageServer": {
+          "type": "string",
+          "enum": [
+            "complement",
+            "full",
+            "off"
+          ],
+          "default": "complement",
+          "enumDescriptions": [
+            "Only dependencies; the language server lists the assignments.",
+            "All symbols, including those the language server lists too.",
+            "No symbols."
+          ],
+          "markdownDescription": "Which symbols flowR provides while the R extension's language server ([REditorSupport.r](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r), needs R's `languageserver`) runs. Without it, flowR provides all symbols."
+        },
         "vscode-flowr.completion.withRLanguageServer": {
           "type": "string",
           "enum": [
@@ -764,7 +819,8 @@
               "visualize",
               "test",
               "statistics",
-              "remote"
+              "remote",
+              "transform"
             ],
             "enumDescriptions": [
               "Libraries",
@@ -774,7 +830,8 @@
               "Visualizations",
               "Tests",
               "Statistical Tests",
-              "Remote Installs"
+              "Remote Installs",
+              "Data Transformations"
             ]
           },
           "default": [
@@ -785,7 +842,8 @@
             "visualize",
             "test",
             "statistics",
-            "remote"
+            "remote",
+            "transform"
           ],
           "markdownDescription": "When using the dependency view, which dependency categories should be detected. Can also be toggled by right-clicking on a category in the dependency view itself."
         },
@@ -949,6 +1007,10 @@
     "menus": {
       "commandPalette": [
         {
+          "command": "vscode-flowr.internal.removal-slice.dependency",
+          "when": "false"
+        },
+        {
           "command": "vscode-flowr.internal.goto.dependency",
           "when": "false"
         },
@@ -980,23 +1042,42 @@
       "editor/context": [
         {
           "command": "vscode-flowr.slice.position",
-          "when": "resourceLangId == r"
+          "when": "resourceLangId == r || resourceLangId == rmd"
         },
         {
           "command": "vscode-flowr.forward-slice.position",
-          "when": "resourceLangId == r"
+          "when": "resourceLangId == r || resourceLangId == rmd"
         },
         {
           "command": "vscode-flowr.slice.cursor",
-          "when": "resourceLangId == r"
+          "when": "resourceLangId == r || resourceLangId == rmd"
         },
         {
           "command": "vscode-flowr.forward-slice.cursor",
-          "when": "resourceLangId == r"
+          "when": "resourceLangId == r || resourceLangId == rmd"
+        },
+        {
+          "command": "vscode-flowr.slice.removal",
+          "when": "resourceLangId == r || resourceLangId == rmd"
         },
         {
           "command": "vscode-flowr.slice.clear",
-          "when": "resourceLangId == r"
+          "when": "resourceLangId == r || resourceLangId == rmd"
+        },
+        {
+          "command": "vscode-flowr.slice.toggleNegative",
+          "when": "resourceLangId == r || resourceLangId == rmd",
+          "group": "flowR-slice-mode"
+        },
+        {
+          "command": "vscode-flowr.slice.position.toggleCombination",
+          "when": "resourceLangId == r || resourceLangId == rmd",
+          "group": "flowR-slice-mode"
+        },
+        {
+          "command": "vscode-flowr.slice.fold",
+          "when": "resourceLangId == r || resourceLangId == rmd",
+          "group": "flowR-slice-mode"
         }
       ],
       "view/item/context": [
@@ -1009,6 +1090,16 @@
           "command": "vscode-flowr.internal.forward-slice.dependency",
           "when": "view == flowr-dependencies && viewItem == dependency",
           "group": "inline"
+        },
+        {
+          "command": "vscode-flowr.internal.removal-slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-flowr.internal.removal-slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "flowR"
         },
         {
           "command": "vscode-flowr.internal.slice.dependency",
@@ -1067,6 +1158,16 @@
         }
       ],
       "view/title": [
+        {
+          "command": "vscode-flowr.search",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@0"
+        },
+        {
+          "command": "vscode-flowr.style.toggleLineCategoryIndicators",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@0"
+        },
         {
           "command": "vscode-flowr.dependencyView.guessVersions",
           "when": "view == flowr-dependencies",
@@ -1146,7 +1247,8 @@
         {
           "id": "flowr-sigdb",
           "icon": "$(database)",
-          "name": "Signature Database"
+          "name": "Signature Database",
+          "visibility": "collapsed"
         },
         {
           "id": "flowr-project",

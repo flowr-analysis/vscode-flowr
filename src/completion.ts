@@ -198,7 +198,7 @@ function rExtensionInstalled(): boolean {
  * that the extension is installed, its `r.lsp.enabled` is on, and its server - the R `languageserver` package -
  * is actually installed (without it vscode-R only offers to install it and completes nothing).
  */
-async function rLanguageServerLive(): Promise<boolean> {
+export async function rLanguageServerLive(): Promise<boolean> {
 	if(!rExtensionInstalled() || vscode.workspace.getConfiguration('r.lsp').get<boolean>('enabled', true) === false) {
 		return false;
 	}

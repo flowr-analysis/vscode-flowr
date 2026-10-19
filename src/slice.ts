@@ -10,6 +10,7 @@ import type { Dependency } from './flowr/views/dependency-view';
 import { getCriteriaSlicer } from './criteria-slicer';
 import { rangeToVscodeRange, resolveSlicingCriteria, type SliceReturn } from './flowr/utils';
 import { getFlowrSession, registerCommand } from './extension';
+import { clearRemovalSlice } from './removal-slice';
 import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 let sliceOutput: vscode.OutputChannel | undefined;
@@ -72,6 +73,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 	registerCommand(context, 'vscode-flowr.slice.clear', async() => {
 		resetClosedReconstructions();
 		await unfoldSlice();
+		clearRemovalSlice();
 		clearSliceOutput();
 	});
 	registerCommand(context, 'vscode-flowr.slice.toggleNegative', async() => {

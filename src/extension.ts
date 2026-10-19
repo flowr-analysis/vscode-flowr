@@ -17,6 +17,9 @@ import type { MergeableRecord } from '@eagleoutice/flowr/util/objects';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
 import { registerLineCategories } from './line-categories';
+import { registerSearch } from './search';
+import { registerRemovalSlice } from './removal-slice';
+import { registerDocumentSymbols } from './symbols';
 import { NoTelemetry, RecordingTelemetry, registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
 import { registerHoverOverValues } from './hover-values';
 import { registerPackageInfo } from './package-info';
@@ -56,6 +59,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<FlowrE
 	registerSliceCommands(context, outputChannel);
 	registerLintCommands(context, outputChannel);
 	registerLineCategories(context, outputChannel);
+	registerSearch(context, outputChannel);
+	registerRemovalSlice(context);
 	registerDependencyInternalCommands(context, outputChannel);
 	registerTelemetry(context, outputChannel);
 
@@ -137,7 +142,8 @@ ${JSON.stringify(getConfig(), null, 2)}
 	context.subscriptions.push(new vscode.Disposable(() => destroySession()),
 		...registerHoverOverValues(outputChannel),
 		...registerPackageInfo(outputChannel),
-		registerCompletion());
+		registerCompletion(),
+		registerDocumentSymbols(outputChannel));
 
 	const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
 	registerCommand(context, 'vscode-flowr.dependencyView.update', async() => {
