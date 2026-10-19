@@ -85,10 +85,21 @@ suite('dependencies', () => {
 		assert.deepStrictEqual(labels('Visualizations'), ['ggplot "Growth over time" → growth.png', 'ggplot → histogram.pdf', 'plot "Scatter" → scatter.png', 'plot(small)']);
 		assert.ok(result.find(d => d.label === 'Data Transformations')?.children?.every(c => c.description.startsWith('from dplyr ')), JSON.stringify(result));
 		// a top-level ggplot `+` chain is printed by R, which flowR reports as stdout: it must not read as "`+` outputs stdout"
-		assert.deepStrictEqual(labels('Outputs'), ['growth.png', 'plot drawn (printed)', 'histogram.pdf', 'scatter.png']);
+		assert.deepStrictEqual(labels('Outputs'), ['p → growth.png', 'plot drawn (printed)', 'histogram.pdf', 'scatter.png', 'stdout']);
 		const printed = await vscode.commands.executeCommand<{ line: number, labels: string[] }[]>('vscode-flowr.internal.lineCategories');
 		assert.ok(printed.find(l => l.line === 6)?.labels.some(l => l.includes('R prints this top-level ggplot')), JSON.stringify(printed));
 		assert.deepStrictEqual(labels('Data Transformations'), ['filter(df) → small', 'mutate(df) → small'], 'the label names the function and the variables the data comes from and goes to');
+	});
+
+	test('selecting an entry dims the code that does not relate to it', async() => {
+		await openTestFile('plots-example.R');
+		const raw: Dependency[] | undefined = await vscode.commands.executeCommand('vscode-flowr.dependencyView.update');
+		const scatter = raw?.find(d => d.label === 'Visualizations')?.children?.find(c => c.label === 'plot "Scatter" → scatter.png');
+		assert.ok(scatter, JSON.stringify(simplifyDependencies(raw)));
+		const dimmed = await vscode.commands.executeCommand<number[]>('vscode-flowr.internal.dependency.focus', scatter);
+		// the scatter plot needs the data (lines 2-4) but neither the ggplots nor the last plot
+		assert.ok([4, 6, 7, 11].every(l => dimmed.includes(l)), JSON.stringify(dimmed));
+		assert.ok([2, 3, 9].every(l => !dimmed.includes(l)), JSON.stringify(dimmed));
 	});
 
 	test('groups imported data by dataset, names files by their name, and highlights an entry on click', async() => {

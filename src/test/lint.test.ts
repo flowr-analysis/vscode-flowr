@@ -55,6 +55,17 @@ suite('linter', () => {
 		});
 	});
 
+	// flowR's R CMD check rules are only on by default inside a package, so a script must not get them
+	test('R CMD check rules only apply inside an R package', async() => {
+		const bogusReturns = async(file: string) => {
+			const editor = await openTestFile(file);
+			await vscode.commands.executeCommand('vscode-flowr.lint.run');
+			return vscode.languages.getDiagnostics(editor.document.uri).filter(d => d.source === 'flowr-lint' && d.message.startsWith('bogus-return:'));
+		};
+		assert.strictEqual((await bogusReturns('pkg-example/R/bogus-return.R')).length, 1, 'the bare return in a package is flagged');
+		assert.strictEqual((await bogusReturns('bogus-return-example.R')).length, 0, 'the same code in a standalone script is not');
+	});
+
 	test('enabledRules setting offers every flowR linting rule', () => {
 		const pkg = vscode.extensions.getExtension('code-inspect.vscode-flowr')?.packageJSON as { contributes: { configuration: { properties: Record<string, { items: { enum: string[] } }> } } };
 		const setting = pkg.contributes.configuration.properties['vscode-flowr.linter.enabledRules'];

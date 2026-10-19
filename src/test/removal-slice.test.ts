@@ -17,6 +17,15 @@ suite('removal slice', () => {
 		assert.strictEqual(result.code, 'library(ggplot2)\nraw <- read.csv("data.csv")\nsummary(raw)\n');
 	});
 
+	test('shows the whole script without the removed code next to it', async() => {
+		const editor = await openTestFile('removal-example.R');
+		editor.selection = new vscode.Selection(3, 1, 3, 1);
+		await vscode.commands.executeCommand('vscode-flowr.slice.removal');
+		const shown = vscode.window.visibleTextEditors.find(e => e.document.uri.authority === 'removal-slice');
+		assert.ok(shown, 'the script without the removed code is shown in its own editor, not a diff');
+		assert.strictEqual(shown.document.getText(), 'library(ggplot2)\nraw <- read.csv("data.csv")\nsummary(raw)\n');
+	});
+
 	test('keeps code that the rest of the script needs', async() => {
 		await openTestFile('removal-example.R');
 		const result = await removal(4, 1);

@@ -1,5 +1,7 @@
 # Version 0.9.0 (unreleased)
 - Update to flowR 2.16.2 and offer its new `unused-import`, `unclosed-connection`, `unescaped-arguments` and `namespace-access` linting rules (enabled by default)
+- Update to flowR 2.16.3 and offer its linting rules ported from `R CMD check` (e.g. `dependency-declaration`, `documentation-mismatch`, `call-arguments`, `rd-files`), enabled by default for files inside an R package
+- Data transformations, the variables data comes from, plot titles and the files plots are saved to now come from flowR instead of the extension's own heuristics, so a call combining several variables reads `merge(a, b) → m` and an output names what it writes (`p → growth.png`)
 - The dependency view now also refreshes when lines are inserted above all code (e.g. pressing Enter at the start of the file), which previously left stale line numbers
 - Findings of scripts loaded with `source()` no longer appear in R Markdown files that source them, and quick fixes are now also offered in R Markdown
 - Continuous slices (position slices and following the cursor) always show the slice of the latest edit: results of earlier keystrokes that finish late are discarded, and updates requested while slicing are no longer dropped

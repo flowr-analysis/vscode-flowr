@@ -7,6 +7,7 @@ import { disposeActivePositionSlicer, getActivePositionSlicer, addCurrentPositio
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import { getReconstructionContentProvider, makeUri, resetClosedReconstructions, shouldAutoReconstruct, trackClosedReconstructions, wasClosedByUser } from './doc-provider';
 import type { Dependency } from './flowr/views/dependency-view';
+import { clearRelatedFocus } from './flowr/views/dependency-view';
 import { getCriteriaSlicer } from './criteria-slicer';
 import { rangeToVscodeRange, resolveSlicingCriteria, type SliceReturn } from './flowr/utils';
 import { getFlowrSession, registerCommand } from './extension';
@@ -130,6 +131,7 @@ async function showReconstructionInEditor(): Promise<vscode.TextEditor | undefin
 
 function clearSliceOutput(): void {
 	lastSlice = undefined;
+	clearRelatedFocus();
 	void unfoldSlice();
 	const editor = vscode.window.activeTextEditor;
 	if(!editor) {

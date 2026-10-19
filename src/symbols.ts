@@ -90,7 +90,7 @@ export function buildDocumentSymbols(ast: NormalizedAst, document: vscode.TextDo
 	}
 
 	if(dependencies) {
-		const plots = describePlots(dependencies.visualize ?? [], dependencies.write ?? [], ast);
+		const plots = describePlots(dependencies.visualize ?? [], ast);
 		for(const [category, display] of Object.entries(DependencySymbols) as [DisplayedCategoryName, { kind: vscode.SymbolKind, detail: string }][]) {
 			for(const info of dependencies[category] ?? []) {
 				const node = info.nodeId === undefined ? undefined : ast.idMap.get(info.nodeId);

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { getFlowrSession, registerCommand } from './extension';
 import type { LintingRuleConfig, LintingRuleMetadata, LintingRuleNames, LintingRuleResult } from '@eagleoutice/flowr/linter/linter-rules';
 import { LintingRules } from '@eagleoutice/flowr/linter/linter-rules';
+import { LintingRuleTag } from '@eagleoutice/flowr/linter/linter-tags';
 import { getConfig, isVerbose, LinterRefresherConfigKeys, Settings } from './settings';
 import type { ConfiguredLintingRule, LintingResult, LintQuickFix } from '@eagleoutice/flowr/linter/linter-format';
 import { ConfigurableRefresher } from './configurable-refresher';
@@ -18,8 +19,12 @@ export function registerLintCommands(context: vscode.ExtensionContext, output: v
 	});
 }
 
-/** rules that only make sense for a whole R package; dropped for standalone scripts (see {@link isInRPackage}) */
+/** rules that only make sense for a whole R package; dropped for standalone scripts (see {@link isInRPackage}), as are flowR's `R CMD check` rules */
 const packageOnlyRules = new Set<LintingRuleNames>(['software-has-license', 'software-has-tests']);
+
+function isPackageOnlyRule(name: LintingRuleNames): boolean {
+	return packageOnlyRules.has(name) || (LintingRules[name].info.tags as readonly LintingRuleTag[]).includes(LintingRuleTag.CmdCheck);
+}
 
 /** whether a file exists at the given URI (never throws) */
 async function fileExists(uri: vscode.Uri): Promise<boolean> {
@@ -201,7 +206,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 		}
 		// license/tests rules only make sense inside an R package
 		if(!(await isInRPackage(document))) {
-			rules = rules.filter(r => !packageOnlyRules.has(typeof r === 'string' ? r : r.name));
+			rules = rules.filter(r => !isPackageOnlyRule(typeof r === 'string' ? r : r.name));
 		}
 		// now we apply the ruleConfigs to all enabled rules
 		for(const [ruleName, config] of Object.entries(getConfig().get<{ [N in LintingRuleNames]?: LintingRuleConfig<N> }>(Settings.LinterRuleConfigs, {}))) {

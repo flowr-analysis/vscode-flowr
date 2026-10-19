@@ -3,7 +3,7 @@ import { getFlowrSession, registerCommand } from './extension';
 import { isRTypeLanguage } from './configurable-refresher';
 import { isLocInDocument } from './lint';
 import { resolveSlicingCriteria } from './flowr/utils';
-import { getReconstructionContentProvider, makeUri } from './doc-provider';
+import { getReconstructionContentProvider, makeUri, showUri } from './doc-provider';
 import type { Dependency } from './flowr/views/dependency-view';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
@@ -82,8 +82,8 @@ async function showRemovalSlice(editor: vscode.TextEditor, criteria: SlicingCrit
 	editor.setDecorations(removalDecoration, result.removedLines.map(l => editor.document.lineAt(l).range));
 	const uri = makeUri('removal-slice', `Without ${what.replace(/[/\\]/g, '_')}.R`);
 	getReconstructionContentProvider().updateContents(uri, result.code);
-	await vscode.commands.executeCommand('vscode.diff', editor.document.uri, uri, `Remove ${what} (${result.removedLines.length} line${result.removedLines.length === 1 ? '' : 's'})`,
-		{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true, preview: true });
+	// the whole script without the removed statements next to the original, which marks what goes
+	await showUri(uri);
 	return result;
 }
 

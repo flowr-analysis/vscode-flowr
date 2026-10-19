@@ -1,7 +1,6 @@
 import { RNode } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/model';
 import * as vscode from 'vscode';
 import { getFlowrSession, registerCommand } from '../../extension';
-import type { FunctionInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/function-info/function-info';
 import type { DefaultDependencyCategoryName, DependenciesQuery, DependenciesQueryResult, DependencyCategoryName, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import { Unknown } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
@@ -20,6 +19,8 @@ import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { ConfigurableRefresher, isRTypeLanguage, RefreshType } from '../../configurable-refresher';
 import type { GuessDepVersionsQueryResult, GuessEvidenceSource } from '@eagleoutice/flowr/queries/catalog/guess-dep-versions-query/guess-dep-versions-query-format';
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert';
+import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
+import { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
 
 
 const FlowrDependencyViewId = 'flowr-dependencies';
@@ -35,17 +36,6 @@ const Defaults = {
 } satisfies DefaultsMaps;
 
 
-const dplyr = ['mutate', 'transmute', 'filter', 'select', 'rename', 'relocate', 'arrange', 'summarise', 'summarize', 'group_by', 'ungroup', 'distinct', 'count', 'slice',
-	'left_join', 'right_join', 'inner_join', 'full_join', 'semi_join', 'anti_join', 'bind_rows', 'bind_cols'];
-const tidyr = ['pivot_longer', 'pivot_wider', 'gather', 'spread', 'separate', 'unite', 'drop_na', 'fill', 'replace_na', 'nest', 'unnest'];
-/** calls that reshape, filter, join or aggregate data; flowR has no such category, so the extension adds it */
-export const TransformFunctions: FunctionInfo[] = [
-	...dplyr.map(name => ({ package: 'dplyr', name })),
-	...tidyr.map(name => ({ package: 'tidyr', name })),
-	...['merge', 'subset', 'transform', 'within', 'rbind', 'cbind'].map(name => ({ package: 'base', name })),
-	...['aggregate', 'reshape', 'na.omit'].map(name => ({ package: 'stats', name }))
-];
-
 /** the `dependencies` + `location-map` queries the dependency view runs, built from the user's settings (shared with the line indicators) */
 export function buildDependencyQueries() {
 	const config = getConfig();
@@ -55,8 +45,7 @@ export function buildDependencyQueries() {
 			type:                   'dependencies',
 			ignoreDefaultFunctions: config.get<boolean>(Settings.DependenciesQueryIgnoreDefaults, false),
 			enabledCategories:      config.get<DependencyCategoryName[]>(Settings.DependenciesQueryEnabledCategories, Defaults.DependenciesQueryEnabledCategories),
-			...overrides,
-			additionalCategories:   { transform: { queryDisplayName: 'Data Transformations', functions: TransformFunctions }, ...overrides?.additionalCategories }
+			...overrides
 		},
 		{
 			type: 'location-map'
@@ -66,6 +55,11 @@ export function buildDependencyQueries() {
 
 /** registers the Dependency View's internal commands (go-to, enable/disable category, guess versions) */
 export function registerDependencyInternalCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
+	// for tests: dims what does not relate to the dependency, returning the dimmed lines
+	registerCommand(context, 'vscode-flowr.internal.dependency.focus', async(dependency: Dependency) => {
+		await focusRelated(dependency);
+		return focused?.unrelated ?? [];
+	});
 	registerCommand(context, 'vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {
 		const node = dependency.getNodeId();
 		const loc = dependency.getLocation();
@@ -246,6 +240,13 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	});
 	const disposeChangeActive = vscode.window.onDidChangeActiveTextEditor(() => {
 		refreshDesc();
+		clearRelatedFocus();
+	});
+	const disposeSelection = tv.onDidChangeSelection(e => void focusRelated(e.selection[0]));
+	const disposeEdit = vscode.workspace.onDidChangeTextDocument(e => {
+		if(e.contentChanges.length > 0 && e.document === focused?.document) {
+			clearRelatedFocus();
+		}
 	});
 
 
@@ -257,6 +258,9 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 			data.dispose();
 			disposeChange.dispose();
 			disposeChangeActive.dispose();
+			disposeSelection.dispose();
+			disposeEdit.dispose();
+			clearRelatedFocus();
 			if(refreshDescDisposable) {
 				refreshDescDisposable.dispose();
 			}
@@ -282,7 +286,7 @@ const emptyLocationMap: LocationMapQueryResult = { map: {
 }, '.meta': { timing: -1 } };
 export interface DependencyCategoryInfo { name: string, verb: string, icon: string, useReverseLinks?: boolean }
 /** the categories shown in the overview; `undeclared`/`unused` are deliberately excluded */
-export type DisplayedCategoryName = Exclude<DefaultDependencyCategoryName, 'undeclared' | 'unused'> | 'transform';
+export type DisplayedCategoryName = Exclude<DefaultDependencyCategoryName, 'undeclared' | 'unused'>;
 /** in the order of an analysis: set up, load data, transform it, analyze, check, then communicate the results */
 export const dependencyDisplayInfo: Record<DisplayedCategoryName, DependencyCategoryInfo> = {
 	'library':    { name: 'Libraries', verb: 'loads the library', icon: 'library' },
@@ -515,7 +519,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 	private async makeRootElements(dfi?: DataflowInformation, ast?: NormalizedAst) {
 		const libraryVersions = await this.resolveLibraryVersions();
 		const uniqueIds = new Set<string>();
-		plotLabels = describePlots(this.activeDependencies.visualize ?? [], this.activeDependencies.write ?? [], ast);
+		plotLabels = describePlots(this.activeDependencies.visualize ?? [], ast);
 		const roots = Object.entries(dependencyDisplayInfo).map(([d, i]) => {
 			const result = this.activeDependencies[d] as DependencyInfo[];
 			return this.makeDependency(i.name, i.verb, result, new vscode.ThemeIcon(i.icon, categoryColor(d)), d, i, dfi, ast, libraryVersions).enforceUniqueIds(uniqueIds);
@@ -714,6 +718,12 @@ export class Dependency extends vscode.TreeItem {
 		return this.info?.nodeId;
 	}
 
+	/** the node ids of this entry, or of all entries below this group or category */
+	getNodeIds(): NodeId[] {
+		const own = this.info?.nodeId;
+		return own !== undefined ? [own] : (this.children ?? []).flatMap(c => c.getNodeIds());
+	}
+
 	getLocation(): SourceRange | undefined {
 		return this.loc;
 	}
@@ -813,6 +823,50 @@ async function revealDependency({ uri, range, category }: { uri: vscode.Uri, ran
 	flashTimer = setTimeout(() => flash?.dispose(), 2000);
 }
 
+let focused: { document: vscode.TextDocument, decoration: vscode.TextEditorDecorationType, unrelated: number[] } | undefined;
+let focusRequest = 0;
+
+/** removes the dimming of {@link focusRelated} */
+export function clearRelatedFocus(): void {
+	focused?.decoration.dispose();
+	focused = undefined;
+	focusRequest++;
+}
+
+/**
+ * Dims all lines of the active editor that do not relate to the selected entry, group or category, i.e. that are
+ * neither in the backward slice (what it depends on) nor in the forward slice (what depends on it) of its code.
+ */
+async function focusRelated(dependency: Dependency | undefined): Promise<void> {
+	clearRelatedFocus();
+	const request = focusRequest;
+	const editor = vscode.window.activeTextEditor;
+	const ids = dependency?.getNodeIds() ?? [];
+	if(!editor || !isRTypeLanguage(editor.document) || ids.length === 0) {
+		return;
+	}
+	const criteria = ids.map(id => `$${id}`) as SlicingCriteria;
+	const info = dependency?.getAnalysisInfo();
+	const session = await getFlowrSession();
+	const slices = await Promise.all([SliceDirection.Backward, SliceDirection.Forward].map(direction => session.retrieveSlice(criteria, direction, editor.document, false, info)));
+	if(request !== focusRequest || editor.document.isClosed) {
+		return;
+	}
+	const related = new Set<number>();
+	for(const { location } of slices.flatMap(s => s.sliceElements)) {
+		for(let line = location[0] - 1; line <= location[2] - 1; line++) {
+			related.add(line);
+		}
+	}
+	if(related.size === 0) {
+		return;
+	}
+	const decoration = vscode.window.createTextEditorDecorationType({ opacity: String(getConfig().get<number>(Settings.StyleSliceOpacity, 0.25)) });
+	const unrelated = Array.from({ length: editor.document.lineCount }, (_, i) => i).filter(i => !related.has(i));
+	editor.setDecorations(decoration, unrelated.map(i => editor.document.lineAt(i).range));
+	focused = { document: editor.document, decoration, unrelated };
+}
+
 /** the separator above the categories without findings */
 function noFindingsSeparator(): Dependency {
 	const separator = new Dependency({ label: 'No findings', verb: '', category: 'library', categoryInfo: dependencyDisplayInfo.library, allInfos: [] });
@@ -835,7 +889,8 @@ function withDataFlow(category: DependencyCategoryName, e: DependencyInfo, label
 	if(NoDataFlow.has(category) || isImplicitPlotPrint(e) || plotLabels.has(e)) {
 		return label;
 	}
-	const { input, output } = dataFlowOf(ast, e.nodeId);
+	const { inputs, output } = dataFlowOf(ast, e);
+	const input = inputs.join(', ');
 	const value = typeof e.value === 'string' && e.value !== Unknown;
 	if(value) {
 		return `${input ? `${input} → ` : ''}${label}${output ? ` → ${output}` : ''}`;
