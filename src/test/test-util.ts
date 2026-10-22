@@ -5,7 +5,19 @@ import * as assert from 'assert';
 import type { FlowrInternalSession } from '../flowr/internal-session';
 import type { FlowrExtensionApi } from '../extension';
 import { downloadSigDbScope, readSigDbRemotePointer } from '../package-db';
-import { isWeb, refreshSigDbConfig } from '../extension';
+import { isWeb } from '../extension';
+
+/** the live extension's api, which (unlike a module imported here) shares state with the code the hover/completion providers run */
+function extensionApi(): FlowrExtensionApi {
+	const ext = vscode.extensions.getExtension<FlowrExtensionApi>('code-inspect.vscode-flowr');
+	assert.ok(ext?.exports, 'extension api not found - activate it first');
+	return ext.exports;
+}
+
+/** re-reads the signature database state inside the running extension and rebuilds its flowR session */
+export function refreshExtensionSigDbConfig(): void {
+	extensionApi().refreshSigDbConfig();
+}
 
 /**
  * Activate the extension and return its {@link FlowrExtensionApi}
@@ -60,7 +72,7 @@ export function ensureSigDbCurrentDownloaded(): Promise<void> {
 		await Promise.all([downloadSigDbScope('current'), downloadSigDbScope('history')]);
 		// a flowR session may already be alive (e.g. from an earlier activateExtension() call) with its sigdb
 		// mount paths baked in from before this download - rebuild it now so it actually sees what just landed
-		refreshSigDbConfig();
+		refreshExtensionSigDbConfig();
 	})();
 	return sigDbCurrentEnsured;
 }

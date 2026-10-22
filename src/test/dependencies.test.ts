@@ -3,11 +3,10 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as assert from 'assert';
-import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile } from './test-util';
+import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile, refreshExtensionSigDbConfig } from './test-util';
 import type { Dependency } from '../flowr/views/dependency-view';
 import { shortenPath, textFingerprint, unknownGuardedName } from '../flowr/views/dependency-view';
 import { downloadSigDbScope } from '../package-db';
-import { refreshSigDbConfig } from '../extension';
 
 type DependencyDisplay = { label: string, description: string, children?: DependencyDisplay[] };
 
@@ -286,7 +285,7 @@ suite('dependencies', () => {
 			// intentionally no downloadSigDbScope('history')
 			// the flowR session may already be alive from an earlier test, built against the real (non-temp)
 			// cache dir - force it to rebuild now so the query below actually sees the temp dir's mount paths
-			refreshSigDbConfig();
+			refreshExtensionSigDbConfig();
 			(vscode.window as { showWarningMessage: typeof vscode.window.showWarningMessage }).showWarningMessage = (msg: string) => {
 				if(msg.includes('CRAN history')) {
 					warned = true;
@@ -311,7 +310,7 @@ suite('dependencies', () => {
 			}
 			// the guess-versions query above ran against the shared flowR session while FLOWR_SIGDB_CACHE pointed
 			// at the temp dir - rebuild it now that the env var is restored, so later tests see the real cache again
-			refreshSigDbConfig();
+			refreshExtensionSigDbConfig();
 			fs.rmSync(tempDir, { recursive: true, force: true });
 		}
 	});

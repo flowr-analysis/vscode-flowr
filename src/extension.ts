@@ -34,7 +34,9 @@ import { showRepl } from './flowr/terminals/flowr-repl';
 
 /** public-facing API for the flowR extension; currently required and used for unit tests */
 export interface FlowrExtensionApi {
-	flowrConfig: () => FlowrConfig
+	flowrConfig:        () => FlowrConfig,
+	/** re-reads the on-disk signature database state inside the running extension (tests download into the same cache from a separate module copy) */
+	refreshSigDbConfig: () => void
 }
 
 export const MINIMUM_R_MAJOR = 3;
@@ -171,7 +173,8 @@ ${JSON.stringify(getConfig(), null, 2)}
 
 	// initialize the api :)
 	return {
-		flowrConfig: () => VSCodeFlowrConfiguration
+		flowrConfig: () => VSCodeFlowrConfiguration,
+		refreshSigDbConfig
 	};
 }
 
