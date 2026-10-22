@@ -28,8 +28,8 @@ function populateExpectedDependencies(expected: DependencyDisplay[]) {
 		const given = expected.find(e => e.label === def) ?? { label: def, description: '0 items', children: [] };
 		(given.children?.length ? found : empty).push(given);
 	}
-	// categories without findings come last, below a separator
-	return [...found, ...empty.length > 0 ? [{ label: 'No findings', description: '', children: [] }] : [], ...empty];
+	// categories without findings come last, in a group of their own
+	return [...found, ...empty.length > 0 ? [{ label: 'No findings', description: `${empty.length} empty ${empty.length === 1 ? 'category' : 'categories'}`, children: empty }] : []];
 }
 
 async function verifyDependencies(expected: DependencyDisplay[]) {
@@ -84,22 +84,30 @@ suite('dependencies', () => {
 		const labels = (name: string) => result.find(d => d.label === name)?.children?.map(c => c.label);
 		assert.deepStrictEqual(labels('Visualizations'), ['ggplot "Growth over time" → growth.png', 'ggplot → histogram.pdf', 'plot "Scatter" → scatter.png', 'plot(small)']);
 		assert.ok(result.find(d => d.label === 'Data Transformations')?.children?.every(c => c.description.startsWith('from dplyr ')), JSON.stringify(result));
-		// a top-level ggplot `+` chain is printed by R, which flowR reports as stdout: it must not read as "`+` outputs stdout"
-		assert.deepStrictEqual(labels('Outputs'), ['p → growth.png', 'plot drawn (printed)', 'histogram.pdf', 'scatter.png', 'stdout']);
-		const printed = await vscode.commands.executeCommand<{ line: number, labels: string[] }[]>('vscode-flowr.internal.lineCategories');
-		assert.ok(printed.find(l => l.line === 6)?.labels.some(l => l.includes('R prints this top-level ggplot')), JSON.stringify(printed));
+		// a top-level ggplot `+` chain is drawn, flowR does not report it as an output to stdout
+		assert.deepStrictEqual(labels('Outputs'), ['p → growth.png', 'histogram.pdf', 'scatter.png', 'stdout']);
 		assert.deepStrictEqual(labels('Data Transformations'), ['filter(df) → small', 'mutate(df) → small'], 'the label names the function and the variables the data comes from and goes to');
 	});
 
-	test('selecting an entry dims the code that does not relate to it', async() => {
+	test('selecting an entry grays out the entries that do not relate to it', async() => {
 		await openTestFile('plots-example.R');
 		const raw: Dependency[] | undefined = await vscode.commands.executeCommand('vscode-flowr.dependencyView.update');
 		const scatter = raw?.find(d => d.label === 'Visualizations')?.children?.find(c => c.label === 'plot "Scatter" → scatter.png');
 		assert.ok(scatter, JSON.stringify(simplifyDependencies(raw)));
-		const dimmed = await vscode.commands.executeCommand<number[]>('vscode-flowr.internal.dependency.focus', scatter);
-		// the scatter plot needs the data (lines 2-4) but neither the ggplots nor the last plot
-		assert.ok([4, 6, 7, 11].every(l => dimmed.includes(l)), JSON.stringify(dimmed));
-		assert.ok([2, 3, 9].every(l => !dimmed.includes(l)), JSON.stringify(dimmed));
+		const grayed = await vscode.commands.executeCommand<string[]>('vscode-flowr.internal.dependency.focus', scatter);
+		// the scatter plot needs the data and its transformations, but neither the ggplots nor their files
+		assert.ok(grayed.includes('ggplot "Growth over time" → growth.png') && grayed.includes('histogram.pdf'), JSON.stringify(grayed));
+		assert.ok(!grayed.includes('plot "Scatter" → scatter.png') && !grayed.includes('Visualizations') && !grayed.includes('filter(df) → small'), JSON.stringify(grayed));
+	});
+
+	test('locates the code under the cursor in the view', async() => {
+		const editor = await openTestFile('plots-example.R');
+		await vscode.commands.executeCommand('vscode-flowr.dependencyView.update');
+		editor.selection = new vscode.Selection(3, 22, 3, 22);
+		const hit = await vscode.commands.executeCommand<Dependency | undefined>('vscode-flowr.dependencyView.locate');
+		assert.strictEqual(hit?.label, 'filter(df) → small');
+		editor.selection = new vscode.Selection(1, 3, 1, 3);
+		assert.strictEqual((await vscode.commands.executeCommand<Dependency | undefined>('vscode-flowr.dependencyView.locate'))?.label, 'dplyr');
 	});
 
 	test('groups imported data by dataset, names files by their name, and highlights an entry on click', async() => {

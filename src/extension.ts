@@ -24,6 +24,7 @@ import { NoTelemetry, RecordingTelemetry, registerTelemetry, telemetry, Telemetr
 import { registerHoverOverValues } from './hover-values';
 import { registerPackageInfo } from './package-info';
 import { registerCompletion } from './completion';
+import { registerMcpServer } from './mcp';
 import { registerProjectView } from './flowr/views/project-view';
 import { registerSigDbView } from './flowr/views/sigdb-view';
 import { registerSigDbNotifications } from './sigdb-notifications';
@@ -143,6 +144,7 @@ ${JSON.stringify(getConfig(), null, 2)}
 		...registerHoverOverValues(outputChannel),
 		...registerPackageInfo(outputChannel),
 		registerCompletion(),
+		registerMcpServer(),
 		registerDocumentSymbols(outputChannel));
 
 	const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
@@ -379,6 +381,7 @@ export async function predownloadBaseRSignatures(): Promise<void> {
 
 /** re-reads sigdb settings/on-disk state and destroys the active session, so the next feature call mounts what is now on disk */
 export function refreshSigDbConfig() {
+	invalidateSigDbPackageNamesCache();
 	configureSigDb();
 	updateFlowrConfig();
 	destroySession();

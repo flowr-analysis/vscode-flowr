@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { columnCompletions } from './column-completion';
 import { allKnownPackageNames, defaultLoadedPackages, findSigDbPackageSource, resolveSigDbPackageVersion, safeFunctionsOf, safeLatestVersionStr, safeSigDbCall } from './package-db';
 import { getInstalledPackageVersions, getInstalledVersion } from './installed-packages';
 import { getConfig, Settings } from './settings';
@@ -247,6 +248,9 @@ async function rLanguageServerCoexistence(): Promise<Coexistence> {
 	return coexistenceWith(getConfig().get<string>(Settings.CompletionWithRlanguageServer, 'complement'), installed && new Set(installed.keys()));
 }
 
+const nameCollator = new Intl.Collator();
+const byName = (a: string, b: string) => nameCollator.compare(a, b);
+
 /** the packages of `packages` the R language server does not already cover */
 export function notCoveredBy(packages: Iterable<string>, coexist: Coexistence | undefined): string[] {
 	return [...packages].filter(pkg => !coexist?.coveredPackages?.has(pkg));
@@ -268,6 +272,11 @@ class FlowrSigDbCompletionProvider implements vscode.CompletionItemProvider {
 		const namespaced = await this.namespacedFunctionCompletions(textBefore, range, coexist);
 		if(namespaced) {
 			return token.isCancellationRequested ? [] : namespaced;
+		}
+
+		const columnItems = await columnCompletions(document, position, textBefore, range);
+		if(columnItems) {
+			return token.isCancellationRequested ? [] : columnItems;
 		}
 
 		const packageArgItems = await packageArgumentCompletions(textBefore, range, coexist);
@@ -517,7 +526,7 @@ export async function packageArgumentCompletions(textBeforeCursor: string, range
 	if(!call || !info || !await isAtPackageArgPosition(call, info)) {
 		return undefined;
 	}
-	const names = notCoveredBy(await allKnownPackageNames(), coexist).sort((a, b) => a.localeCompare(b));
+	const names = notCoveredBy(await allKnownPackageNames(), coexist).sort(byName);
 	const items = names.map(pkg => packageNameCompletionItem(pkg, pkg, range));
 	if(PackageColonForms.has(call.fnName)) {
 		items.push(...names.map(pkg => packageNameCompletionItem(`package:${pkg}`, `package:${pkg}`, range)));
@@ -575,7 +584,7 @@ export function registerCompletion(): vscode.Disposable {
 	}
 	const selectors: vscode.DocumentSelector[] = [{ language: 'r' }, { language: 'rmd' }];
 	return vscode.Disposable.from(
-		...selectors.map(selector => vscode.languages.registerCompletionItemProvider(selector, new FlowrSigDbCompletionProvider(), '(', ',', ' ', '"', '\'', ':')),
+		...selectors.map(selector => vscode.languages.registerCompletionItemProvider(selector, new FlowrSigDbCompletionProvider(), '(', ',', ' ', '"', '\'', ':', '$', '[')),
 		...selectors.map(selector => vscode.languages.registerSignatureHelpProvider(selector, new FlowrSigDbSignatureHelpProvider(), '(', ','))
 	);
 }

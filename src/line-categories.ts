@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import { getFlowrSession, registerCommand } from './extension';
 import { ConfigurableRefresher, isRTypeLanguage } from './configurable-refresher';
-import { DependencyViewRefresherConfigKeys, Settings, getConfig } from './settings';
+import { DependencyViewRefresherConfigKeys, Settings, getConfig, updateWhereSet } from './settings';
 import type { DisplayedCategoryName } from './flowr/views/dependency-view';
-import { buildDependencyQueries, dependencyDisplayInfo, isImplicitPlotPrint, renderFunctionName } from './flowr/views/dependency-view';
+import { buildDependencyQueries, dependencyDisplayInfo, renderFunctionName } from './flowr/views/dependency-view';
 import { Unknown } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { DependenciesQueryResult, DependencyInfo } from '@eagleoutice/flowr/queries/catalog/dependencies-query/dependencies-query-format';
 import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/location-map-query/location-map-query-format';
@@ -26,16 +26,19 @@ export const CategoryColors: Record<DisplayedCategoryName, string> = {
 	write:      '#D55E00'
 };
 
+/** a value as inline markdown code: backticks and newlines would break the hover */
+function code(text: string): string {
+	return `\`${text.replace(/[`\r\n]+/g, ' ')}\``;
+}
+
 /** hover text of a line's indicator: the category in its color, what the line does, and why it counts */
 function describe(category: DisplayedCategoryName, display: { name: string, verb: string }, info: DependencyInfo): string {
 	const fn = renderFunctionName(info.functionName);
-	const value = info.value && info.value !== Unknown ? ` \`${info.value}\`` : '';
+	const value = info.value && info.value !== Unknown ? ` ${code(String(info.value))}` : '';
 	const namespaceAccess = (info.functionName as unknown) === '::' || (info.functionName as unknown) === ':::';
 	const why = namespaceAccess
-		? `\`${info.value ?? 'pkg'}${String(info.functionName)}…\` loads the package without \`library()\``
-		: isImplicitPlotPrint(info)
-			? 'R prints this top-level ggplot'
-			: `\`${fn}\` ${display.verb}${value}`;
+		? `${code(`${info.value ?? 'pkg'}${String(info.functionName)}…`)} loads the package without \`library()\``
+		: `${code(fn)} ${display.verb}${value}`;
 	return `<span style="color:${colorOf(category)};">■</span> **${display.name}** (flowR): ${why}`;
 }
 
@@ -66,7 +69,8 @@ function typeFor(category: DisplayedCategoryName): vscode.TextEditorDecorationTy
 			gutterIconPath:     barIcon(category),
 			gutterIconSize:     'contain',
 			overviewRulerColor: colorOf(category),
-			overviewRulerLane:  vscode.OverviewRulerLane.Right
+			// the right lane belongs to the linter's warnings (yellow) and errors, which would paint over the category color
+			overviewRulerLane:  vscode.OverviewRulerLane.Center
 		});
 		decorationTypes.set(category, type);
 	}
@@ -103,7 +107,9 @@ function applyLines(doc: vscode.TextDocument, lines: LineInfo[]) {
 	const byCategory = new Map<DisplayedCategoryName, vscode.Range[]>();
 	for(const l of lines) {
 		const category = primaryCategory(l.categories);
-		byCategory.set(category, [...byCategory.get(category) ?? [], doc.lineAt(Math.min(l.line, doc.lineCount - 1)).range]);
+		const ranges = byCategory.get(category) ?? [];
+		ranges.push(doc.lineAt(Math.min(l.line, doc.lineCount - 1)).range);
+		byCategory.set(category, ranges);
 	}
 	for(const editor of vscode.window.visibleTextEditors.filter(e => e.document === doc)) {
 		const used = new Set<vscode.TextEditorDecorationType>();
@@ -227,9 +233,7 @@ export function registerLineCategories(context: vscode.ExtensionContext, output:
 	void refresh();
 
 	registerCommand(context, 'vscode-flowr.style.toggleLineCategoryIndicators', async() => {
-		const set = getConfig().inspect<boolean>(Settings.StyleLineCategoryIndicators);
-		const target = set?.workspaceFolderValue !== undefined ? vscode.ConfigurationTarget.WorkspaceFolder : set?.workspaceValue !== undefined ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
-		await getConfig().update(Settings.StyleLineCategoryIndicators, !indicatorsEnabled(), target);
+		await updateWhereSet(Settings.StyleLineCategoryIndicators, !indicatorsEnabled());
 	});
 
 	registerCommand(context, 'vscode-flowr.internal.lineCategories', async(): Promise<{ line: number, categories: string[], labels: string[] }[]> => {

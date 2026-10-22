@@ -92,6 +92,8 @@ class CriteriaSlicer {
 				const expectLoc = expectNode.location;
 				const expectLex = expectNode.lexeme;
 				const expectDoc = vscode.window.activeTextEditor?.document;
+				// one watcher per slice, the one of a previous update would only pile up
+				this.disposables.pop()?.dispose();
 				this.disposables.push(vscode.workspace.onDidChangeTextDocument(e => {
 					if(e.document === expectDoc) {
 						const text = e.document.getText(rangeToVscodeRange(expectLoc));

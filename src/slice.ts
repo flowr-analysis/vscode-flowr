@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { SourceRange } from '@eagleoutice/flowr/util/range';
 import type { SliceCombination, SliceDisplay } from './settings';
-import { getConfig, isVerbose, Settings } from './settings';
+import { getConfig, isVerbose, Settings, updateWhereSet } from './settings';
 import { getSelectionSlicer, showSelectionSliceInEditor } from './selection-slicer';
 import { disposeActivePositionSlicer, getActivePositionSlicer, addCurrentPositions, positionSlicers } from './position-slicer';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
@@ -79,7 +79,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 	});
 	registerCommand(context, 'vscode-flowr.slice.toggleNegative', async() => {
 		const negative = !getConfig().get<boolean>(Settings.SliceNegative, false);
-		await getConfig().update(Settings.SliceNegative, negative, vscode.ConfigurationTarget.Global);
+		await updateWhereSet(Settings.SliceNegative, negative);
 		vscode.window.setStatusBarMessage(`flowR: negative slice ${negative ? 'on' : 'off'}`, 3000);
 	});
 	registerCommand(context, 'vscode-flowr.slice.fold', async() => {
@@ -99,7 +99,7 @@ export function registerSliceCommands(context: vscode.ExtensionContext, output: 
 
 	registerCommand(context, 'vscode-flowr.slice.position.toggleCombination', async() => {
 		const combination: SliceCombination = getConfig().get<SliceCombination>(Settings.SlicePositionCombination, 'union') === 'union' ? 'intersection' : 'union';
-		await getConfig().update(Settings.SlicePositionCombination, combination, vscode.ConfigurationTarget.Global);
+		await updateWhereSet(Settings.SlicePositionCombination, combination);
 		vscode.window.setStatusBarMessage(`flowR: position slices combined as ${combination}`, 3000);
 	});
 	registerCommand(context, 'vscode-flowr.slice.position', async() => {

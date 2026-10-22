@@ -20,6 +20,7 @@ const testFiles: (() => void)[] = [
 	() => void require('../../../test/utils.test'),
 	() => void require('../../../test/refresher.test'),
 	() => void require('../../../test/completion.test'),
+	() => void require('../../../test/column-completion.test'),
 	() => void require('../../../test/package-info.test'),
 	() => void require('../../../test/web-smoke.test'),
 	() => void require('../../../test/search.test'),

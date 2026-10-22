@@ -61,6 +61,8 @@ export enum Settings {
 	CompletionShowS3Methods = 'completion.showS3Methods',
 	CompletionWithRlanguageServer = 'completion.withRLanguageServer',
 
+	McpEnabled = 'mcp.enabled',
+
 	SymbolsEnabled = 'symbols.enabled',
 	SymbolsWithRlanguageServer = 'symbols.withRLanguageServer',
 
@@ -126,6 +128,18 @@ export type ConnectionType = 'auto' | 'websocket' | 'websocket-secure' | 'tcp';
 /** the extension's workspace configuration section */
 export function getConfig(): vscode.WorkspaceConfiguration {
 	return vscode.workspace.getConfiguration(Settings.Category);
+}
+
+/** writes a setting where it is currently set (workspace or user), so that a toggle is not shadowed by a workspace value */
+export async function updateWhereSet(key: string, value: unknown): Promise<void> {
+	// the settings are read without a folder scope, so folder values are not considered here either
+	const config = getConfig();
+	const target = config.inspect(key)?.workspaceValue !== undefined ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+	try {
+		await config.update(key, value, target);
+	} catch(e) {
+		void vscode.window.showErrorMessage(`flowR: Could not change ${key}: ${e instanceof Error ? e.message : String(e)}`);
+	}
 }
 
 /** whether verbose logging is enabled */

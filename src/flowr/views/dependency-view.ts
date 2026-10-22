@@ -7,11 +7,12 @@ import type { LocationMapQueryResult } from '@eagleoutice/flowr/queries/catalog/
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { Identifier } from '@eagleoutice/flowr/dataflow/environments/identifier';
 import { Identifier as IdentifierUtil } from '@eagleoutice/flowr/dataflow/environments/identifier';
+import { RSymbol } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-symbol';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { rangeToVscodeRange, RotaryBuffer } from '../utils';
 import { dataFlowOf, describePlots } from './plot-label';
 import type { DefaultsMaps } from '../../settings';
-import { DependencyViewRefresherConfigKeys, Settings, getConfig, isVerbose } from '../../settings';
+import { DependencyViewRefresherConfigKeys, Settings, getConfig, isVerbose, updateWhereSet } from '../../settings';
 import { resolveSigDbPackageVersion, getSigDbScopeState } from '../../package-db';
 import { getInstalledPackageVersions } from '../../installed-packages';
 import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
@@ -55,10 +56,10 @@ export function buildDependencyQueries() {
 
 /** registers the Dependency View's internal commands (go-to, enable/disable category, guess versions) */
 export function registerDependencyInternalCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
-	// for tests: dims what does not relate to the dependency, returning the dimmed lines
+	// for tests: grays out the entries that do not relate to the dependency, returning their labels
 	registerCommand(context, 'vscode-flowr.internal.dependency.focus', async(dependency: Dependency) => {
-		await focusRelated(dependency);
-		return focused?.unrelated ?? [];
+		await focusRelated(dependency, shown.roots);
+		return allEntries(shown.roots).filter(e => e.resourceUri && unrelatedEntries.has(e.resourceUri.toString())).map(e => e.label);
 	});
 	registerCommand(context, 'vscode-flowr.internal.goto.dependency', (dependency: Dependency) => {
 		const node = dependency.getNodeId();
@@ -82,12 +83,17 @@ export function registerDependencyInternalCommands(context: vscode.ExtensionCont
 			values = new Set<DependencyCategoryName>(Object.keys(dependencyDisplayInfo));
 		}
 		if(values.has(dependency.category)) {
+			if(values.size === 1) {
+				// an empty list would enable all categories again
+				void vscode.window.showInformationMessage('flowR: At least one dependency category stays enabled.');
+				return;
+			}
 			values.delete(dependency.category);
 		} else {
 			values.add(dependency.category);
 		}
 		output.appendLine(`Toggling dependency category ${dependency.category}, new value ${[...values].join(', ')}`);
-		getConfig().update(Settings.DependenciesQueryEnabledCategories, [...values]);
+		void updateWhereSet(Settings.DependenciesQueryEnabledCategories, [...values]);
 	});
 	registerCommand(context, 'vscode-flowr.dependencyView.guessVersions', async() => {
 		const doc = vscode.window.activeTextEditor?.document;
@@ -175,8 +181,10 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	const data = new FlowrDependencyTreeView(output);
 	const reveal = vscode.commands.registerCommand(RevealCommand, revealDependency);
 	const grayed = vscode.window.registerFileDecorationProvider({
-		provideFileDecoration: uri => uri.scheme === GrayedScheme ? { color: new vscode.ThemeColor('disabledForeground') } : undefined
+		onDidChangeFileDecorations: entryDecorationsChanged.event,
+		provideFileDecoration:      uri => uri.scheme === GrayedScheme || unrelatedEntries.has(uri.toString()) ? { color: new vscode.ThemeColor('disabledForeground') } : undefined
 	});
+	const locate = vscode.commands.registerCommand('vscode-flowr.dependencyView.locate', () => locateInView(tv, data));
 	const tv = vscode.window.createTreeView(
 		FlowrDependencyViewId,
 		{
@@ -240,26 +248,20 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 	});
 	const disposeChangeActive = vscode.window.onDidChangeActiveTextEditor(() => {
 		refreshDesc();
-		clearRelatedFocus();
 	});
-	const disposeSelection = tv.onDidChangeSelection(e => void focusRelated(e.selection[0]));
-	const disposeEdit = vscode.workspace.onDidChangeTextDocument(e => {
-		if(e.contentChanges.length > 0 && e.document === focused?.document) {
-			clearRelatedFocus();
-		}
-	});
+	const disposeSelection = tv.onDidChangeSelection(e => void focusRelated(e.selection[0], data.getChildren() ?? []));
 
 
 	data.setTreeView(tv);
 	return {
 		dispose: () => {
 			grayed.dispose();
+			locate.dispose();
 			reveal.dispose();
 			data.dispose();
 			disposeChange.dispose();
 			disposeChangeActive.dispose();
 			disposeSelection.dispose();
-			disposeEdit.dispose();
 			clearRelatedFocus();
 			if(refreshDescDisposable) {
 				refreshDescDisposable.dispose();
@@ -267,7 +269,7 @@ export function registerDependencyView(output: vscode.OutputChannel): { dispose:
 		},
 		update: async() => {
 			await data.refresh(true);
-			return await data.getChildren() as Dependency[] | undefined;
+			return data.getChildren();
 		}
 	};
 }
@@ -434,7 +436,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 				this.activeDependencies = has[1].dep;
 				this.locationMap = has[1].loc;
 				// the cached entry carries the same ast/dfi a fresh analysis would, so slicing still works on a cache hit
-				await this.makeRootElements(has[1].dfi, has[1].ast);
+				await this.makeRootElements(document, has[1].dfi, has[1].ast);
 				this._onDidChangeTreeData.fire(undefined);
 				return;
 			}
@@ -450,7 +452,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 						} else {
 							this.activeDependencies = emptyDependencies;
 							this.locationMap = emptyLocationMap;
-							await this.makeRootElements();
+							await this.makeRootElements(document);
 							this._onDidChangeTreeData.fire(undefined);
 							return;
 						}
@@ -459,7 +461,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 					this.activeDependencies = res.dep;
 					this.locationMap = res.loc;
 					this.textBuffer.push([{ content: text, path: document?.uri.fsPath ?? '' }, res]);
-					await this.makeRootElements(res.dfi, res.ast);
+					await this.makeRootElements(document, res.dfi, res.ast);
 					this._onDidChangeTreeData.fire(undefined);
 				}).catch(e => {
 					this.output.appendLine(`[Dependency View] Error: ${(e as Error).message}`);
@@ -480,11 +482,12 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		if(!this.parent?.visible) {
 			return;
 		}
-		const children = await this.getChildren();
+		const children = this.getChildren();
 		const autoRevealUntil = getConfig().get<number>(Settings.DependencyViewAutoReveal, Defaults.DependencyViewAutoReveal);
 		for(const root of children ?? []) {
-			if(root.children?.length && root.children.length <= autoRevealUntil) {
-				this.parent?.reveal(root, { select: false, focus: false, expand: true });
+			if(root.id !== NoFindingsId && root.children?.length && root.children.length <= autoRevealUntil) {
+				// a refresh during the reveal replaces the elements, which the next refresh reveals again
+				await Promise.resolve(this.parent?.reveal(root, { select: false, focus: false, expand: true })).catch(() => undefined);
 			}
 		}
 	}
@@ -493,7 +496,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		return element;
 	}
 
-	getChildren(element?: Dependency): vscode.ProviderResult<Dependency[]> {
+	getChildren(element?: Dependency): Dependency[] | undefined {
 		if(element) {
 			return element.children ?? [];
 		} else {
@@ -516,7 +519,7 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 		return new Map(resolved.filter(([, info]) => info.db !== undefined || info.installed !== undefined));
 	}
 
-	private async makeRootElements(dfi?: DataflowInformation, ast?: NormalizedAst) {
+	private async makeRootElements(document: vscode.TextDocument | undefined, dfi?: DataflowInformation, ast?: NormalizedAst) {
 		const libraryVersions = await this.resolveLibraryVersions();
 		const uniqueIds = new Set<string>();
 		plotLabels = describePlots(this.activeDependencies.visualize ?? [], ast);
@@ -530,7 +533,15 @@ class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {
 			r.iconPath = new vscode.ThemeIcon(dependencyDisplayInfo[r.category as DisplayedCategoryName].icon, new vscode.ThemeColor('disabledForeground'));
 			r.resourceUri = vscode.Uri.from({ scheme: GrayedScheme, path: `/${r.category}` });
 		}
-		this.rootElements = [...roots.filter(r => r.children?.length), ...empty.length > 0 ? [noFindingsSeparator()] : [], ...empty];
+		this.rootElements = [...roots.filter(r => r.children?.length), ...empty.length > 0 ? [noFindingsGroup(empty)] : []];
+		shown = { roots: this.rootElements, document, version: document?.version };
+		// the entries are new, so is what relates to the selection, which the view keeps by id
+		clearRelatedFocus();
+		const selected = this.parent?.selection[0]?.id;
+		const again = selected === undefined ? undefined : allEntries(this.rootElements).find(e => e.id === selected);
+		if(again) {
+			void focusRelated(again, this.rootElements);
+		}
 	}
 
 	private makeDependency(label: string, verb: string, elements: DependencyInfo[], themeIcon: vscode.ThemeIcon, category: DependencyCategoryName, categoryInfo: DependencyCategoryInfo, dfi?: DataflowInformation, ast?: NormalizedAst, libraryVersions?: Map<string, LibraryVersionInfo>): Dependency {
@@ -582,6 +593,8 @@ export interface LibraryVersionInfo {
 export class Dependency extends vscode.TreeItem {
 	public readonly children?:     Dependency[];
 	public readonly category:      DependencyCategoryName;
+	/** the code of the entry, which a click selects */
+	public target?:                { uri: vscode.Uri, range: vscode.Range };
 	private readonly info?:        DependencyInfo;
 	private readonly loc?:         SourceRange;
 	private parent?:               Dependency;
@@ -617,7 +630,16 @@ export class Dependency extends vscode.TreeItem {
 
 		if(info) {
 			const functionName = renderFunctionName(info.functionName);
-			this.loc = info.nodeId !== undefined ? locationMap?.map.ids[info.nodeId]?.[1] : undefined;
+			const mapped = info.nodeId !== undefined ? locationMap?.map.ids[info.nodeId] : undefined;
+			this.loc = mapped?.[1];
+			// an entry of a sourced script lives in that script, not in the analyzed document
+			const file = mapped ? locationMap?.map.files[mapped[0]] : undefined;
+			const active = vscode.window.activeTextEditor?.document.uri;
+			const parsed = file && file !== '@inline' ? file.startsWith('file://') ? vscode.Uri.parse(file) : vscode.Uri.file(file) : undefined;
+			// flowR knows paths only, so the analyzed document keeps its own scheme (e.g. in remote workspaces)
+			const fileUri = parsed && active && parsed.fsPath !== active.fsPath ? parsed : active;
+			const otherFile = fileUri && vscode.window.activeTextEditor && fileUri.toString() !== vscode.window.activeTextEditor.document.uri.toString()
+				? fileUri.path.split('/').at(-1) : undefined;
 
 			// the signature database's resolved version and local installation state for a `library()`/`require()` dependency
 			const versions = category === 'library' && info.value ? libraryVersions?.get(info.value) : undefined;
@@ -629,18 +651,19 @@ export class Dependency extends vscode.TreeItem {
 			const known = info.value !== undefined && info.value !== Unknown;
 			const folder = known && typeof info.value === 'string' ? shortenPath(info.value).folder : undefined;
 			const pkg = known ? undefined : packageOf(info);
-			this.description = `${folder ? `${folder}/ · ` : ''}${known ? `by "${functionName}" ` : pkg ? `from ${pkg} ` : ''}in ${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}${versionBadge ? ` — ${versionBadge}` : ''}`;
+			this.description = `${folder ? `${folder}/ · ` : ''}${known ? `by "${functionName}" ` : pkg ? `from ${pkg} ` : ''}in ${otherFile ? `${otherFile} ` : ''}${this.loc ? `(L. ${this.loc[0]}${this.linkedIds()})` : 'unknown location'}${versionBadge ? ` — ${versionBadge}` : ''}`;
 			this.tooltip = `${verb} "${info.value ?? Unknown}" with the "${functionName}" function in ${this.loc ? `line ${this.loc[0]}` : ' an unknown location'}${versions?.db ? ` (signature database: v${versions.db})` : ''}${versions?.installed === null ? ' (not installed locally)' : versions?.installed ? ` (installed locally: v${versions.installed})` : ''} (right-click for more)`;
 			this.id = (parent?.id ?? '') + label + info.nodeId + JSON.stringify(this.loc) + functionName + this.linkedIds();
-			if(this.loc && vscode.window.activeTextEditor) {
+			if(this.loc && fileUri) {
 				// highlight the whole call, not only the function name the location map points at
 				const span = (info.nodeId !== undefined ? RNode.span(ast?.idMap.get(info.nodeId)) : undefined) ?? this.loc;
 				const start = new vscode.Position(span[0] - 1, span[1] - 1);
 				const end = new vscode.Position(span[2] - 1, span[3]);
+				this.target = { uri: fileUri, range: new vscode.Range(start, end) };
 				this.command = {
 					command:   RevealCommand,
 					title:     'Go to and highlight the dependency',
-					arguments: [{ uri: vscode.window.activeTextEditor.document.uri, range: new vscode.Range(start, end), category }]
+					arguments: [{ ...this.target, category }]
 				};
 			}
 		} else if(children.length > 0) {
@@ -698,6 +721,10 @@ export class Dependency extends vscode.TreeItem {
 			this.contextValue = 'dependency';
 			this.iconPath ??= new vscode.ThemeIcon('circle-small-filled', categoryColor(category));
 		}
+		// without an icon, a resource URI would show the file icon of the theme
+		if(this.iconPath) {
+			this.resourceUri = entryUri();
+		}
 	}
 
 	private linkedIds(): string {
@@ -747,15 +774,18 @@ export function renderFunctionName(fn: Identifier): string {
 	}
 }
 
+/** how a dependency is used: its function, or for a namespaced access (`pkg::fn`) the accessed function */
+function usageName(e: DependencyInfo, ast?: NormalizedAst): string {
+	const node = e.nodeId === undefined ? undefined : ast?.idMap.get(e.nodeId);
+	const fn = IdentifierUtil.getName(e.functionName);
+	return (fn === '::' || fn === ':::') && RSymbol.is(node) ? renderFunctionName(node.content) : renderFunctionName(e.functionName);
+}
+
 /** a dependency's display name: its `value` (rendered as `pkg::fn` when it is a namespaced Identifier), else the called function's name */
 /** labels of the plots in the current view, see {@link describePlots} */
 let plotLabels = new Map<DependencyInfo, string>();
 
 /** the label of a dependency: its value, else its function (for a plot with its title or file) */
-/** flowR reports the top-level `+` of a ggplot chain as an output to stdout, because R prints (draws) the plot it builds */
-export function isImplicitPlotPrint(e: DependencyInfo): boolean {
-	return e.value === 'stdout' && renderFunctionName(e.functionName) === '+';
-}
 
 /** the package a dependency's function comes from, if flowR knows it (`dplyr` for `dplyr::filter`) */
 export function packageOf(e: DependencyInfo): string | undefined {
@@ -783,9 +813,6 @@ export function shortenPath(path: string, max = 32): { label: string, folder?: s
 
 /** the label of a dependency entry: its plot description, value or function */
 export function unknownGuardedName(e: DependencyInfo): string {
-	if(isImplicitPlotPrint(e)) {
-		return 'plot drawn (printed)';
-	}
 	const plot = plotLabels.get(e);
 	if(plot) {
 		return `${IdentifierUtil.getName(e.functionName)} ${plot}`;
@@ -800,6 +827,7 @@ export function unknownGuardedName(e: DependencyInfo): string {
 }
 
 const GrayedScheme = 'flowr-grayed';
+const EntryScheme = 'flowr-entry';
 const RevealCommand = 'vscode-flowr.internal.dependency.reveal';
 
 let flash: vscode.TextEditorDecorationType | undefined;
@@ -807,7 +835,14 @@ let flashTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** selects a dependency's code and briefly frames it in the color of its category */
 async function revealDependency({ uri, range, category }: { uri: vscode.Uri, range: vscode.Range, category: DependencyCategoryName }) {
-	const editor = await vscode.window.showTextDocument(uri, { preserveFocus: true });
+	let editor: vscode.TextEditor;
+	try {
+		editor = await vscode.window.showTextDocument(uri, { preserveFocus: true });
+	} catch(e) {
+		void vscode.window.showWarningMessage(`flowR: Cannot open ${uri.path.split('/').at(-1) ?? 'the file'}: ${e instanceof Error ? e.message : String(e)}`);
+		return;
+	}
+	range = editor.document.validateRange(range);
 	editor.selection = new vscode.Selection(range.start, range.end);
 	editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
 	flash?.dispose();
@@ -823,58 +858,114 @@ async function revealDependency({ uri, range, category }: { uri: vscode.Uri, ran
 	flashTimer = setTimeout(() => flash?.dispose(), 2000);
 }
 
-let focused: { document: vscode.TextDocument, decoration: vscode.TextEditorDecorationType, unrelated: number[] } | undefined;
-let focusRequest = 0;
+/** the resource URIs of the entries that do not relate to the selected one, grayed out by the file decoration provider */
+const unrelatedEntries = new Set<string>();
+/** what the view shows: its entries and the document (version) they were computed for */
+let shown: { roots: readonly Dependency[], document?: vscode.TextDocument, version?: number } = { roots: [] };
 
-/** removes the dimming of {@link focusRelated} */
+/** the document the dependency view was computed for */
+export function dependencyViewDocument(): vscode.TextDocument | undefined {
+	return shown.document;
+}
+const entryDecorationsChanged = new vscode.EventEmitter<vscode.Uri[] | undefined>();
+let focusRequest = 0;
+let entryCount = 0;
+
+/** a resource URI per entry, so that {@link focusRelated} can gray it out */
+function entryUri(): vscode.Uri {
+	return vscode.Uri.from({ scheme: EntryScheme, path: `/${entryCount++}` });
+}
+
+/** the entries of the view, depth first */
+function allEntries(roots: readonly Dependency[]): Dependency[] {
+	return roots.flatMap(r => [r, ...allEntries(r.children ?? [])]);
+}
+
+/** removes the graying of {@link focusRelated} */
 export function clearRelatedFocus(): void {
-	focused?.decoration.dispose();
-	focused = undefined;
 	focusRequest++;
+	if(unrelatedEntries.size > 0) {
+		unrelatedEntries.clear();
+		entryDecorationsChanged.fire(undefined);
+	}
 }
 
 /**
- * Dims all lines of the active editor that do not relate to the selected entry, group or category, i.e. that are
- * neither in the backward slice (what it depends on) nor in the forward slice (what depends on it) of its code.
+ * Grays out the entries of the view that do not relate to the selected entry, group or category, i.e. whose code is
+ * neither in the backward slice (what it depends on) nor in the forward slice (what depends on it) of the selection.
  */
-async function focusRelated(dependency: Dependency | undefined): Promise<void> {
+async function focusRelated(dependency: Dependency | undefined, roots: readonly Dependency[]): Promise<void> {
 	clearRelatedFocus();
 	const request = focusRequest;
-	const editor = vscode.window.activeTextEditor;
+	// the analyzed document, not the active one: a click on an entry of a sourced script opens that script
+	const document = shown.document;
 	const ids = dependency?.getNodeIds() ?? [];
-	if(!editor || !isRTypeLanguage(editor.document) || ids.length === 0) {
+	if(!dependency || !document || document.isClosed || ids.length === 0) {
 		return;
 	}
 	const criteria = ids.map(id => `$${id}`) as SlicingCriteria;
-	const info = dependency?.getAnalysisInfo();
+	const info = dependency.getAnalysisInfo();
 	const session = await getFlowrSession();
-	const slices = await Promise.all([SliceDirection.Backward, SliceDirection.Forward].map(direction => session.retrieveSlice(criteria, direction, editor.document, false, info)));
-	if(request !== focusRequest || editor.document.isClosed) {
+	const slices = await Promise.all([SliceDirection.Backward, SliceDirection.Forward].map(direction => session.retrieveSlice(criteria, direction, document, false, info)));
+	if(request !== focusRequest) {
 		return;
 	}
-	const related = new Set<number>();
-	for(const { location } of slices.flatMap(s => s.sliceElements)) {
-		for(let line = location[0] - 1; line <= location[2] - 1; line++) {
-			related.add(line);
+	const related = new Set<NodeId>([...ids, ...slices.flatMap(s => s.sliceElements.map(e => e.id))]);
+	// the selection, what it contains and the groups it lies in stay, as does every entry whose code relates
+	const keep = new Set<Dependency>(allEntries([dependency]));
+	for(let p = dependency.getParent(); p; p = p.getParent()) {
+		keep.add(p);
+	}
+	for(const entry of allEntries(roots)) {
+		if(entry.resourceUri?.scheme === EntryScheme && !keep.has(entry) && !entry.getNodeIds().some(id => related.has(id))) {
+			unrelatedEntries.add(entry.resourceUri.toString());
 		}
 	}
-	if(related.size === 0) {
-		return;
-	}
-	const decoration = vscode.window.createTextEditorDecorationType({ opacity: String(getConfig().get<number>(Settings.StyleSliceOpacity, 0.25)) });
-	const unrelated = Array.from({ length: editor.document.lineCount }, (_, i) => i).filter(i => !related.has(i));
-	editor.setDecorations(decoration, unrelated.map(i => editor.document.lineAt(i).range));
-	focused = { document: editor.document, decoration, unrelated };
+	entryDecorationsChanged.fire(undefined);
 }
 
-/** the separator above the categories without findings */
-function noFindingsSeparator(): Dependency {
-	const separator = new Dependency({ label: 'No findings', verb: '', category: 'library', categoryInfo: dependencyDisplayInfo.library, allInfos: [] });
-	separator.id = 'no-findings-separator';
-	separator.description = '';
-	separator.tooltip = 'Nothing found in this file, or disabled';
-	separator.resourceUri = vscode.Uri.from({ scheme: GrayedScheme, path: '/separator' });
-	return separator;
+/** reveals and selects the entry of the code under the cursor (the innermost one), which grays out the unrelated ones */
+async function locateInView(view: vscode.TreeView<Dependency>, data: { getChildren(): Dependency[] | undefined, refresh(force: boolean): Promise<void> }): Promise<Dependency | undefined> {
+	const editor = vscode.window.activeTextEditor;
+	if(!editor || !isRTypeLanguage(editor.document)) {
+		void vscode.window.showInformationMessage('flowR: Open an R file to locate its code in the dependency view.');
+		return undefined;
+	}
+	// a hidden view does not refresh, so it may still show another file or an older version
+	if(shown.document !== editor.document || shown.version !== editor.document.version) {
+		if(!view.visible) {
+			await vscode.commands.executeCommand(`${FlowrDependencyViewId}.focus`);
+		}
+		await data.refresh(true);
+	}
+	const at = editor.selection.active;
+	const uri = editor.document.uri.toString();
+	// the innermost entry, preferring entries over the links listed below them
+	const isLink = (e: Dependency) => e.iconPath instanceof vscode.ThemeIcon && (e.iconPath.id === 'link' || e.iconPath.id === 'indent') ? 1 : 0;
+	const size = (e: Dependency) => e.target ? editor.document.offsetAt(e.target.range.end) - editor.document.offsetAt(e.target.range.start) : Infinity;
+	const inFile = allEntries(data.getChildren() ?? []).filter(e => e.target?.uri.toString() === uri);
+	const hit = inFile.filter(e => e.target?.range.contains(at)).sort((a, b) => isLink(a) - isLink(b) || size(a) - size(b))[0]
+		?? inFile.filter(e => e.target?.range.start.line === at.line).sort((a, b) => isLink(a) - isLink(b))[0];
+	if(!hit) {
+		vscode.window.setStatusBarMessage(`flowR: No dependency in line ${at.line + 1}`, 3000);
+		return undefined;
+	}
+	await view.reveal(hit, { select: true, focus: true, expand: true });
+	return hit;
+}
+
+const NoFindingsId = 'no-findings';
+
+/** the group of the categories without findings, collapsed below the others */
+function noFindingsGroup(empty: Dependency[]): Dependency {
+	const group = new Dependency({ label: 'No findings', verb: '', category: 'library', categoryInfo: dependencyDisplayInfo.library, allInfos: [], children: empty, collapsibleState: vscode.TreeItemCollapsibleState.Collapsed });
+	group.id = NoFindingsId;
+	empty.forEach(e => e.setParent(group));
+	group.description = `${empty.length} empty ${empty.length === 1 ? 'category' : 'categories'}`;
+	group.tooltip = `Nothing found in this file, or disabled: ${empty.map(e => e.label as string).join(', ')}`;
+	group.iconPath = new vscode.ThemeIcon('circle-slash', new vscode.ThemeColor('disabledForeground'));
+	group.resourceUri = vscode.Uri.from({ scheme: GrayedScheme, path: `/${NoFindingsId}` });
+	return group;
 }
 
 /** long paths are shortened to their (middle-shortened) file name, see {@link shortenPath} */
@@ -886,7 +977,7 @@ const NoDataFlow = new Set<DependencyCategoryName>(['library', 'remote', 'source
 
 /** adds the variables the data comes from and goes to: `filter(df) → small`, `data.csv → raw`, `small → out.csv` */
 function withDataFlow(category: DependencyCategoryName, e: DependencyInfo, label: string, ast: NormalizedAst | undefined): string {
-	if(NoDataFlow.has(category) || isImplicitPlotPrint(e) || plotLabels.has(e)) {
+	if(NoDataFlow.has(category) || plotLabels.has(e)) {
 		return label;
 	}
 	const { inputs, output } = dataFlowOf(ast, e);
@@ -927,7 +1018,7 @@ function makeGroupedElements(locationMap: LocationMapQueryResult, elementsToShow
 			children: group.map(e => new Dependency({
 				verb,
 				// the group already names the dataset or package, so its entries name how it is used
-				label: flow(e, byValue ? renderFunctionName(e.functionName) : unknownGuardedName(e)),
+				label: flow(e, byValue ? usageName(e, ast) : unknownGuardedName(e)),
 				info:  e,
 				dfi, ast, category, categoryInfo, allInfos, locationMap, libraryVersions
 			})),

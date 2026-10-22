@@ -38,6 +38,12 @@
   "main": "./dist/node/extension.js",
   "browser": "./dist/web/extension.js",
   "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "vscode-flowr.mcp",
+        "label": "flowR"
+      }
+    ],
     "colors": [
       {
         "id": "vscodeFlowr.category.library",
@@ -340,6 +346,12 @@
         "category": "flowR"
       },
       {
+        "command": "vscode-flowr.dependencyView.locate",
+        "title": "Locate in Dependency View",
+        "icon": "$(target)",
+        "category": "flowR"
+      },
+      {
         "command": "vscode-flowr.feedback",
         "title": "Give Feedback (Opens Browser)",
         "icon": "$(feedback)",
@@ -600,6 +612,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Whether flowR suggests completions and signature help for functions of loaded packages, backed by the signature database. Disable if it gets in the way of your usual completions."
+        },
+        "vscode-flowr.mcp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Offer flowR's MCP server (`@eagleoutice/flowr-mcp`, started with `npx`) to the editor's MCP clients, e.g. Copilot's agent mode. Needs VS Code 1.101 or newer and Node 22 or newer, and is not available in the browser."
         },
         "vscode-flowr.completion.alwaysAvailablePackages": {
           "type": "array",
@@ -1097,6 +1114,10 @@
       ],
       "editor/context": [
         {
+          "command": "vscode-flowr.dependencyView.locate",
+          "when": "resourceLangId == r || resourceLangId == rmd"
+        },
+        {
           "command": "vscode-flowr.slice.position",
           "when": "resourceLangId == r || resourceLangId == rmd"
         },
@@ -1273,7 +1294,7 @@
       "editor/title": [
         {
           "command": "vscode-flowr.slice.clear",
-          "when": "resourceLangId == r",
+          "when": "resourceLangId == r || resourceLangId == rmd",
           "group": "navigation"
         }
       ]
@@ -1319,17 +1340,22 @@
       {
         "command": "vscode-flowr.slice.position",
         "key": "alt+p",
-        "when": "resourceLangId == r"
+        "when": "editorLangId == r || editorLangId == rmd"
       },
       {
         "command": "vscode-flowr.slice.cursor",
         "key": "alt+s",
-        "when": "resourceLangId == r"
+        "when": "editorLangId == r || editorLangId == rmd"
+      },
+      {
+        "command": "vscode-flowr.dependencyView.locate",
+        "key": "alt+d",
+        "when": "editorLangId == r || editorLangId == rmd"
       },
       {
         "command": "vscode-flowr.slice.clear",
         "key": "alt+c",
-        "when": "resourceLangId == r"
+        "when": "editorLangId == r || editorLangId == rmd"
       }
     ]
   },
@@ -1360,7 +1386,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.16.3",
+    "@eagleoutice/flowr": "^2.16.6",
     "assert": "^2.1.0",
     "brotli-dec-wasm": "^2.3.2",
     "browserify-zlib": "^0.2.0",

@@ -14,6 +14,7 @@ import { SourceLocation } from '@eagleoutice/flowr/util/range';
 /** registers the lint commands backed by a {@link LinterService} */
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(context, output);
+	context.subscriptions.push(watchRPackages());
 	registerCommand(context, 'vscode-flowr.lint.run', async() => {
 		await linter.updateDiagnostics(true);
 	});
@@ -37,7 +38,29 @@ async function fileExists(uri: vscode.Uri): Promise<boolean> {
 }
 
 /** whether a document lives in an R package: walks up (bounded by the workspace) for a `DESCRIPTION` file */
-export async function isInRPackage(document: Pick<vscode.TextDocument, 'uri'>): Promise<boolean> {
+export function isInRPackage(document: Pick<vscode.TextDocument, 'uri'>): Promise<boolean> {
+	// asked on every code action request, so the walk is cached per folder until a DESCRIPTION file comes or goes
+	const dir = vscode.Uri.joinPath(document.uri, '..').toString();
+	let result = packageCache.get(dir);
+	if(!result) {
+		result = findDescription(document);
+		packageCache.set(dir, result);
+	}
+	return result;
+}
+
+const packageCache = new Map<string, Promise<boolean>>();
+
+/** forgets the cached {@link isInRPackage} answers when a DESCRIPTION file is created or deleted */
+export function watchRPackages(): vscode.Disposable {
+	const watcher = vscode.workspace.createFileSystemWatcher('**/DESCRIPTION', false, true, false);
+	const clear = () => packageCache.clear();
+	// deleting or moving a whole package folder fires no event for its DESCRIPTION
+	return vscode.Disposable.from(watcher, watcher.onDidCreate(clear), watcher.onDidDelete(clear),
+		vscode.workspace.onDidDeleteFiles(clear), vscode.workspace.onDidRenameFiles(clear), vscode.workspace.onDidChangeWorkspaceFolders(clear));
+}
+
+async function findDescription(document: Pick<vscode.TextDocument, 'uri'>): Promise<boolean> {
 	const folder = vscode.workspace.getWorkspaceFolder(document.uri);
 	if(!folder) {
 		return false;

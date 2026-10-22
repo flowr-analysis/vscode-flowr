@@ -1,6 +1,16 @@
 # Version 0.9.0 (unreleased)
+- Offer flowR's MCP server to the editor's MCP clients on desktop (`vscode-flowr.mcp.enabled`)
+- Complete the columns of data frames after `df$`, `df[["` and `df[, "`, using the shape flowR infers (columns it is sure of first)
+- Update to flowR 2.16.6; removal slices are now computed by flowR (`removal` option of the slice query) instead of by the extension
+- A fully downloaded signature database no longer slows down the extension: file hashes, the opened databases and the known package names are cached instead of being recomputed on every completion, hover and tree refresh
 - Update to flowR 2.16.2 and offer its new `unused-import`, `unclosed-connection`, `unescaped-arguments` and `namespace-access` linting rules (enabled by default)
-- Update to flowR 2.16.3 and offer its linting rules ported from `R CMD check` (e.g. `dependency-declaration`, `documentation-mismatch`, `call-arguments`, `rd-files`), enabled by default for files inside an R package
+- Line indicators use the middle lane of the scrollbar, so lint warnings no longer paint over their color
+- Dependency view: entries from sourced scripts open that script and name it; the last enabled category cannot be disabled (an empty list means all)
+- Toggles (negative slice, union/intersection, line indicators, categories) write where the setting is set, not always to the user settings
+- Slice keybindings and the clear button also work in R Markdown; removal marks disappear on edit
+- Dependency view: selecting an entry grays out the unrelated entries (instead of dimming code); Alt+D locates the code under the cursor in the view; empty categories are grouped under "No findings"
+- Removal slices remove statements in loops and blocks, a plot's `png()`/`dev.off()`/`ggsave()`, comment lines above removed code, and parts of shared lines; the calls between a device and its `dev.off()` go together, also for plot functions flowR does not know (e.g. `stm::cloud`)
+- Update to flowR 2.16.4 and offer its linting rules ported from `R CMD check` (e.g. `dependency-declaration`, `documentation-mismatch`, `call-arguments`, `rd-files`), enabled by default for files inside an R package
 - Data transformations, the variables data comes from, plot titles and the files plots are saved to now come from flowR instead of the extension's own heuristics, so a call combining several variables reads `merge(a, b) → m` and an output names what it writes (`p → growth.png`)
 - The dependency view now also refreshes when lines are inserted above all code (e.g. pressing Enter at the start of the file), which previously left stale line numbers
 - Findings of scripts loaded with `source()` no longer appear in R Markdown files that source them, and quick fixes are now also offered in R Markdown
@@ -14,7 +24,6 @@
 - The Signature Database and Project views start collapsed
 - Removal slices: mark the statements only the expression under the cursor (or a dependency) needs, with a diff of the script without them
 - Dependency view: entries grouped by dataset, file or package; file names instead of long paths; `filter(df) → small` (from dplyr) instead of `function "dplyr::filter"`, `data.csv → raw` for imports; clicking highlights the code; empty categories grayed out at the bottom
-- A printed top-level ggplot is shown as "plot drawn (printed)" instead of "`+` produces the output stdout"
 - New category for data transformations (dplyr, tidyr, `merge`, `subset`, `aggregate`, ...); categories ordered along the analysis; plots named by title, variable or saved file
 - One line indicator color per line: setup in greens, data in blues, results in orange and vermillion
 - Position slices can show the intersection instead of the union of all marked positions (`vscode-flowr.slice.positionCombination`, "Toggle Union/Intersection of Position Slices")

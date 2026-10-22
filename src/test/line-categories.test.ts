@@ -35,7 +35,7 @@ suite('line category indicators', () => {
 		const lines = await get();
 		assert.deepStrictEqual(cats(lines, 0), ['library', 'transform'], JSON.stringify(lines));
 		assert.ok(lines[0].labels.join().includes('`dplyr::…`'), lines[0].labels.join());
-		assert.deepStrictEqual(cats(lines, 1), ['transform'], 'a plain filter() is no library dependency, but still a transformation');
+		assert.strictEqual(cats(lines, 1), undefined, 'without dplyr loaded, filter() is the time-series stats::filter');
 		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
 	});
 
