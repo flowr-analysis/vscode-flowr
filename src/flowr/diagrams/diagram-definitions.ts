@@ -9,7 +9,7 @@ export enum FlowrDiagramType {
 	Controlflow = 'flowr-cfg',
 	Ast = 'flowr-ast',
 	CallGraph = 'flowr-call-graph',
-};
+}
 
 export interface DiagramDefinition<Options extends DiagramOptions> {
 	/** The title displayed on the tab of the panel */
@@ -40,7 +40,7 @@ export interface DiagramOptionsCheckbox<T = string> extends DiagramOptionsBase<b
 	displayText: string
 	/** If set, it will be used to set the value in a set references by {@link key} in vscode's settings.json */
 	keyInSet:    T | undefined
-};
+}
 
 export interface DiagramOptionsDropdown<T = string> extends DiagramOptionsBase<T> {
 	type:   'dropdown'
@@ -48,7 +48,7 @@ export interface DiagramOptionsDropdown<T = string> extends DiagramOptionsBase<T
 		value:       T
 		displayText: string
 	}[]
-};
+}
 
 export type DiagramOption = DiagramOptionsCheckbox | DiagramOptionsDropdown;
 
@@ -104,7 +104,7 @@ export const CFGDiagramOptions = {
 		default:      true,
 		currentValue: true,
 		keyInSet:     v
-	}])) as { [K in CfgSimplificationPassName]: DiagramOptionsCheckbox<CfgSimplificationPassName> } )
+	}])) as { [K in CfgSimplificationPassName]: DiagramOptionsCheckbox<CfgSimplificationPassName> })
 } satisfies DiagramOptions;
 
 export const DiagramDefinitions = {

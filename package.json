@@ -38,6 +38,104 @@
   "main": "./dist/node/extension.js",
   "browser": "./dist/web/extension.js",
   "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "vscode-flowr.mcp",
+        "label": "flowR"
+      }
+    ],
+    "colors": [
+      {
+        "id": "vscodeFlowr.category.library",
+        "description": "Color of the flowR Libraries category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#4CAF50",
+          "light": "#4CAF50",
+          "highContrast": "#4CAF50",
+          "highContrastLight": "#4CAF50"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.remote",
+        "description": "Color of the flowR Remote Installs category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#26A69A",
+          "light": "#26A69A",
+          "highContrast": "#26A69A",
+          "highContrastLight": "#26A69A"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.source",
+        "description": "Color of the flowR Sourced Scripts category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#9CCC65",
+          "light": "#9CCC65",
+          "highContrast": "#9CCC65",
+          "highContrastLight": "#9CCC65"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.read",
+        "description": "Color of the flowR Imported Data category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#0072B2",
+          "light": "#0072B2",
+          "highContrast": "#0072B2",
+          "highContrastLight": "#0072B2"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.transform",
+        "description": "Color of the flowR Data Transformations category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#56B4E9",
+          "light": "#56B4E9",
+          "highContrast": "#56B4E9",
+          "highContrastLight": "#56B4E9"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.statistics",
+        "description": "Color of the flowR Statistical Tests category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#7B3294",
+          "light": "#7B3294",
+          "highContrast": "#7B3294",
+          "highContrastLight": "#7B3294"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.test",
+        "description": "Color of the flowR Tests category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#CC79A7",
+          "light": "#CC79A7",
+          "highContrast": "#CC79A7",
+          "highContrastLight": "#CC79A7"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.visualize",
+        "description": "Color of the flowR Visualizations category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#E69F00",
+          "light": "#E69F00",
+          "highContrast": "#E69F00",
+          "highContrastLight": "#E69F00"
+        }
+      },
+      {
+        "id": "vscodeFlowr.category.write",
+        "description": "Color of the flowR Outputs category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#D55E00",
+          "light": "#D55E00",
+          "highContrast": "#D55E00",
+          "highContrastLight": "#D55E00"
+        }
+      }
+    ],
     "languages": [
       {
         "id": "r",
@@ -92,14 +190,14 @@
         "command": "vscode-flowr.internal.slice.dependency",
         "title": "Show Relevant Code for Dependency (Backward Slice)",
         "category": "flowR",
-        "icon": "$(graph)",
+        "icon": "$(arrow-up)",
         "enablement": "sideBarFocus"
       },
       {
         "command": "vscode-flowr.internal.forward-slice.dependency",
         "title": "Show Influence of Dependency (Forward Slice)",
         "category": "flowR",
-        "icon": "$(graph)",
+        "icon": "$(arrow-down)",
         "enablement": "sideBarFocus"
       },
       {
@@ -107,6 +205,18 @@
         "title": "Update the Dependency View",
         "category": "flowR",
         "icon": "$(sync)"
+      },
+      {
+        "command": "vscode-flowr.search",
+        "title": "Search Variables, Functions and Strings",
+        "category": "flowR",
+        "icon": "$(search)"
+      },
+      {
+        "command": "vscode-flowr.style.toggleLineCategoryIndicators",
+        "title": "Toggle Line Category Indicators",
+        "category": "flowR",
+        "icon": "$(symbol-color)"
       },
       {
         "command": "vscode-flowr.dependencyView.guessVersions",
@@ -183,6 +293,34 @@
         "category": "flowR"
       },
       {
+        "command": "vscode-flowr.slice.position.toggleCombination",
+        "title": "Toggle Union/Intersection of Position Slices",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.slice.removal",
+        "title": "Show Removable Code (Removal Slice)",
+        "category": "flowR",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "vscode-flowr.internal.removal-slice.dependency",
+        "title": "Show Removable Code (Removal Slice)",
+        "category": "flowR",
+        "icon": "$(trash)",
+        "enablement": "sideBarFocus"
+      },
+      {
+        "command": "vscode-flowr.slice.toggleNegative",
+        "title": "Toggle Negative Slice",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.slice.fold",
+        "title": "Fold Code Outside the Slice",
+        "category": "flowR"
+      },
+      {
         "command": "vscode-flowr.dataflow",
         "title": "Show Dataflow Graph",
         "icon": "$(graph)",
@@ -205,6 +343,12 @@
         "command": "vscode-flowr.session.disconnect",
         "title": "Disconnect from flowR Server",
         "icon": "$(server)",
+        "category": "flowR"
+      },
+      {
+        "command": "vscode-flowr.dependencyView.locate",
+        "title": "Locate in Dependency View",
+        "icon": "$(target)",
         "category": "flowR"
       },
       {
@@ -305,6 +449,11 @@
           ],
           "markdownDescription": "The flowR engine to use when parsing R code. For more information, see the [engines documentation](https://github.com/flowr-analysis/flowr/wiki/Engines). This setting is ignored when running the extension in the browser, as tree-sitter mode is always used."
         },
+        "vscode-flowr.style.lineCategoryIndicators": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show colored bars next to the line numbers for lines with dependencies (libraries, data, plots, outputs, ...). Hover a line for details. Uses the dependency view's enabled categories and colors (`vscodeFlowr.category.*`)."
+        },
         "vscode-flowr.style.sliceOpacity": {
           "type": "number",
           "default": 0.25,
@@ -357,6 +506,20 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Do you want to automatically view the reconstruction of every slice (i.e., see the standalone slice in an extra window)?"
+        },
+        "vscode-flowr.slice.positionCombination": {
+          "type": "string",
+          "enum": [
+            "union",
+            "intersection"
+          ],
+          "default": "union",
+          "markdownDescription": "How the slices of all tracked positions (see the position slicing commands) are combined. `union` shows everything contained in any slice, `intersection` only the code contained in the slice of every tracked position. With both backward and forward positions, `intersection` also intersects the backward slices with the forward slices."
+        },
+        "vscode-flowr.slice.negative": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Show the complement of every slice: the code in the slice is dimmed (or, with the `tokens` display, the code outside it is highlighted) and the reconstruction shows only the lines without any slice element."
         },
         "vscode-flowr.slice.includeCallees": {
           "type": "boolean",
@@ -440,10 +603,20 @@
           "default": true,
           "markdownDescription": "Whether to use flowR's more advanced data frame shape inference."
         },
+        "vscode-flowr.packageInfo.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Whether flowR provides hovers with package and function information, *Go to Definition* and *Find References* for R files. Turn this off to only use other language support for these (for example, the R extension)."
+        },
         "vscode-flowr.completion.enabled": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "Whether flowR suggests completions and signature help for functions of loaded packages, backed by the signature database. Disable if it gets in the way of your usual completions."
+        },
+        "vscode-flowr.mcp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Offer flowR's MCP server (`@eagleoutice/flowr-mcp`, started with `npx`) to the editor's MCP clients, e.g. Copilot's agent mode. Needs VS Code 1.101 or newer and Node 22 or newer, and is not available in the browser."
         },
         "vscode-flowr.completion.alwaysAvailablePackages": {
           "type": "array",
@@ -465,6 +638,26 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Whether to suggest dotted function names (e.g. `print.data.frame`, usually S3 methods) before you've typed the dot yourself. Off by default, so typing `print` only suggests `print` itself; typing `print.` still suggests `print.data.frame`."
+        },
+        "vscode-flowr.symbols.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Provide symbols (outline, breadcrumbs, *Go to Symbol*) for assigned variables and functions, and for dependencies such as libraries, data, plots and outputs."
+        },
+        "vscode-flowr.symbols.withRLanguageServer": {
+          "type": "string",
+          "enum": [
+            "complement",
+            "full",
+            "off"
+          ],
+          "default": "complement",
+          "enumDescriptions": [
+            "Only dependencies; the language server lists the assignments.",
+            "All symbols, including those the language server lists too.",
+            "No symbols."
+          ],
+          "markdownDescription": "Which symbols flowR provides while the R extension's language server ([REditorSupport.r](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r), needs R's `languageserver`) runs. Without it, flowR provides all symbols."
         },
         "vscode-flowr.completion.withRLanguageServer": {
           "type": "string",
@@ -643,7 +836,8 @@
               "visualize",
               "test",
               "statistics",
-              "remote"
+              "remote",
+              "transform"
             ],
             "enumDescriptions": [
               "Libraries",
@@ -653,7 +847,8 @@
               "Visualizations",
               "Tests",
               "Statistical Tests",
-              "Remote Installs"
+              "Remote Installs",
+              "Data Transformations"
             ]
           },
           "default": [
@@ -664,7 +859,8 @@
             "visualize",
             "test",
             "statistics",
-            "remote"
+            "remote",
+            "transform"
           ],
           "markdownDescription": "When using the dependency view, which dependency categories should be detected. Can also be toggled by right-clicking on a category in the dependency view itself."
         },
@@ -690,7 +886,30 @@
               "software-has-tests",
               "no-leaked-credentials",
               "undefined-symbol",
-              "syntactically-valid"
+              "syntactically-valid",
+              "unused-import",
+              "unclosed-connection",
+              "unescaped-arguments",
+              "namespace-access",
+              "class-string-comparison",
+              "description-metadata",
+              "documentation-mismatch",
+              "non-ascii-code",
+              "true-false-abbreviation",
+              "bogus-return",
+              "package-hooks",
+              "global-environment-modification",
+              "namespace-tampering",
+              "s3-method-consistency",
+              "foreign-function-calls",
+              "dependency-declaration",
+              "call-arguments",
+              "package-structure",
+              "compiled-code",
+              "package-metafiles",
+              "rd-files",
+              "package-data",
+              "package-runtime"
             ],
             "enumDescriptions": [
               "Marks deprecated functions that should not be used anymore.",
@@ -710,7 +929,30 @@
               "Checks whether the project has tests.",
               "Detects hardcoded credentials (experimental).",
               "Flags calls to functions that are neither defined locally, a known builtin, nor exported by a loaded package (experimental).",
-              "Reports syntax errors the parser had to recover from, with quick fixes where possible (off by default)."
+              "Reports syntax errors the parser had to recover from, with quick fixes where possible (off by default).",
+              "Highlights packages that are attached but never used (requires the signature database).",
+              "Flags connections that are opened but not closed on every path.",
+              "Detects unescaped arguments to critical system, evaluation, database and HTML/JavaScript calls.",
+              "Flags pkg:::name where pkg::name would do, and pkg::name for names pkg does not export.",
+              "R CMD check: flags `if`/`while` conditions comparing `class(x)` with a string, with `inherits()` as a quick fix (R packages only).",
+              "R CMD check: checks the fields, version, maintainer, license and style of the DESCRIPTION (R packages only).",
+              "R CMD check: finds undocumented exports and functions whose formals differ from their Rd `\\usage` and `\\arguments` (R packages only).",
+              "R CMD check: finds non-ASCII characters in code and the NAMESPACE outside of comments, with `\\u` escapes as a quick fix (R packages only).",
+              "R CMD check: finds `T` and `F` used for `TRUE` and `FALSE` (off by default, R packages only).",
+              "R CMD check: finds a bare `return` without `()`, with `return()` as a quick fix (R packages only).",
+              "R CMD check: checks `.onLoad`, `.onAttach`, `.onDetach` and `.Last.lib` (R packages only).",
+              "R CMD check: finds code that changes the global environment, e.g. `assign()` into it, `attach()` or `<<-` (R packages only).",
+              "R CMD check: finds `unlockBinding()` and `assignInNamespace()` on other namespaces and `.Internal()` calls (R packages only).",
+              "R CMD check: finds S3 methods whose formals do not match their generic or that are not registered (R packages only).",
+              "R CMD check: checks `.Call`, `.C`, `.External` and `.Fortran` calls (R packages only).",
+              "R CMD check: finds packages used but not declared in the DESCRIPTION, and declared imports never used (R packages only).",
+              "R CMD check: finds calls with arguments the called function does not take, or that match its formals only partially (R packages only).",
+              "R CMD check: checks the package files, e.g. portable names, hidden files, sizes and line endings (R packages only).",
+              "R CMD check: checks `src/` and the build files, e.g. non-portable Makevars flags (R packages only).",
+              "R CMD check: checks the demo index, `INDEX`, `inst/CITATION`, and links in README, NEWS and vignettes (R packages only).",
+              "R CMD check: checks the Rd files, e.g. syntax, sections, cross-references and examples (R packages only).",
+              "R CMD check: checks `data/` and `R/sysdata.rda` (R packages only).",
+              "R CMD check: finds what makes installing, loading or running the package fail, e.g. undefined exports (R packages only)."
             ]
           },
           "default": [
@@ -728,9 +970,31 @@
             "software-has-license",
             "software-has-tests",
             "no-leaked-credentials",
-            "undefined-symbol"
+            "undefined-symbol",
+            "unused-import",
+            "unclosed-connection",
+            "unescaped-arguments",
+            "namespace-access",
+            "class-string-comparison",
+            "description-metadata",
+            "documentation-mismatch",
+            "non-ascii-code",
+            "bogus-return",
+            "package-hooks",
+            "global-environment-modification",
+            "namespace-tampering",
+            "s3-method-consistency",
+            "foreign-function-calls",
+            "dependency-declaration",
+            "call-arguments",
+            "package-structure",
+            "compiled-code",
+            "package-metafiles",
+            "rd-files",
+            "package-data",
+            "package-runtime"
           ],
-          "markdownDescription": "The names of the linting rules that should be enabled. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their identifiers. By default, all rules except `naming-convention`, `roxygen-arguments` and `syntactically-valid` are enabled. An empty array causes _all_ linting rules (including those three) to be enabled."
+          "markdownDescription": "The names of the linting rules that should be enabled. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their identifiers. By default, all rules except `naming-convention`, `roxygen-arguments`, `syntactically-valid` and `true-false-abbreviation` are enabled. The rules ported from `R CMD check` (and `software-has-license`/`software-has-tests`) only run on files inside an R package. An empty array causes _all_ linting rules (including those four) to be enabled."
         },
         "vscode-flowr.linter.ruleConfigs": {
           "type": "object",
@@ -816,6 +1080,10 @@
     "menus": {
       "commandPalette": [
         {
+          "command": "vscode-flowr.internal.removal-slice.dependency",
+          "when": "false"
+        },
+        {
           "command": "vscode-flowr.internal.goto.dependency",
           "when": "false"
         },
@@ -846,27 +1114,70 @@
       ],
       "editor/context": [
         {
+          "command": "vscode-flowr.dependencyView.locate",
+          "when": "resourceLangId == r || resourceLangId == rmd"
+        },
+        {
           "command": "vscode-flowr.slice.position",
-          "when": "resourceLangId == r"
+          "when": "resourceLangId == r || resourceLangId == rmd"
         },
         {
           "command": "vscode-flowr.forward-slice.position",
-          "when": "resourceLangId == r"
+          "when": "resourceLangId == r || resourceLangId == rmd"
         },
         {
           "command": "vscode-flowr.slice.cursor",
-          "when": "resourceLangId == r"
+          "when": "resourceLangId == r || resourceLangId == rmd"
         },
         {
           "command": "vscode-flowr.forward-slice.cursor",
-          "when": "resourceLangId == r"
+          "when": "resourceLangId == r || resourceLangId == rmd"
+        },
+        {
+          "command": "vscode-flowr.slice.removal",
+          "when": "resourceLangId == r || resourceLangId == rmd"
         },
         {
           "command": "vscode-flowr.slice.clear",
-          "when": "resourceLangId == r"
+          "when": "resourceLangId == r || resourceLangId == rmd"
+        },
+        {
+          "command": "vscode-flowr.slice.toggleNegative",
+          "when": "resourceLangId == r || resourceLangId == rmd",
+          "group": "flowR-slice-mode"
+        },
+        {
+          "command": "vscode-flowr.slice.position.toggleCombination",
+          "when": "resourceLangId == r || resourceLangId == rmd",
+          "group": "flowR-slice-mode"
+        },
+        {
+          "command": "vscode-flowr.slice.fold",
+          "when": "resourceLangId == r || resourceLangId == rmd",
+          "group": "flowR-slice-mode"
         }
       ],
       "view/item/context": [
+        {
+          "command": "vscode-flowr.internal.slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-flowr.internal.forward-slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-flowr.internal.removal-slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "inline"
+        },
+        {
+          "command": "vscode-flowr.internal.removal-slice.dependency",
+          "when": "view == flowr-dependencies && viewItem == dependency",
+          "group": "flowR"
+        },
         {
           "command": "vscode-flowr.internal.slice.dependency",
           "when": "view == flowr-dependencies && viewItem == dependency",
@@ -925,6 +1236,16 @@
       ],
       "view/title": [
         {
+          "command": "vscode-flowr.search",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@0"
+        },
+        {
+          "command": "vscode-flowr.style.toggleLineCategoryIndicators",
+          "when": "view == flowr-dependencies",
+          "group": "navigation@0"
+        },
+        {
           "command": "vscode-flowr.dependencyView.guessVersions",
           "when": "view == flowr-dependencies",
           "group": "navigation@1"
@@ -973,7 +1294,7 @@
       "editor/title": [
         {
           "command": "vscode-flowr.slice.clear",
-          "when": "resourceLangId == r",
+          "when": "resourceLangId == r || resourceLangId == rmd",
           "group": "navigation"
         }
       ]
@@ -1003,7 +1324,8 @@
         {
           "id": "flowr-sigdb",
           "icon": "$(database)",
-          "name": "Signature Database"
+          "name": "Signature Database",
+          "visibility": "collapsed"
         },
         {
           "id": "flowr-project",
@@ -1018,17 +1340,22 @@
       {
         "command": "vscode-flowr.slice.position",
         "key": "alt+p",
-        "when": "resourceLangId == r"
+        "when": "editorLangId == r || editorLangId == rmd"
       },
       {
         "command": "vscode-flowr.slice.cursor",
         "key": "alt+s",
-        "when": "resourceLangId == r"
+        "when": "editorLangId == r || editorLangId == rmd"
+      },
+      {
+        "command": "vscode-flowr.dependencyView.locate",
+        "key": "alt+d",
+        "when": "editorLangId == r || editorLangId == rmd"
       },
       {
         "command": "vscode-flowr.slice.clear",
         "key": "alt+c",
-        "when": "resourceLangId == r"
+        "when": "editorLangId == r || editorLangId == rmd"
       }
     ]
   },
@@ -1052,59 +1379,52 @@
     "precompile-web": "npm run copy-wasm-web",
     "compile-web": "webpack --config-name web && node scripts/fetch-web-sigdb.mjs",
     "pretest-web": "npm run compile-web",
-    "test-web": "vscode-test-web --extensionDevelopmentPath=. --extensionTestsPath=$PWD/dist/web/test/suite/index.js --headless example",
+    "test-web": "vscode-test-web --quality stable --extensionDevelopmentPath=. --extensionTestsPath=$PWD/dist/web/test/suite/index.js --headless test-workspace",
     "prepackage-web": "npm run copy-wasm-web",
     "package-web": "webpack --mode production --devtool hidden-source-map --config-name web && node scripts/fetch-web-sigdb.mjs",
-    "prewatch-web": "npm run copy-wasm-web",
+    "prewatch-web": "npm run copy-wasm-web && node scripts/fetch-web-sigdb.mjs",
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.15.10",
+    "@eagleoutice/flowr": "^2.16.6",
     "assert": "^2.1.0",
     "brotli-dec-wasm": "^2.3.2",
     "browserify-zlib": "^0.2.0",
     "constants-browserify": "^1.0.0",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
-    "readline": "^1.3.0",
-    "readline-browser": "^0.0.3",
-    "readline-sync": "^1.4.10",
     "semver": "^7.8.1",
     "stream-browserify": "^3.0.0",
-    "timers-browserify": "^2.0.12",
     "util": "^0.12.5"
   },
   "devDependencies": {
-    "@eagleoutice/eslint-config-flowr": "^1.0.43",
-    "@eslint/eslintrc": "^3.3.3",
-    "@eslint/js": "^9.39.2",
+    "@davisvaughan/tree-sitter-r": "^1.3.0",
+    "@eagleoutice/eslint-config-flowr": "^2.1.8",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.19.19",
-    "@types/semver": "^7.7.1",
+    "@types/semver": "^7.8.0",
     "@types/vscode": "^1.92.0",
-    "@types/webpack-env": "^1.16.0",
-    "@types/ws": "^8.5.10",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2",
-    "@vscode/test-web": "^0.0.80",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/test-web": "^0.0.81",
+    "buffer": "^6.0.3",
     "copy-webpack-plugin": "^14.0.0",
+    "eslint": "^10.13.0",
     "mocha": "^11.7.6",
-    "ts-essentials": "^10.2.0",
-    "ts-loader": "^9.6.0",
+    "process": "^0.11.10",
+    "ts-essentials": "^10.2.1",
+    "ts-loader": "^9.6.2",
     "typescript": "^5.6.2",
     "url": "^0.11.4",
-    "webpack": "^5.107.2",
-    "webpack-cli": "^7.0.3"
-  },
-  "eslintConfig": {
-    "extends": [
-      "@eagleoutice/eslint-config-flowr"
-    ],
-    "rules": {
-      "tsdoc/syntax": "off"
-    }
+    "web-tree-sitter": "^0.24.7",
+    "webpack": "^5.112.0",
+    "webpack-cli": "^7.2.3"
   },
   "allowScripts": {
-    "@davisvaughan/tree-sitter-r@1.2.0": true
+    "@davisvaughan/tree-sitter-r@1.3.0": true
+  },
+  "overrides": {
+    "serialize-javascript": "^7.1.2",
+    "diff": "^8.0.4"
   }
 }

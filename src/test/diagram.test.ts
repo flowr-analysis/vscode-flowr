@@ -14,7 +14,7 @@ async function testDiagramGeneration(command: string) {
 			onGenerated() {
 				resolve({ error: false });
 			}
-		} as WebviewCallbacks);
+		} satisfies WebviewCallbacks);
 	});
 
 	assert.equal(result.error, false, `diagram generation reported an error: ${result.message}`);

@@ -142,7 +142,7 @@ Additionally, we recommend using the [R extension](https://marketplace.visualstu
 
 ### Linting
 
-By default, the extension enables all linting rules available in *flowR* except `naming-convention` and `roxygen-arguments`; extensive information about the rules can be found on the [wiki page](https://github.com/flowr-analysis/flowr/wiki/Linter). The package-structure rules `software-has-license` and `software-has-tests` are only applied when the file is part of an R package (i.e. a `DESCRIPTION` file is present up the directory tree), so they do not add noise to standalone scripts. You can adjust the enabled rules under `vscode-flowr.linter.enabledRules`. Some linters additionally ship with code actions in the form of quick fixes which, once invoked, automatically edit or remove the relevant code snippet.
+By default, the extension enables all linting rules available in *flowR* except `naming-convention`, `roxygen-arguments`, `syntactically-valid` and `true-false-abbreviation`; extensive information about the rules can be found on the [wiki page](https://github.com/flowr-analysis/flowr/wiki/Linter). The rules *flowR* ports from `R CMD check` (such as `dependency-declaration`, `documentation-mismatch` or `s3-method-consistency`) and the package-structure rules `software-has-license` and `software-has-tests` are only applied when the file is part of an R package (i.e. a `DESCRIPTION` file is present up the directory tree), so they do not add noise to standalone scripts. You can adjust the enabled rules under `vscode-flowr.linter.enabledRules`. Some linters additionally ship with code actions in the form of quick fixes which, once invoked, automatically edit or remove the relevant code snippet.
 
 To manually invoke the linter, you can use the "Code Quality Analysis (Linter)" command. Additionally, you can modify under what conditions the linter automatically refreshes its results in the extension's settings.
 
@@ -181,13 +181,54 @@ You can also view the reconstruction of a piece of code based on the current bac
 
 To clear the slice highlighting, use the "Clear Current Slice Presentation" command or the crossed out eye icon in the upper right of the editor.
 
+If a slice comes out empty, flowR tells you why (for example, the cursor is not on an R expression, the file has syntax errors flowR could only partially recover from, the slices of the marked positions have nothing in common, or flowR itself failed): as a warning when you sliced explicitly, in the status bar while the slice updates continuously, and in the reconstruction.
+
+If you close the reconstruction (or the diff view, see the `vscode-flowr.style.sliceDisplay` setting), it stays closed until you clear the slice or explicitly open it again with "Show Current Slice in Editor (Reconstruct)".
+
+When you mark multiple positions (<kbd>Alt</kbd>+<kbd>P</kbd>), the editor shows the union of their slices by default. Use "Toggle Union/Intersection of Position Slices" (setting `vscode-flowr.slice.positionCombination`) to only show the code that is part of the slice of *every* marked position.
+
+"Removal Slice" (editor context menu, or the trash button next to a [dependency](#dependency-view)) marks the statements only the expression under the cursor (or the dependency) needs, and shows the script without them in a diff view. Example: removing `plot(helper)` also removes `helper <- raw$a * 2` if nothing else uses `helper`, but keeps `raw <- read.csv(...)` if `raw` is used later. A removed plot takes its `png()`/`dev.off()`, its `ggsave()` and a `library()` only it needs with it; removing a `ggsave()` removes the plot it saves. Statements inside loops and blocks are removed on their own, comment lines right above removed code go with it. Statements the rest of the script needs in part are kept whole.
+
+"Toggle Negative Slice" (setting `vscode-flowr.slice.negative`) inverts every slice: the slice itself is grayed out and the reconstruction shows the remaining code, which is useful to see what you can cut. "Fold Code Outside the Slice" folds the grayed out regions (in negative mode, the slice itself); clearing the slice unfolds them again.
+
 ![A screenshot of the extension being used to reconstruct a slice](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/reconstruct.png)
 
 ### Dependency View
 
 ![A screenshot of a dependency diagram for a piece of code](https://raw.githubusercontent.com/flowr-analysis/vscode-flowr/refs/heads/main/media/dependencies.png)
 
-Using the extension, the sidebar should contain a flowR icon whose **Overview** view holds more information on the current file, listing the libraries loaded, the files read and written, and the sourced scripts. If you expand the respective sections, clicking on the found entries should open them in the editor. The context menu (available with a right click) allows you to [slice](#slicing) for the selected entry.
+Using the extension, the sidebar should contain a flowR icon whose **Overview** view holds more information on the current file, listing the libraries loaded, the files read and written, and the sourced scripts. If you expand the respective sections, clicking on the found entries should open them in the editor. The arrow buttons next to an entry (also in its context menu) [slice](#slicing) for it: backward for the code it depends on, forward for the code it influences. Entries are grouped by dataset, file or package. Paths show the file name (shortened in the middle if long) with the folder aside; calls show the function with its package aside (`filter`, *from dplyr*). Entries name the variables the data comes from and goes to: `filter(df) → small`, `data.csv → raw`, `small → out.csv`. Clicking an entry highlights its code and grays out the entries that do not relate to it (neither in its backward nor forward slice). <kbd>Alt</kbd>+<kbd>D</kbd> ("Locate in Dependency View") selects the entry of the code under the cursor. Empty categories are collected in a "No findings" group at the bottom. Categories use the colors of the [line indicators](#line-category-indicators) (theme colors `vscodeFlowr.category.*`).
+
+#### Line Category Indicators
+
+A slim colored bar next to the line numbers (and a mark in the overview ruler) shows what a line does. It appears when you open an R file. A line with several categories shows the one furthest along the analysis (library and plot: plot). Hover the line's code for the categories and the reason, e.g. `dplyr::select(...)` counts as a library dependency because `::` loads the package without `library()`.
+
+| Color | Category |
+|-------|----------|
+| green | library loads |
+| teal | remote installs |
+| light green | sourced scripts |
+| blue | imported data |
+| sky blue | data transformations (dplyr, tidyr, `merge`, `subset`, `aggregate`, ...) |
+| purple | statistical tests |
+| pink | tests |
+| orange | visualizations |
+| vermillion | outputs |
+
+Only categories enabled in the dependency view are marked. Toggle the bars with the color button in the dependency view's title bar or `vscode-flowr.style.lineCategoryIndicators`.
+
+### Search
+
+"Search Variables, Functions and Strings" (search button in the dependency view, or the command palette) searches the current file using flowR's dataflow graph.
+
+- Suggestions appear as you type, with a summary such as *2 definitions · 3 uses · passed to filter() · flows into clean*. Parts of names match too: `csv` finds `measurements.csv`, `md` finds `my_data`.
+- The buttons in the search bar show or hide variables, functions, called functions and strings. `@variable`, `@function`, `@call` and `@string` (or `@v`, `@f`, `@c`, `@s`) filter a single search; typing `@` lists them.
+- Picking a result lists its definitions, uses and calls, and where its value goes, one line each. `@def`, `@use`, `@call` and `@flow` narrow the list (also in the first step, e.g. `clean @use`). Moving through it previews the location, Enter jumps there.
+- Other text is searched literally ("Find ... in the code").
+
+### Document Symbols
+
+flowR provides symbols for the outline, breadcrumbs and *Go to Symbol in Editor* (<kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>) in R and R Markdown: assigned variables and functions (nested by function), and dependencies such as libraries, imported data, plots and outputs. If the R extension's language server runs, it already lists assignments, so flowR only adds the dependencies. Change this with `vscode-flowr.symbols.withRLanguageServer` (`full`, `off`); `vscode-flowr.symbols.enabled` turns the symbols off.
 
 ### Package Information
 
@@ -195,11 +236,17 @@ Hovering over a call in an R file tells you which package it stems from — for 
 
 <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+click (Go to Definition) resolves to: a locally defined function or variable's own definition; a package function's exact source line on GitHub (e.g. `ggplot()` opens `github.com/cran/ggplot2/blob/<version>/R/plot.R#L106`); or a `library(pkg)`/`require(pkg)` name's CRAN page.
 
+Set `vscode-flowr.packageInfo.enabled` to `false` to turn these hovers, Go to Definition and Find References off, for example to rely only on another R language server.
+
 ### Autocompletion
 
 Once a script `library()`s a package the [signature database](#signature-database) knows, the extension suggests that package's exported functions as you type, and — once you're inside a call's parentheses — its documented argument names (already-supplied named arguments are excluded). A signature-help tooltip, triggered by `(` and `,`, shows the full parameter list as you fill in a call. Suggestions are labeled with their originating package, and note on hover that they come from flowR's signature database.
 
 If the [R extension](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r)'s language server is available (it is installed, `r.lsp.enabled` is on, and R's `languageserver` package is installed), the two harmonize instead of competing: that server completes from your actual R session, so by default flowR only adds what it cannot know — functions, arguments and package names of packages you do not have installed. `vscode-flowr.completion.withRLanguageServer` switches this to `full` (suggest everything, duplicates included) or `off` (leave R completions entirely to the language server). This is decided per keystroke, so installing, disabling or reconfiguring either extension takes effect without a window reload.
+
+### MCP Server
+
+On desktop, flowR registers its [MCP server](https://github.com/flowr-analysis/flowr/tree/main/mcp) (`@eagleoutice/flowr-mcp`, started with `npx`, Node 22 or newer) with VS Code (1.101 or newer), so MCP clients such as Copilot's agent mode can slice, lint and query R code with flowR. The server brings its own flowR and signature database. Turn it off with `vscode-flowr.mcp.enabled`.
 
 ### Project View
 
@@ -218,6 +265,8 @@ The **Signature DB** tab in the flowR sidebar shows what is actually downloaded,
 Use the download icon on the view's title bar to sync everything that is missing, or the download/remove icons on an individual scope's row to fetch or delete just that one — for **Current CRAN** you are asked which shard(s) you want. Nothing is downloaded automatically unless `vscode-flowr.config.solver.sigdb.autoSync` is enabled. The search icon (on the title bar, or on a specific scope's row to search only within it) looks up a package or function directly, and understands the same syntax as flowR's own `:signature` REPL query: a bare package name, `pkg::fn`, `pkg@version`, `pkg@version::fn`, and `*`/`?` glob wildcards in any part (e.g. `ggplot2@3.*::ggp*`); searching for a bare function name looks across every downloaded package. You can also point the extension at an additional local database directory via `vscode-flowr.config.solver.sigdb.customPath`.
 
 The active database (which scopes are downloaded) is shown when hovering the flowR status-bar item and in the REPL banner.
+
+In the browser (e.g. on [vscode.dev](https://vscode.dev)), the extension ships with the **Base R** scope bundled, since the other scopes cannot be downloaded there. Package information and suggestions for CRAN packages such as `dplyr` or `ggplot2` are therefore unavailable in the browser.
 
 ### Value Resolution
 
@@ -273,9 +322,9 @@ Then, you can install it the same way as you would the `vsix` downloaded [from G
 
 ## Issues and Feature Requests
 
-If you have an issue with the extension, or you have a good idea for a new feature, you can create a new issue from within the extension, and it will automatically be populated with some information about your setup.
+If you have an issue with the extension, or you have a good idea for a new feature, you can open an issue from within the extension, prefilled with information about your setup.
 
-To do so, simply press the bug-shaped button in the [dependency view](#dependency-view) or use the "Report Issue or Request Feature" command.
+To do so, press the feedback button in the [dependency view](#dependency-view) or run "flowR: Give Feedback (Opens Browser)".
 
 ## Development
 
@@ -296,6 +345,16 @@ You can then open the [example folder](https://github.com/flowr-analysis/vscode-
 To build the extension into a `vsix` file, see [this documentation article](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
 This will also work for Positron, as the extension is the same for both Visual Studio Code and Positron.
+
+### Testing
+
+`npm test` runs the test suite in a desktop instance of Visual Studio Code (on a headless Linux machine, run it with `xvfb-run`). `npm run test-web` runs the browser-capable part of the suite in the web version of Visual Studio Code (headless Chromium; install it once with `npx playwright install chromium`). The CI runs both.
+
+### Releasing and flowR Updates
+
+A commit on `main` whose message starts with `[release:patch]`, `[release:minor]` or `[release:major]` bumps the version, publishes the extension, and uses the matching `# Version` section of the [changelog](CHANGELOG.md) as release notes.
+
+The `flowr-update` workflow checks daily (and whenever it is triggered manually or by a `flowr-release` repository dispatch) whether a newer flowR version is available. If so, it updates the dependency, records it in the changelog (`scripts/bump-flowr.mjs`), runs the desktop and web tests and, only if they pass, opens (or updates) a pull request titled `[release:<step>] Bump to flowR <version>`. Squash-merging it with that title releases the update. The workflow needs a `RELEASE_TOKEN` secret allowed to push branches and open pull requests, so that the pull request triggers the regular CI.
 
 ### Git Hooks
 

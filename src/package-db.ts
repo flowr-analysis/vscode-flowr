@@ -119,8 +119,21 @@ function readManifestCached(manifestPath: string): SigDbManifest {
 	return manifest;
 }
 
-/** searches bundled dir, then configured additional path, then downloaded-bundle dir, first match wins (mirrors flowR's own sigdb plugin) */
+const scopeStateCache = new Map<string, SigDbScopeState>();
+
+/** searches bundled dir, then configured additional path, then downloaded-bundle dir, first match wins (mirrors flowR's own sigdb plugin); cached until {@link invalidateSigDbPackageNamesCache} */
 export function getSigDbScopeState(scope: 'base' | 'current' | 'history'): SigDbScopeState {
+	// keyed by what the lookup depends on, so a changed cache dir or custom path can never serve a stale state
+	const key = `${scope}|${sigDbCacheDir(undefined, false)}|${getSigDbAdditionalPath()}`;
+	let state = scopeStateCache.get(key);
+	if(!state) {
+		state = findSigDbScopeState(scope);
+		scopeStateCache.set(key, state);
+	}
+	return state;
+}
+
+function findSigDbScopeState(scope: 'base' | 'current' | 'history'): SigDbScopeState {
 	const dirs = [getBundledSigDbPath(), getSigDbAdditionalPath().trim() || undefined, getSigDbBundleDir()]
 		.filter((d): d is string => !!d);
 
@@ -147,6 +160,9 @@ function shardFilePresent(baseDir: string, shardPath: string): boolean {
 /** restricted sources (opened excluding the shards not on disk), keyed by manifest path + excluded ids; cleared by {@link invalidateSigDbPackageNamesCache} */
 const restrictedSourceCache = new Map<string, Promise<PackageSignatureSource | undefined>>();
 
+/** the opened source per scope; checking every shard of a full database against the disk is too slow to repeat per completion/hover */
+const scopeSourceCache = new Map<string, Promise<PackageSignatureSource | undefined>>();
+
 /**
  * A signature source for `scope` that mounts only the shards actually on disk. A partially-downloaded scope (e.g.
  * only "Top CRAN") lists every package in its manifest, but reading one whose shard was never fetched throws
@@ -156,7 +172,22 @@ const restrictedSourceCache = new Map<string, Promise<PackageSignatureSource | u
  * Kept separate from {@link getSigDbScopeState}, whose FULL manifest still drives the tree's "X of Y downloaded"
  * display and its "download the rest" affordance.
  */
-export async function getScopeSource(scope: 'base' | 'current' | 'history', onError?: (message: string) => void): Promise<PackageSignatureSource | undefined> {
+export function getScopeSource(scope: 'base' | 'current' | 'history', onError?: (message: string) => void): Promise<PackageSignatureSource | undefined> {
+	const key = `${scope}|${getSigDbScopeState(scope).manifestPath}`;
+	let source = scopeSourceCache.get(key);
+	if(!source) {
+		source = openScopeSource(scope, onError).then(opened => {
+			if(!opened) {
+				scopeSourceCache.delete(key); // let a failure retry next time
+			}
+			return opened;
+		});
+		scopeSourceCache.set(key, source);
+	}
+	return source;
+}
+
+async function openScopeSource(scope: 'base' | 'current' | 'history', onError?: (message: string) => void): Promise<PackageSignatureSource | undefined> {
 	const state = getSigDbScopeState(scope);
 	if(!state.manifestPath) {
 		return undefined;
@@ -220,9 +251,18 @@ export function safeSigDbCall<T>(fn: () => T): T | undefined {
 	}
 }
 
-/** sha256 hex digest of a file's contents (same algorithm flowR's own downloader hashes against) */
+const hashCache = new Map<string, { mtimeMs: number, size: number, hash: string }>();
+
+/** sha256 hex digest of a file's contents (same algorithm flowR's own downloader hashes against); a full database holds shards of hundreds of MB, so the digest is reused while mtime and size are unchanged */
 function sha256File(file: string): string {
-	return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+	const { mtimeMs, size } = fs.statSync(file);
+	const cached = hashCache.get(file);
+	if(cached && cached.mtimeMs === mtimeMs && cached.size === size) {
+		return cached.hash;
+	}
+	const hash = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+	hashCache.set(file, { mtimeMs, size, hash });
+	return hash;
 }
 
 /** a sandbox that silently drops egress would otherwise hang the request forever */
@@ -268,7 +308,7 @@ async function downloadToWeb(url: string, dest: string, signal?: AbortSignal): P
 	} catch(e) {
 		if(e instanceof TypeError) {
 			// GitHub's release-asset host sends no CORS headers, so a browser blocks the request outright
-			throw new Error(`the browser blocked the download of ${url} (cross-origin requests to this host are not allowed); base-R signatures are bundled with the extension, but additional scopes cannot be synced from the web version`);
+			throw new Error(`the browser blocked the download of ${url} (cross-origin requests to this host are not allowed); base-R signatures are bundled with the extension, but additional scopes cannot be synced from the web version`, { cause: e });
 		}
 		throw e;
 	} finally {
@@ -297,10 +337,14 @@ export interface SigDbScopeDownloadResult {
 }
 
 let sigDbPackageNamesCache: Promise<Set<string>> | undefined;
+let knownPackageNamesCache: Promise<Set<string>> | undefined;
 
 /** drops the {@link allSigDbPackageNames} cache; call whenever a scope's shards or the custom sigdb path setting change */
 export function invalidateSigDbPackageNamesCache(): void {
 	sigDbPackageNamesCache = undefined;
+	knownPackageNamesCache = undefined;
+	scopeStateCache.clear();
+	scopeSourceCache.clear();
 	// a scope's present-shard set may have changed (a download/removal), so restricted sources must be reopened
 	restrictedSourceCache.clear();
 	manifestParseCache.clear();
@@ -347,7 +391,7 @@ export async function downloadSigDbScope(
 		fs.mkdirSync(dir, { recursive: true });
 	} catch(e) {
 		const message = e instanceof Error ? e.message : String(e);
-		throw new Error(`cannot create the signature database cache directory (${dir}): ${message}. If this environment is sandboxed, set vscode-flowr's FLOWR_SIGDB_CACHE/FLOWR_CACHE_DIR env var to a writable path.`);
+		throw new Error(`cannot create the signature database cache directory (${dir}): ${message}. If this environment is sandboxed, set vscode-flowr's FLOWR_SIGDB_CACHE/FLOWR_CACHE_DIR env var to a writable path.`, { cause: e });
 	}
 
 	const scopeShardNames = Object.keys(pointer.shards).filter(name => name.startsWith(`${scope}.`));
@@ -506,13 +550,19 @@ export function allSigDbPackageNames(): Promise<Set<string>> {
 }
 
 /** every package name known locally (installed) or via any synced signature-database scope, deduplicated */
-export async function allKnownPackageNames(): Promise<Set<string>> {
-	const [sigdb, installed] = await Promise.all([allSigDbPackageNames(), getInstalledPackageVersions()]);
-	const names = new Set(sigdb);
-	for(const pkg of installed?.keys() ?? []) {
-		names.add(pkg);
-	}
-	return names;
+export function allKnownPackageNames(): Promise<Set<string>> {
+	knownPackageNamesCache ??= (async() => {
+		const [sigdb, installed] = await Promise.all([allSigDbPackageNames(), getInstalledPackageVersions()]);
+		const names = new Set(sigdb);
+		for(const pkg of installed?.keys() ?? []) {
+			names.add(pkg);
+		}
+		return names;
+	})().catch((e: unknown) => {
+		knownPackageNamesCache = undefined;
+		throw e;
+	});
+	return knownPackageNamesCache;
 }
 
 /** edit distance between two strings (Wagner-Fischer DP, one-row) - used to guess a likely-intended package name for a typo */
@@ -538,7 +588,7 @@ export function closestPackageNames(typed: string, known: Iterable<string>, max 
 	const maxDistance = Math.max(1, Math.floor(typed.length * MaxSuggestionDistanceRatio));
 	const scored: { name: string, distance: number }[] = [];
 	for(const name of known) {
-		if(name === typed) {
+		if(name === typed || Math.abs(name.length - typed.length) > maxDistance) {
 			continue;
 		}
 		const distance = levenshtein(typed.toLowerCase(), name.toLowerCase());

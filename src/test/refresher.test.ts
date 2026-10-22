@@ -13,9 +13,7 @@ const Keys = {
 
 const TestFileNameBase = 'refresher-test';
 
-/**
- *
- */
+/** sets the refresher update type, interval and adaptive break-off in the workspace configuration */
 export async function updateRefreshSettings(keys: RefresherConfigKeys, type: RefreshType | undefined, interval: number | undefined, breakOff: number | undefined) {
 	const config = vscode.workspace.getConfiguration(Settings.Category);
 	await config.update(keys.updateType, type);

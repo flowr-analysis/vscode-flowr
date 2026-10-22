@@ -3,11 +3,10 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as assert from 'assert';
-import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile } from './test-util';
+import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile, refreshExtensionSigDbConfig } from './test-util';
 import type { Dependency } from '../flowr/views/dependency-view';
-import { unknownGuardedName } from '../flowr/views/dependency-view';
+import { shortenPath, textFingerprint, unknownGuardedName } from '../flowr/views/dependency-view';
 import { downloadSigDbScope } from '../package-db';
-import { refreshSigDbConfig } from '../extension';
 
 type DependencyDisplay = { label: string, description: string, children?: DependencyDisplay[] };
 
@@ -21,20 +20,15 @@ function simplifyDependencies(dependencies: Dependency[] | undefined): Dependenc
 }
 
 function populateExpectedDependencies(expected: DependencyDisplay[]) {
-	const expectedSorted = [];
-
+	const found: DependencyDisplay[] = [];
+	const empty: DependencyDisplay[] = [];
 	// set default values for any that we didn't specify (undeclared/unused are not shown in the overview)
-	for(const def of ['Libraries', 'Imported Data', 'Sourced Scripts', 'Outputs', 'Visualizations', 'Tests', 'Statistical Tests', 'Remote Installs']) {
-		const idx = expected.findIndex(e => e.label === def);
-
-		if(idx < 0) {
-			expectedSorted.push({ label: def, description: '0 items', children: [] });
-		} else {
-			expectedSorted.push(expected[idx]);
-		}
+	for(const def of ['Libraries', 'Remote Installs', 'Sourced Scripts', 'Imported Data', 'Data Transformations', 'Statistical Tests', 'Tests', 'Visualizations', 'Outputs']) {
+		const given = expected.find(e => e.label === def) ?? { label: def, description: '0 items', children: [] };
+		(given.children?.length ? found : empty).push(given);
 	}
-
-	return expectedSorted;
+	// categories without findings come last, in a group of their own
+	return [...found, ...empty.length > 0 ? [{ label: 'No findings', description: `${empty.length} empty ${empty.length === 1 ? 'category' : 'categories'}`, children: empty }] : []];
 }
 
 async function verifyDependencies(expected: DependencyDisplay[]) {
@@ -51,7 +45,26 @@ suite('dependencies', () => {
 			assert.strictEqual(unknownGuardedName({ nodeId: 0, functionName: 'x', value: ['map', 'purrr', false] } as unknown as Info), 'purrr::map');
 		});
 		test('passes a plain string value through unchanged', () => {
-			assert.strictEqual(unknownGuardedName({ nodeId: 0, functionName: 'x', value: 'dplyr' } as unknown as Info), 'dplyr');
+			assert.strictEqual(unknownGuardedName({ nodeId: 0, functionName: 'x', value: 'dplyr' }), 'dplyr');
+		});
+	});
+
+	suite('shortenPath', () => {
+		test('names the file, keeps the folder apart and shortens long names in the middle', () => {
+			assert.deepStrictEqual(shortenPath('OccurenceData/Absence_2017.csv'), { label: 'Absence_2017.csv', folder: 'OccurenceData' });
+			assert.deepStrictEqual(shortenPath('data.csv'), { label: 'data.csv', folder: undefined });
+			const long = shortenPath('C:\\data\\Absence_of_species_in_the_region_2017_2018.csv');
+			assert.strictEqual(long.folder, 'C:\\data');
+			assert.ok(long.label.length <= 32 && long.label.startsWith('Absence_of') && long.label.endsWith('2017_2018.csv') && long.label.includes('…'), long.label);
+		});
+	});
+
+	suite('textFingerprint', () => {
+		test('a newline inserted before the code changes the fingerprint (locations shift)', () => {
+			assert.notStrictEqual(textFingerprint('library(x)'), textFingerprint('\nlibrary(x)'));
+		});
+		test('trailing whitespace and comment edits keep the fingerprint', () => {
+			assert.strictEqual(textFingerprint('# a\nlibrary(x)\n'), textFingerprint('# b  \nlibrary(x)  \n\n'));
 		});
 	});
 
@@ -62,6 +75,62 @@ suite('dependencies', () => {
 		// several guess-dep-versions tests below need real signature-database data (ggplot2, dplyr, ...) -
 		// a fresh checkout/CI runner has none of this synced yet
 		await ensureSigDbCurrentDownloaded();
+	});
+
+	test('names plots by their title, variable or saved file, and lists data transformations', async() => {
+		await openTestFile('plots-example.R');
+		const result = simplifyDependencies(await vscode.commands.executeCommand('vscode-flowr.dependencyView.update'));
+		const labels = (name: string) => result.find(d => d.label === name)?.children?.map(c => c.label);
+		assert.deepStrictEqual(labels('Visualizations'), ['ggplot "Growth over time" → growth.png', 'ggplot → histogram.pdf', 'plot "Scatter" → scatter.png', 'plot(small)']);
+		assert.ok(result.find(d => d.label === 'Data Transformations')?.children?.every(c => c.description.startsWith('from dplyr ')), JSON.stringify(result));
+		// a top-level ggplot `+` chain is drawn, flowR does not report it as an output to stdout
+		assert.deepStrictEqual(labels('Outputs'), ['p → growth.png', 'histogram.pdf', 'scatter.png', 'stdout']);
+		assert.deepStrictEqual(labels('Data Transformations'), ['filter(df) → small', 'mutate(df) → small'], 'the label names the function and the variables the data comes from and goes to');
+	});
+
+	test('selecting an entry grays out the entries that do not relate to it', async() => {
+		await openTestFile('plots-example.R');
+		const raw: Dependency[] | undefined = await vscode.commands.executeCommand('vscode-flowr.dependencyView.update');
+		const scatter = raw?.find(d => d.label === 'Visualizations')?.children?.find(c => c.label === 'plot "Scatter" → scatter.png');
+		assert.ok(scatter, JSON.stringify(simplifyDependencies(raw)));
+		const grayed = await vscode.commands.executeCommand<string[]>('vscode-flowr.internal.dependency.focus', scatter);
+		// the scatter plot needs the data and its transformations, but neither the ggplots nor their files
+		assert.ok(grayed.includes('ggplot "Growth over time" → growth.png') && grayed.includes('histogram.pdf'), JSON.stringify(grayed));
+		assert.ok(!grayed.includes('plot "Scatter" → scatter.png') && !grayed.includes('Visualizations') && !grayed.includes('filter(df) → small'), JSON.stringify(grayed));
+	});
+
+	test('locates the code under the cursor in the view', async() => {
+		const editor = await openTestFile('plots-example.R');
+		await vscode.commands.executeCommand('vscode-flowr.dependencyView.update');
+		editor.selection = new vscode.Selection(3, 22, 3, 22);
+		const hit = await vscode.commands.executeCommand<Dependency | undefined>('vscode-flowr.dependencyView.locate');
+		assert.strictEqual(hit?.label, 'filter(df) → small');
+		editor.selection = new vscode.Selection(1, 3, 1, 3);
+		assert.strictEqual((await vscode.commands.executeCommand<Dependency | undefined>('vscode-flowr.dependencyView.locate'))?.label, 'dplyr');
+	});
+
+	test('groups imported data by dataset, names files by their name, and highlights an entry on click', async() => {
+		const editor = await openTestFile('datasets-example.R');
+		const raw: Dependency[] | undefined = await vscode.commands.executeCommand('vscode-flowr.dependencyView.update');
+		const data = simplifyDependencies(raw).find(d => d.label === 'Imported Data');
+		assert.deepStrictEqual(data?.children?.map(c => [c.label, c.description, c.children?.map(g => g.label)]), [
+			['Absence_2017.csv', '2 items', ['read.csv → a', 'readRDS → c']],
+			['Presence_2017.csv → b', 'OccurenceData/ · by "read.csv" in (L. 2)', []]
+		], JSON.stringify(data));
+		const roots = simplifyDependencies(raw).map(d => d.label);
+		assert.deepStrictEqual(roots.slice(0, 2), ['Imported Data', 'No findings'], 'categories without findings come last');
+
+		const entry = raw?.find(d => d.label === 'Imported Data')?.children?.find(c => c.label === 'Presence_2017.csv → b');
+		assert.ok(entry?.command, 'a click on the entry must reveal it');
+		await vscode.commands.executeCommand(entry.command.command, ...(entry.command.arguments ?? []) as unknown[]);
+		assert.strictEqual(editor.document.getText(editor.selection), 'read.csv("OccurenceData/Presence_2017.csv")');
+	});
+
+	test('names the variable an output is written from', async() => {
+		await openTestFile('line-categories-example.R');
+		const result = simplifyDependencies(await vscode.commands.executeCommand('vscode-flowr.dependencyView.update'));
+		assert.deepStrictEqual(result.find(d => d.label === 'Outputs')?.children?.map(c => c.label), ['y → out.csv']);
+		assert.deepStrictEqual(result.find(d => d.label === 'Imported Data')?.children?.map(c => c.label), ['data.csv → x']);
 	});
 
 	test('vapply', async() => {
@@ -76,9 +145,11 @@ suite('dependencies', () => {
 				{ label: 'f', description: 'by "library" in (L. 5)', children: [] },
 			] },
 			{
-				label:       'Outputs', description: '2 items', children:    [
-					{ label: 'stdout', description: 'by "lapply" in (L. 2)', children: [] },
-					{ label: 'stdout', description: 'by "vapply" in (L. 5)', children: [] },
+				label:       'Outputs', description: '1 item', children:    [
+					{ label:       'stdout', description: '2 items', children:    [
+						{ label: 'v → lapply', description: 'by "lapply" in (L. 2)', children: [] },
+						{ label: 'v → vapply', description: 'by "vapply" in (L. 5)', children: [] },
+					] }
 				]
 			}
 		]);
@@ -214,7 +285,7 @@ suite('dependencies', () => {
 			// intentionally no downloadSigDbScope('history')
 			// the flowR session may already be alive from an earlier test, built against the real (non-temp)
 			// cache dir - force it to rebuild now so the query below actually sees the temp dir's mount paths
-			refreshSigDbConfig();
+			refreshExtensionSigDbConfig();
 			(vscode.window as { showWarningMessage: typeof vscode.window.showWarningMessage }).showWarningMessage = (msg: string) => {
 				if(msg.includes('CRAN history')) {
 					warned = true;
@@ -239,7 +310,7 @@ suite('dependencies', () => {
 			}
 			// the guess-versions query above ran against the shared flowR session while FLOWR_SIGDB_CACHE pointed
 			// at the temp dir - rebuild it now that the env var is restored, so later tests see the real cache again
-			refreshSigDbConfig();
+			refreshExtensionSigDbConfig();
 			fs.rmSync(tempDir, { recursive: true, force: true });
 		}
 	});

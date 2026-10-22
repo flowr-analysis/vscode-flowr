@@ -9,6 +9,8 @@
 // To show a file, use the showUri function, defined below.
 
 import * as vscode from 'vscode';
+import type { SliceDisplay } from './settings';
+import { Settings, getConfig } from './settings';
 
 export const flowrScheme = 'flowr';
 
@@ -27,13 +29,13 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 	}
 
 	notifyListeners(uri: vscode.Uri): void {
-		for(const listener of this.listeners){
+		for(const listener of this.listeners) {
 			listener(uri);
 		}
 	}
 
 	updateContents(uri: vscode.Uri, content?: string) {
-		if(content !== undefined){
+		if(content !== undefined) {
 			this.contents.set(uri.toString(), content);
 		} else {
 			this.contents.delete(uri.toString());
@@ -46,11 +48,51 @@ export class ReconstructionContentProvider implements vscode.TextDocumentContent
 	}
 }
 
+const closedByUser = new Set<string>();
+
 /**
- *
+ * Remembers reconstruction and slice-diff tabs the user closes, so they are not auto-opened again until {@link resetClosedReconstructions}.
  */
-export function makeUri(authority: string, path: string){
-	if(authority && path && !path.startsWith('/')){
+export function trackClosedReconstructions(): vscode.Disposable {
+	return vscode.window.tabGroups.onDidChangeTabs(e => {
+		for(const tab of e.closed) {
+			const uris = tab.input instanceof vscode.TabInputText ? [tab.input.uri]
+				: tab.input instanceof vscode.TabInputTextDiff ? [tab.input.original, tab.input.modified] : [];
+			for(const uri of uris) {
+				if(uri.scheme === flowrScheme) {
+					closedByUser.add(uri.toString());
+				}
+			}
+		}
+	});
+}
+
+/**
+ * Allows auto-opening previously user-closed reconstruction tabs again.
+ */
+export function resetClosedReconstructions(): void {
+	closedByUser.clear();
+}
+
+/**
+ * Whether the reconstruction at `uri` may be opened automatically (never in diff mode or after the user closed it).
+ */
+export function shouldAutoReconstruct(uri: vscode.Uri): boolean {
+	return getConfig().get<boolean>(Settings.SliceAutomaticReconstruct, true)
+		&& getConfig().get<SliceDisplay>(Settings.StyleSliceDisplay) !== 'diff'
+		&& !wasClosedByUser(uri);
+}
+
+/**
+ * Whether the user closed the tab showing `uri` since the last {@link resetClosedReconstructions}.
+ */
+export function wasClosedByUser(uri: vscode.Uri): boolean {
+	return closedByUser.has(uri.toString());
+}
+
+/** builds a `flowr:` URI for the given authority and path, normalizing the path to start with `/` */
+export function makeUri(authority: string, path: string) {
+	if(authority && path && !path.startsWith('/')) {
 		path = '/' + path;
 	}
 	const uri = vscode.Uri.from({
@@ -70,7 +112,7 @@ export function makeUri(authority: string, path: string){
  */
 async function waitForFreshContent(doc: vscode.TextDocument): Promise<void> {
 	const expected = getReconstructionContentProvider().contents.get(doc.uri.toString()) ?? '';
-	if(doc.getText() === expected){
+	if(doc.getText() === expected) {
 		return;
 	}
 	await new Promise<void>(resolve => {
@@ -79,7 +121,7 @@ async function waitForFreshContent(doc: vscode.TextDocument): Promise<void> {
 			resolve();
 		}, 2000);
 		const dispo = vscode.workspace.onDidChangeTextDocument(e => {
-			if(e.document === doc && doc.getText() === expected){
+			if(e.document === doc && doc.getText() === expected) {
 				clearTimeout(timeout);
 				dispo.dispose();
 				resolve();
@@ -88,12 +130,10 @@ async function waitForFreshContent(doc: vscode.TextDocument): Promise<void> {
 	});
 }
 
-/**
- *
- */
+/** shows the reconstruction document at `uri` in an editor (reusing a visible one) once its content is fresh */
 export async function showUri(uri: vscode.Uri, language: string = 'r', viewColumn: vscode.ViewColumn = vscode.ViewColumn.Beside): Promise<Thenable<vscode.TextEditor>> {
-	for(const editor of vscode.window.visibleTextEditors){
-		if(editor.document.uri.toString() === uri.toString()){
+	for(const editor of vscode.window.visibleTextEditors) {
+		if(editor.document.uri.toString() === uri.toString()) {
 			await waitForFreshContent(editor.document);
 			return editor;
 		}
@@ -106,6 +146,8 @@ export async function showUri(uri: vscode.Uri, language: string = 'r', viewColum
 	const editor = await vscode.window.showTextDocument(doc, {
 		viewColumn:    viewColumn,
 		preserveFocus: true,
+		// a pinned tab only closes when the user closes it, which is what the closed-tab tracking relies on
+		preview:       false,
 		selection:     new vscode.Selection(doc.lineCount - 1, 0, doc.lineCount - 1, 0)
 	});
 	// scroll to bottom
@@ -121,9 +163,7 @@ export async function showUri(uri: vscode.Uri, language: string = 'r', viewColum
 }
 
 let reconstructionContentProvider: ReconstructionContentProvider | undefined;
-/**
- *
- */
+/** returns the reconstruction content provider, registering it on first use */
 export function getReconstructionContentProvider(): ReconstructionContentProvider {
 	if(!reconstructionContentProvider) {
 		reconstructionContentProvider = new ReconstructionContentProvider();

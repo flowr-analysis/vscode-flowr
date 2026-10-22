@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile } from './test-util';
+import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile, skipWithoutFullSigDb } from './test-util';
 import assert from 'assert';
 
 suite('package info', () => {
@@ -94,6 +94,19 @@ suite('package info', () => {
 		);
 	});
 
+	test('provides no definitions or references when package information is turned off', async() => {
+		const editor = await openTestFile('definition-self-example.R');
+		const cfg = vscode.workspace.getConfiguration('vscode-flowr');
+		try {
+			await cfg.update('packageInfo.enabled', false, vscode.ConfigurationTarget.Workspace);
+			const definitions: vscode.Location[] = await vscode.commands.executeCommand('vscode.executeDefinitionProvider', editor.document.uri, new vscode.Position(4, 0));
+			const references: vscode.Location[] = await vscode.commands.executeCommand('vscode.executeReferenceProvider', editor.document.uri, new vscode.Position(4, 0));
+			assert.deepStrictEqual([definitions.length, references.length], [0, 0]);
+		} finally {
+			await cfg.update('packageInfo.enabled', undefined, vscode.ConfigurationTarget.Workspace);
+		}
+	});
+
 	// regression test: "Find All References" used to always report nothing, since no ReferenceProvider was registered at all
 	test('finds all references to a local variable, including its own definition', async() => {
 		const editor = await openTestFile('definition-self-example.R');
@@ -166,14 +179,16 @@ suite('package info', () => {
 
 	// a call to a package function has never had any click-through before; it must not be underlined in the
 	// source (no DocumentLink), but a real click should still open its source, via the same redirect mechanism
-	test('a real click on a call to a package function opens its source', async() => {
+	test('a real click on a call to a package function opens its source', async function() {
+		skipWithoutFullSigDb(this);
 		const editor = await openTestFile('definition-self-example.R'); // `ggplot()` on line 3
 		const opened = await simulateClickAndCaptureExternalOpen(editor, new vscode.Position(2, 2));
 		assert.ok(opened?.startsWith('https://github.com/cran/ggplot2/'), `expected a ggplot2 GitHub source link, got: ${opened}`);
 	});
 
 	// regression test: `library(ggplot)` is a plausible typo of `ggplot2` - the hover must offer a "did you mean" guess, not just report unknown
-	test('hovering an unresolved library() package suggests a close match when one exists', async() => {
+	test('hovering an unresolved library() package suggests a close match when one exists', async function() {
+		skipWithoutFullSigDb(this);
 		const editor = await openTestFile('library-typo-example.R');
 		const result: vscode.Hover[] = await vscode.commands.executeCommand('vscode.executeHoverProvider', editor.document.uri, new vscode.Position(0, 9));
 		const contents = (result ?? [])

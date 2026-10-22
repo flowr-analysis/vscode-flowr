@@ -1,0 +1,8 @@
+library(stm)
+m <- stm(read.csv("docs.csv"))
+pdf("cloud.pdf")
+cloud(m, topic = 1)
+dev.off()
+summary(m)
+write.csv(summary(m), "copy.csv")
+print(read.csv("copy.csv"))

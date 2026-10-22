@@ -1,5 +1,5 @@
 // Bundles the base-R signature shards into the web build (dist/web/sigdb). Browsers cannot download GitHub
-// release assets at runtime (no CORS headers on that host), so the web extension ships the small (~140KB)
+// release assets at runtime (no CORS headers on that host), so the web extension ships the small (~600KB incl. per-version history)
 // base scope directly; the shards are fetched here at build time and hash-verified against the release pointer.
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
@@ -12,7 +12,7 @@ const outDir = path.join(root, 'dist/web/sigdb');
 
 const pointer = JSON.parse(fs.readFileSync(pointerFile, 'utf8'));
 const wanted = Object.keys(pointer.shards).filter(name =>
-	name.startsWith('base.') && name.endsWith('.br') && /\.(manifest|dict|base-current)\./.test(name)
+	name.startsWith('base.') && name.endsWith('.br') && /\.(manifest|dict|base-current|base-full)\./.test(name)
 );
 if(wanted.length === 0) {
 	console.error('fetch-web-sigdb: no matching base shards in the release pointer - the asset naming scheme changed?');
@@ -48,4 +48,6 @@ for(const name of wanted) {
 		console.warn(`fetch-web-sigdb: could not fetch ${name}: ${e.message} - the web build will ship without bundled base-R signatures`);
 	}
 }
+// extension hosts cannot list a directory over http, so the web build reads this index instead
+fs.writeFileSync(path.join(outDir, 'index.json'), JSON.stringify(wanted.filter(name => fs.existsSync(path.join(outDir, name)))));
 process.exit(failures > 0 ? 1 : 0);

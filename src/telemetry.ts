@@ -171,9 +171,7 @@ export function syncRecordingFromConfig(output: vscode.OutputChannel): void {
 	}
 }
 
-/**
- *
- */
+/** registers document and configuration listeners that feed telemetry events */
 export function registerTelemetry(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(d => {
 		if(telemetryActive() && d.uri.scheme !== 'output') {

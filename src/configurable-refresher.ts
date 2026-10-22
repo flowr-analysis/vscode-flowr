@@ -276,9 +276,7 @@ function isChangeRelevant(e: vscode.TextDocumentChangeEvent): boolean {
 }
 
 
-/**
- *
- */
+/** whether the document is an R-family language document (type guard) */
 export function isRTypeLanguage(doc?: vscode.TextDocument): doc is vscode.TextDocument {
-	return !!doc && TriggerOnLanguageIds.indexOf(doc.languageId) !== -1;
+	return !!doc && TriggerOnLanguageIds.includes(doc.languageId);
 }

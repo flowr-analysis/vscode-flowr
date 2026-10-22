@@ -3,15 +3,15 @@ import * as vscode from 'vscode';
 import type { FlowrMessage } from '@eagleoutice/flowr/cli/repl/server/messages/all-messages';
 import type { SourceRange } from '@eagleoutice/flowr/util/range';
 import { establishInternalSession, isWeb, updateStatusBar } from '../extension';
-import type { ConnectionType } from '../settings';
+import type { ConnectionType, SliceCombination } from '../settings';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { FlowrSession, SliceReturn } from './utils';
-import { consolidateNewlines, makeSliceElements, selectionsToNodeIds } from './utils';
+import { consolidateNewlines, emptySliceProblem, intersectIds, makeSliceElements, selectionsToNodeIds } from './utils';
 import type { NodeId } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/node-id';
 import type { DataflowGraphJson } from '@eagleoutice/flowr/dataflow/graph/graph';
 import { DataflowGraph } from '@eagleoutice/flowr/dataflow/graph/graph';
-import type { NormalizedAst } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
+import type { NormalizedAst, ParentInformation } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/processing/decorate';
 import type { FlowrHelloResponseMessage } from '@eagleoutice/flowr/cli/repl/server/messages/message-hello';
 import type { FileAnalysisResponseMessageJson } from '@eagleoutice/flowr/cli/repl/server/messages/message-analysis';
 import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
@@ -24,6 +24,9 @@ import type { QueryResponseMessage } from '@eagleoutice/flowr/cli/repl/server/me
 import type { PipelineOutput } from '@eagleoutice/flowr/core/steps/pipeline/pipeline';
 import type { DEFAULT_SLICING_PIPELINE } from '@eagleoutice/flowr/core/steps/pipeline/default-pipelines';
 import { getConfig, isVerbose, Settings } from '../settings';
+import { reconstructToCode } from '@eagleoutice/flowr/reconstruct/reconstruct';
+import { doNotAutoSelect } from '@eagleoutice/flowr/reconstruct/auto-select/auto-select-defaults';
+import { makeMagicCommentHandler } from '@eagleoutice/flowr/reconstruct/auto-select/magic-comments';
 import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
 import { MermaidDefaultMarkStyle } from '@eagleoutice/flowr/util/mermaid/info';
@@ -77,11 +80,11 @@ export class FlowrServerSession implements FlowrSession {
 		let host = getConfig().get<string>(Settings.ServerHost, 'localhost');
 		const port = getConfig().get<number>(Settings.ServerPort, 1042);
 		// we also set configType when overriding the type to use because that's the only one we want to try even in auto mode!
-		if(host.startsWith('ws://')){
-			host = host.substring(5);
+		if(host.startsWith('ws://')) {
+			host = host.slice(5);
 			configType = typeToUse = 'websocket';
-		} else if(host.startsWith('wss://')){
-			host = host.substring(6);
+		} else if(host.startsWith('wss://')) {
+			host = host.slice(6);
 			configType = typeToUse = 'websocket-secure';
 		}
 		const [base, suff] = splitHost(host);
@@ -110,7 +113,7 @@ export class FlowrServerSession implements FlowrSession {
 						if(v === useLocal) {
 							void establishInternalSession();
 						} else if(v === openSettings) {
-							void vscode.commands.executeCommand( 'workbench.action.openSettings', 'vscode-flowr.server' );
+							void vscode.commands.executeCommand('workbench.action.openSettings', 'vscode-flowr.server');
 						}
 					});
 			}
@@ -181,7 +184,7 @@ export class FlowrServerSession implements FlowrSession {
 			simplified,
 			includeEnvironments: false,
 			includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
-			mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+			mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(String)) : undefined,
 		}).string;
 	}
 
@@ -195,7 +198,7 @@ export class FlowrServerSession implements FlowrSession {
 			simplified,
 			includeEnvironments: false,
 			includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
-			mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+			mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(String)) : undefined,
 		}).string;
 	}
 
@@ -229,12 +232,23 @@ export class FlowrServerSession implements FlowrSession {
 		});
 	}
 
-	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument): Promise<SliceReturn> {
+	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument, _showErrorMessage?: boolean, _info?: unknown, combine: SliceCombination = 'union'): Promise<SliceReturn> {
+		try {
+			const slice = await this.computeSlice(criteria, direction, document, combine);
+			return slice.sliceElements.length > 0 ? slice : { ...slice, problem: emptySliceProblem(criteria, combine) };
+		} catch(e) {
+			this.outputChannel.appendLine(`[Slice (Server)] Error: ${(e as Error)?.message}`);
+			return { code: '', sliceElements: [], problem: `the flowR server failed: ${(e as Error)?.message}` };
+		}
+	}
+
+	private async computeSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument, combine: SliceCombination): Promise<SliceReturn> {
 		const response = await this.requestFileAnalysis(document);
 		const includeCallees = getConfig().get<boolean>(Settings.SliceIncludeCallees, false);
 		const inlineSources = getConfig().get<boolean>(Settings.SliceInlineSources, false);
 		// now we want to collect all ids from response in a map again (id -> location)
 		const idToLocation = new Map<NodeId, SourceRange>();
+		const idMap = new BiMap<NodeId, RNode<ParentInformation>>();
 		const nodes = response.results.normalize.ast.files.map(f => f.root);
 		RNode.visitAst(nodes, n => {
 			// backwards compat for server versions before 2.0.2, which used a "flavor" rather than a "named" boolean
@@ -242,24 +256,38 @@ export class FlowrServerSession implements FlowrSession {
 				n['name' + 'd'] = true;
 			}
 
+			idMap.set(n.info.id, n);
 			if(n.location) {
 				idToLocation.set(n.info.id, n.location);
 			}
 		});
 
-		const sliceResponse = await this.sendCommandWithResponse<QueryResponseMessage>({
-			type:        'request-query',
-			'id':        String(this.idCounter++),
-			'filetoken': '@tmp',
-			query:       [{
-				type:      'static-slice',
-				criteria:  criteria,
-				direction: direction,
-				includeCallees,
-				inlineSources
-			}]
-		});
-		const result = Object.values(sliceResponse.results['static-slice'].results)[0] as PipelineOutput<typeof DEFAULT_SLICING_PIPELINE>;
+		const sliceFor = async(cs: SlicingCriteria) => {
+			const sliceResponse = await this.sendCommandWithResponse<QueryResponseMessage>({
+				type:        'request-query',
+				'id':        String(this.idCounter++),
+				'filetoken': '@tmp',
+				query:       [{
+					type:      'static-slice',
+					criteria:  cs,
+					direction: direction,
+					includeCallees,
+					inlineSources
+				}]
+			});
+			return Object.values(sliceResponse.results['static-slice'].results)[0] as PipelineOutput<typeof DEFAULT_SLICING_PIPELINE>;
+		};
+
+		if(combine === 'intersection' && criteria.length > 1) {
+			const ids = intersectIds((await Promise.all(criteria.map(c => sliceFor([c])))).map(r => new Set(r.slice.result)));
+			const ast: NormalizedAst = { ...response.results.normalize, idMap };
+			const reconstructed = reconstructToCode(ast, inlineSources ? { nodes: ids, inlineSources: true, reconstructFiles: [0] } : { nodes: ids }, makeMagicCommentHandler(doNotAutoSelect));
+			return {
+				code:          reconstructed.code,
+				sliceElements: makeSliceElements(ids, id => idToLocation.get(id))
+			};
+		}
+		const result = await sliceFor(criteria);
 
 		const sliceElements = makeSliceElements(result.slice.result, id => idToLocation.get(id));
 

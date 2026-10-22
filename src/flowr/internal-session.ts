@@ -1,15 +1,16 @@
 import * as vscode from 'vscode';
 import { BEST_R_MAJOR, MINIMUM_R_MAJOR, VSCodeFlowrConfiguration, getWasmRootPath, isWeb, updateStatusBar } from '../extension';
+import type { SliceCombination } from '../settings';
 import { Settings, getConfig, isVerbose } from '../settings';
 import type { FlowrSession, SliceReturn } from './utils';
-import { makeSliceElements, selectionsToNodeIds } from './utils';
+import { emptySliceProblem, intersectIds, makeSliceElements, selectionsToNodeIds } from './utils';
 import type { RShellOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { RShell, RShellReviveOptions } from '@eagleoutice/flowr/r-bridge/shell';
 import { normalizedAstToMermaid } from '@eagleoutice/flowr/util/mermaid/ast';
 import { cfgToMermaid } from '@eagleoutice/flowr/util/mermaid/cfg';
 import type { KnownParser, KnownParserName } from '@eagleoutice/flowr/r-bridge/parser';
 import { TreeSitterExecutor } from '@eagleoutice/flowr/r-bridge/lang-4.x/tree-sitter/tree-sitter-executor';
-import { type Queries, type QueryResults, type SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
+import type { Queries, QueryResults, SupportedQueryTypes } from '@eagleoutice/flowr/queries/query';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
 import { SlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse';
 import type { SemVer } from 'semver';
@@ -124,7 +125,8 @@ export class FlowrInternalSession implements FlowrSession {
 		updateStatusBar();
 	}
 
-	private async startWorkWithProgressBar<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer, progress: ProgressReporter) => Promise<T>, action: WorkActions, showErrorMessage: boolean, defaultOnErr = {} as T): Promise<T> {
+	private async startWorkWithProgressBar<T = void>(document: vscode.TextDocument, actionFn: (analyzer: FlowrAnalyzer, progress: ProgressReporter) => Promise<T>, action: WorkActions, showErrorMessage: boolean, defaultOnErr: T | ((error: Error) => T) = {} as T): Promise<T> {
+		const fallback = (error: Error) => typeof defaultOnErr === 'function' ? (defaultOnErr as (error: Error) => T)(error) : defaultOnErr;
 		this.setWorking(true);
 
 		// Wait for the flowr session
@@ -142,7 +144,7 @@ export class FlowrInternalSession implements FlowrSession {
 
 			if(!this.parser) {
 				this.setWorking(false);
-				return defaultOnErr;
+				return fallback(new Error('the flowR engine is not available (see the flowR output)'));
 			}
 		}
 
@@ -172,7 +174,7 @@ export class FlowrInternalSession implements FlowrSession {
 				if(showErrorMessage) {
 					void vscode.window.showErrorMessage(`There was an error: ${(e as Error)?.message}. See the flowR output for more information.`);
 				}
-				return defaultOnErr;
+				return fallback(e instanceof Error ? e : new Error(String(e)));
 			} finally {
 				this.setWorking(false);
 			}
@@ -210,14 +212,14 @@ export class FlowrInternalSession implements FlowrSession {
 				const timeout = new Promise<null>(resolve => handle = setTimeout(() => resolve(null), 5000));
 				await Promise.race([this.parser.usedRVersion(), timeout]).then((version: SemVer | null) => {
 					clearTimeout(handle);
-					if(!version){
+					if(!version) {
 						const seeDoc = 'See documentation';
 						const sandboxHint = typeof process !== 'undefined' && process.env?.FLATPAK_ID
 							? ` VS Code is running inside a Flatpak sandbox (${process.env.FLATPAK_ID}); R must either be installed inside the sandbox or the sandbox needs host filesystem access to it (e.g. "flatpak override --filesystem=host" or granting access to R's install location), and the resulting path set as vscode-flowr's "r.executable" setting.`
 							: '';
 						void vscode.window.showErrorMessage(`The R version could not be determined. R needs to be installed and part of your PATH environment variable.${sandboxHint}`, seeDoc)
 							.then(s => {
-								if(s === seeDoc){
+								if(s === seeDoc) {
 									void vscode.env.openExternal(vscode.Uri.parse('https://github.com/flowr-analysis/vscode-flowr/blob/main/README.md#using'));
 								}
 							});
@@ -273,14 +275,12 @@ export class FlowrInternalSession implements FlowrSession {
 		this.parser?.close();
 	}
 
-	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument, showErrorMessage: boolean = true, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
+	async retrieveSlice(criteria: SlicingCriteria, direction: SliceDirection, document: vscode.TextDocument, showErrorMessage: boolean = true, info?: { dfi: DataflowInformation, ast: NormalizedAst }, combine: SliceCombination = 'union'): Promise<SliceReturn> {
 		if(!this.parser) {
-			return {
-				code:          '',
-				sliceElements: []
-			};
+			return { code: '', sliceElements: [], problem: 'the flowR engine is not available (see the flowR output)' };
 		}
-		return await this.startWorkWithProgressBar(document, (analyzer, progress) => this.extractSlice(analyzer, progress, criteria, direction, info), 'slice', showErrorMessage, { code: '', sliceElements: [] });
+		return await this.startWorkWithProgressBar(document, (analyzer, progress) => this.extractSlice(analyzer, progress, criteria, direction, info, combine), 'slice', showErrorMessage,
+			e => ({ code: '', sliceElements: [], problem: `flowR failed: ${e.message}` }));
 	}
 
 	async retrieveDataflowMermaid(document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified = false): Promise<string> {
@@ -294,7 +294,7 @@ export class FlowrInternalSession implements FlowrSession {
 				simplified,
 				includeEnvironments: false,
 				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
-				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(String)) : undefined,
 			}).string;
 		}, FlowrDiagramType.Dataflow, true, '');
 	}
@@ -312,7 +312,7 @@ export class FlowrInternalSession implements FlowrSession {
 				simplified,
 				includeEnvironments: false,
 				includeOnlyIds:      selectionMode === 'hide' ? selectionNodes : undefined,
-				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(v => String(v))) : undefined,
+				mark:                selectionMode === 'highlight' ? new Set(selectionNodes?.values().map(String)) : undefined,
 			}).string;
 		}, FlowrDiagramType.CallGraph, true, '');
 	}
@@ -354,7 +354,7 @@ export class FlowrInternalSession implements FlowrSession {
 	}
 
 	// takes the analyzer from its caller's withAnalyzer scope (opening its own would deadlock the queue)
-	private async extractSlice(analyzer: FlowrAnalyzer, progress: ProgressReporter, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<SliceReturn> {
+	private async extractSlice(analyzer: FlowrAnalyzer, progress: ProgressReporter, criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }, combine: SliceCombination = 'union'): Promise<SliceReturn> {
 		const threshold = getConfig().get<number>(Settings.SliceRevisitThreshold, 12);
 		const includeCallees = getConfig().get<boolean>(Settings.SliceIncludeCallees, false);
 		const inlineSources = getConfig().get<boolean>(Settings.SliceInlineSources, false);
@@ -363,15 +363,17 @@ export class FlowrInternalSession implements FlowrSession {
 		}
 		progress.report({ message: 'Computing slice…' });
 		const sliceStart = Date.now();
-		const elements = staticSlice({
+		const { dfi, ast } = info;
+		const sliceIds = (cs: SlicingCriteria) => staticSlice({
 			ctx:  analyzer.inspectContext(),
-			info: info.dfi,
-			ast:  info.ast,
-			ids:  SlicingCriterion.convertAll(criteria, info.ast.idMap),
+			info: dfi,
+			ast,
+			ids:  SlicingCriterion.convertAll(cs, ast.idMap),
 			direction,
 			threshold,
 			includeCallees
 		}).result;
+		const elements = combine === 'intersection' && criteria.length > 1 ? intersectIds(criteria.map(c => sliceIds([c]))) : sliceIds(criteria);
 		const sliceMs = Date.now() - sliceStart;
 
 		progress.report({ message: 'Reconstructing…' });
@@ -389,7 +391,8 @@ export class FlowrInternalSession implements FlowrSession {
 
 		return {
 			code,
-			sliceElements
+			sliceElements,
+			problem: sliceElements.length > 0 ? undefined : emptySliceProblem(criteria, combine)
 		};
 	}
 
@@ -461,9 +464,7 @@ interface CachedAnalyzer {
 const analyzerCache = new Map<string, CachedAnalyzer>();
 const maxAnalyzerCache = 4;
 
-/**
- *
- */
+/** drops all cached per-document analyzers */
 export function clearAnalyzerCache(): void {
 	analyzerCache.clear();
 }
@@ -474,7 +475,8 @@ function buildAnalyzerForDocument(document: vscode.TextDocument, parser: KnownPa
 		.setConfig(config)
 		.build()
 		.then(analyzer => {
-			if(document.uri.scheme === 'file') {
+			// web workspace files have no 'file' scheme, but R Markdown is only recognized by its file name; plain scripts stay on the text path since a named script there hangs the analysis on library() calls
+			if(document.uri.scheme === 'file' || (isWeb() && !document.isUntitled && /\.(rmd|qmd)$/i.test(document.fileName))) {
 				const file = new FlowrInlineTextFile(document.fileName, document.getText());
 				analyzer.reset();
 				analyzer.addFile(file);

@@ -3,6 +3,7 @@ import { activateExtension, openTestFile } from './test-util';
 import assert from 'assert';
 import type { SourceLocation } from '@eagleoutice/flowr/util/range';
 import { isInRPackage, isLocInDocument, stripFilePath } from '../lint';
+import { LintingRules } from '@eagleoutice/flowr/linter/linter-rules';
 
 suite('linter', () => {
 	suiteSetup(async() => {
@@ -52,6 +53,31 @@ suite('linter', () => {
 			const editor = await openTestFile('example.R');
 			assert.ok(!(await isInRPackage(editor.document)));
 		});
+	});
+
+	// flowR's R CMD check rules are only on by default inside a package, so a script must not get them
+	test('R CMD check rules only apply inside an R package', async() => {
+		const bogusReturns = async(file: string) => {
+			const editor = await openTestFile(file);
+			await vscode.commands.executeCommand('vscode-flowr.lint.run');
+			return vscode.languages.getDiagnostics(editor.document.uri).filter(d => d.source === 'flowr-lint' && d.message.startsWith('bogus-return:'));
+		};
+		assert.strictEqual((await bogusReturns('pkg-example/R/bogus-return.R')).length, 1, 'the bare return in a package is flagged');
+		assert.strictEqual((await bogusReturns('bogus-return-example.R')).length, 0, 'the same code in a standalone script is not');
+	});
+
+	test('enabledRules setting offers every flowR linting rule', () => {
+		const pkg = vscode.extensions.getExtension('code-inspect.vscode-flowr')?.packageJSON as { contributes: { configuration: { properties: Record<string, { items: { enum: string[] } }> } } };
+		const setting = pkg.contributes.configuration.properties['vscode-flowr.linter.enabledRules'];
+		assert.deepStrictEqual([...setting.items.enum].sort(), Object.keys(LintingRules).sort());
+	});
+
+	test('an R Markdown file does not show findings of the scripts it sources', async() => {
+		const editor = await openTestFile('sourced-lint/main.Rmd');
+		await vscode.commands.executeCommand('vscode-flowr.lint.run');
+		const messages = vscode.languages.getDiagnostics(editor.document.uri).filter(d => d.source === 'flowr-lint').map(d => d.message);
+		assert.ok(messages.some(m => m.includes('unused_in_main')), `expected the document's own finding, got: ${JSON.stringify(messages)}`);
+		assert.ok(!messages.some(m => m.includes('unused_in_helper')), `found a finding of the sourced script: ${JSON.stringify(messages)}`);
 	});
 
 	test('quick fix', async() => {

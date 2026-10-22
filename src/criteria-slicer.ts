@@ -8,7 +8,7 @@ import { getFlowrSession } from './extension';
 import { makeUri, getReconstructionContentProvider, showUri } from './doc-provider';
 import { rangeToVscodeRange, type SliceReturn } from './flowr/utils';
 import type { DecoTypes } from './slice';
-import { displaySlice, makeSliceDecorationTypes } from './slice';
+import { displaySlice, emptySliceCode, makeSliceDecorationTypes, reportEmptySlice, sliceReconstruction } from './slice';
 import { positionSlicers } from './position-slicer';
 import { Settings, getConfig } from './settings';
 import type { SlicingCriteria } from '@eagleoutice/flowr/slicing/criterion/parse';
@@ -24,9 +24,7 @@ const criteriaSlicerPath = 'Dependency Slice';
 
 // currently only one instance is used and never disposed
 let criteriaSlicer: CriteriaSlicer | undefined;
-/**
- *
- */
+/** returns the singleton criteria slicer, disposing its current slice state first */
 export function getCriteriaSlicer(): CriteriaSlicer {
 	if(criteriaSlicer) {
 		criteriaSlicer.disposeCurrent();
@@ -57,19 +55,19 @@ class CriteriaSlicer {
 
 	// Clear all slice decos or only the ones affecting a specific editor/document
 	clearSliceDecos(editor?: vscode.TextEditor, doc?: vscode.TextDocument): void {
-		if(!this.decos){
+		if(!this.decos) {
 			return;
 		}
-		if(editor){
+		if(editor) {
 			editor.setDecorations(this.decos.lineSlice, []);
 			editor.setDecorations(this.decos.tokenSlice, []);
-			if(!doc){
+			if(!doc) {
 				return;
 			}
 		}
-		if(doc){
-			for(const editor of vscode.window.visibleTextEditors){
-				if(editor.document === doc){
+		if(doc) {
+			for(const editor of vscode.window.visibleTextEditors) {
+				if(editor.document === doc) {
 					this.clearSliceDecos(editor);
 				}
 			}
@@ -81,7 +79,7 @@ class CriteriaSlicer {
 
 	public disposeCurrent(): void {
 		this.clearSliceDecos();
-		for(const d of this.disposables){
+		for(const d of this.disposables) {
 			d.dispose();
 		}
 		this.disposables = [];
@@ -94,6 +92,8 @@ class CriteriaSlicer {
 				const expectLoc = expectNode.location;
 				const expectLex = expectNode.lexeme;
 				const expectDoc = vscode.window.activeTextEditor?.document;
+				// one watcher per slice, the one of a previous update would only pile up
+				this.disposables.pop()?.dispose();
 				this.disposables.push(vscode.workspace.onDidChangeTextDocument(e => {
 					if(e.document === expectDoc) {
 						const text = e.document.getText(rangeToVscodeRange(expectLoc));
@@ -106,27 +106,29 @@ class CriteriaSlicer {
 		}
 
 		const ret = await getSliceFor(criteria, direction, info);
-		if(ret === undefined){
+		if(ret === undefined) {
 			return '';
 		}
 		if(direction === SliceDirection.Backward) {
 			const provider = getReconstructionContentProvider();
 			const uri = this.makeUri();
-			provider.updateContents(uri, ret.code);
+			provider.updateContents(uri, sliceReconstruction(ret.code, ret.editor.document, ret.sliceElements));
 		}
 		this.hasDoc = true;
 		const clearOtherDecos = getConfig().get<boolean>(Settings.StyleOnlyHighlightActiveSelection, false);
-		for(const editor of this.decoratedEditors){
-			if(editor === ret.editor){
+		for(const editor of this.decoratedEditors) {
+			if(editor === ret.editor) {
 				continue;
 			}
-			if(clearOtherDecos || positionSlicers.has(editor.document)){
+			if(clearOtherDecos || positionSlicers.has(editor.document)) {
 				this.clearSliceDecos(editor);
 			}
 		}
 		this.decos ??= makeSliceDecorationTypes();
 		displaySlice(ret.editor, ret.sliceElements, this.decos);
-		this.decoratedEditors.push(ret.editor);
+		if(!this.decoratedEditors.includes(ret.editor)) {
+			this.decoratedEditors.push(ret.editor);
+		}
 		return ret.code;
 	}
 }
@@ -137,18 +139,20 @@ interface CriteriaSliceReturn extends SliceReturn {
 }
 async function getSliceFor(criteria: SlicingCriteria, direction: SliceDirection, info?: { dfi: DataflowInformation, ast: NormalizedAst }): Promise<CriteriaSliceReturn | undefined> {
 	const editor = vscode.window.activeTextEditor;
-	if(!editor){
+	if(!editor) {
 		return;
 	}
 	const flowrSession = await getFlowrSession();
-	if(!flowrSession){
+	if(!flowrSession) {
 		return;
 	}
 	const ret = await flowrSession.retrieveSlice(criteria, direction, editor.document, true, info);
-	if(!ret.sliceElements.length){
+	if(!ret.sliceElements.length) {
+		reportEmptySlice(ret.problem, true);
 		return {
-			code:          '# No slice',
+			code:          emptySliceCode(ret.problem),
 			sliceElements: [],
+			problem:       ret.problem,
 			editor:        editor
 		};
 	}

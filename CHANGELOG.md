@@ -1,3 +1,43 @@
+# Version 0.9.0 (unreleased)
+- Offer flowR's MCP server to the editor's MCP clients on desktop (`vscode-flowr.mcp.enabled`)
+- Complete the columns of data frames after `df$`, `df[["` and `df[, "`, using the shape flowR infers (columns it is sure of first)
+- Update to flowR 2.16.6; removal slices are now computed by flowR (`removal` option of the slice query) instead of by the extension
+- A fully downloaded signature database no longer slows down the extension: file hashes, the opened databases and the known package names are cached instead of being recomputed on every completion, hover and tree refresh
+- Update to flowR 2.16.2 and offer its new `unused-import`, `unclosed-connection`, `unescaped-arguments` and `namespace-access` linting rules (enabled by default)
+- Line indicators use the middle lane of the scrollbar, so lint warnings no longer paint over their color
+- Dependency view: entries from sourced scripts open that script and name it; the last enabled category cannot be disabled (an empty list means all)
+- Toggles (negative slice, union/intersection, line indicators, categories) write where the setting is set, not always to the user settings
+- Slice keybindings and the clear button also work in R Markdown; removal marks disappear on edit
+- Dependency view: selecting an entry grays out the unrelated entries (instead of dimming code); Alt+D locates the code under the cursor in the view; empty categories are grouped under "No findings"
+- Removal slices remove statements in loops and blocks, a plot's `png()`/`dev.off()`/`ggsave()`, comment lines above removed code, and parts of shared lines; the calls between a device and its `dev.off()` go together, also for plot functions flowR does not know (e.g. `stm::cloud`)
+- Update to flowR 2.16.4 and offer its linting rules ported from `R CMD check` (e.g. `dependency-declaration`, `documentation-mismatch`, `call-arguments`, `rd-files`), enabled by default for files inside an R package
+- Data transformations, the variables data comes from, plot titles and the files plots are saved to now come from flowR instead of the extension's own heuristics, so a call combining several variables reads `merge(a, b) → m` and an output names what it writes (`p → growth.png`)
+- The dependency view now also refreshes when lines are inserted above all code (e.g. pressing Enter at the start of the file), which previously left stale line numbers
+- Findings of scripts loaded with `source()` no longer appear in R Markdown files that source them, and quick fixes are now also offered in R Markdown
+- Continuous slices (position slices and following the cursor) always show the slice of the latest edit: results of earlier keystrokes that finish late are discarded, and updates requested while slicing are no longer dropped
+- Parse with the official r-lib release of tree-sitter-r (1.3.0)
+- Colored bars next to the line numbers mark lines that load libraries, import data, source scripts, transform data, test, plot or write outputs (`vscode-flowr.style.lineCategoryIndicators`); hovering the line explains them
+- Slice for a dependency directly with the arrow buttons next to it in the dependency view
+- Search a file's variables, functions and strings using the dataflow graph ("Search Variables, Functions and Strings", also in the dependency view), with part-of-name matching, filter buttons and `@` filters
+- Document symbols (outline, breadcrumbs, Go to Symbol) for assignments, functions and dependencies; next to the R language server only dependencies (`vscode-flowr.symbols.*`)
+- Toggle the line indicators with a button in the dependency view
+- The Signature Database and Project views start collapsed
+- Removal slices: mark the statements only the expression under the cursor (or a dependency) needs, with a diff of the script without them
+- Dependency view: entries grouped by dataset, file or package; file names instead of long paths; `filter(df) → small` (from dplyr) instead of `function "dplyr::filter"`, `data.csv → raw` for imports; clicking highlights the code; empty categories grayed out at the bottom
+- New category for data transformations (dplyr, tidyr, `merge`, `subset`, `aggregate`, ...); categories ordered along the analysis; plots named by title, variable or saved file
+- One line indicator color per line: setup in greens, data in blues, results in orange and vermillion
+- Position slices can show the intersection instead of the union of all marked positions (`vscode-flowr.slice.positionCombination`, "Toggle Union/Intersection of Position Slices")
+- Negative slices (`vscode-flowr.slice.negative`, "Toggle Negative Slice") gray out the slice and reconstruct the remaining code, and "Fold Code Outside the Slice" folds the grayed out regions
+- The diff view and the reconstruction no longer open each other in turn, and a closed reconstruction or diff view is not reopened automatically until the slice is cleared
+- A syntax error in one place (e.g. in another R Markdown chunk) no longer disables value hovers, slicing and package information for the whole file
+- Large files no longer stall the editor after opening them: the linter runs once per document version, shared by diagnostics and quick fixes, instead of twice
+- An empty slice now explains why it is empty (no R expression at the cursor, syntax errors, no code in common, or a flowR failure) instead of silently showing nothing
+- Linting failures and failing linting rules are reported, and the dependency view marks results that are stale or incomplete because of syntax errors
+- Following the cursor with a slice waits until the cursor rests instead of re-slicing on every selection change
+- New setting `vscode-flowr.packageInfo.enabled` turns off flowR's package information hovers, Go to Definition and Find References
+- In the browser, the bundled Base R signature database is now loaded, so hovers and suggestions for base packages work and scripts that load a base package with `library()` no longer fail to analyze
+- In the browser, R Markdown files are recognized, and the linting rules for R package code apply to files in an R package
+
 # Version 0.8.4 (2026-08-01)
 - Update to flowR 2.13.8: a braceless loop body (`for(f in files) read.csv(f)`) is no longer mistaken for a quotation, so its reads/writes show up in the dependency view and its symbols are linted; `.Rmd` chunk options parse correctly; and package versions are also guessed for orphan dependencies
 - No longer suggest function and argument names inside a string literal, including multi-line and raw strings (`r"(...)"`), while still completing package names inside `library("...")`

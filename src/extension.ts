@@ -16,10 +16,15 @@ import type { BuiltInDefinitions } from '@eagleoutice/flowr/dataflow/environment
 import type { MergeableRecord } from '@eagleoutice/flowr/util/objects';
 import { deepMergeObject } from '@eagleoutice/flowr/util/objects';
 import { registerLintCommands } from './lint';
+import { registerLineCategories } from './line-categories';
+import { registerSearch } from './search';
+import { registerRemovalSlice } from './removal-slice';
+import { registerDocumentSymbols } from './symbols';
 import { NoTelemetry, RecordingTelemetry, registerTelemetry, telemetry, TelemetryEvent } from './telemetry';
 import { registerHoverOverValues } from './hover-values';
 import { registerPackageInfo } from './package-info';
 import { registerCompletion } from './completion';
+import { registerMcpServer } from './mcp';
 import { registerProjectView } from './flowr/views/project-view';
 import { registerSigDbView } from './flowr/views/sigdb-view';
 import { registerSigDbNotifications } from './sigdb-notifications';
@@ -29,7 +34,9 @@ import { showRepl } from './flowr/terminals/flowr-repl';
 
 /** public-facing API for the flowR extension; currently required and used for unit tests */
 export interface FlowrExtensionApi {
-	flowrConfig: () => FlowrConfig
+	flowrConfig:        () => FlowrConfig,
+	/** re-reads the on-disk signature database state inside the running extension (tests download into the same cache from a separate module copy) */
+	refreshSigDbConfig: () => void
 }
 
 export const MINIMUM_R_MAJOR = 3;
@@ -41,10 +48,11 @@ let statusBarItem: vscode.StatusBarItem;
 let flowrSession: FlowrSession | undefined;
 /** coalesces concurrent lazy session inits so a burst of feature calls doesn't spawn (and tear down) duplicates */
 let sessionInitPromise: Promise<FlowrSession> | undefined;
+/** resolves once activation has built flowR's configuration, so features started early cannot initialize a session without it */
+let markConfigured: () => void;
+const configured = new Promise<void>(resolve => markConfigured = resolve);
 
-/**
- *
- */
+/** activates the extension: registers commands, telemetry and the status bar, and returns its API */
 export async function activate(context: vscode.ExtensionContext): Promise<FlowrExtensionApi> {
 	extensionContext = context;
 	outputChannel = vscode.window.createOutputChannel('flowR');
@@ -53,6 +61,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<FlowrE
 	registerDiagramCommands(context, outputChannel);
 	registerSliceCommands(context, outputChannel);
 	registerLintCommands(context, outputChannel);
+	registerLineCategories(context, outputChannel);
+	registerSearch(context, outputChannel);
+	registerRemovalSlice(context);
 	registerDependencyInternalCommands(context, outputChannel);
 	registerTelemetry(context, outputChannel);
 
@@ -61,6 +72,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FlowrE
 	// make flowR's bundled signature database discoverable before the first analysis runs
 	configureSigDb();
 	updateFlowrConfig();
+	markConfigured();
 	// pre-download base R signatures on first activation for better UX
 	void predownloadBaseRSignatures();
 	vscode.workspace.onDidChangeConfiguration(e => {
@@ -87,7 +99,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<FlowrE
 	registerCommand(context, 'vscode-flowr.repl', async() => {
 		try {
 			showRepl(context, await getFlowrSession());
-		} catch(e){
+		} catch(e) {
 			vscode.window.showErrorMessage('Failed to start flowR REPL');
 			console.error(e);
 		}
@@ -133,7 +145,9 @@ ${JSON.stringify(getConfig(), null, 2)}
 	context.subscriptions.push(new vscode.Disposable(() => destroySession()),
 		...registerHoverOverValues(outputChannel),
 		...registerPackageInfo(outputChannel),
-		registerCompletion());
+		registerCompletion(),
+		registerMcpServer(),
+		registerDocumentSymbols(outputChannel));
 
 	const { dispose: disposeDep, update: updateDependencyView } = registerDependencyView(outputChannel);
 	registerCommand(context, 'vscode-flowr.dependencyView.update', async() => {
@@ -159,36 +173,31 @@ ${JSON.stringify(getConfig(), null, 2)}
 
 	// initialize the api :)
 	return {
-		flowrConfig: () => VSCodeFlowrConfiguration
+		flowrConfig: () => VSCodeFlowrConfiguration,
+		refreshSigDbConfig
 	};
 }
 
-/**
- *
- */
+/** replaces the current session with a freshly initialized internal flowR session */
 export async function establishInternalSession() {
 	destroySession();
 	flowrSession = new FlowrInternalSession(outputChannel);
 	await flowrSession.initialize();
 	return flowrSession;
 }
-/**
- *
- */
+/** returns the active flowR session, lazily creating an internal one (concurrent callers share one init) */
 export async function getFlowrSession() {
 	if(flowrSession) {
 		return flowrSession;
 	}
 	// initialize a default session if none is active, coalescing concurrent callers onto a single init
-	sessionInitPromise ??= establishInternalSession().finally(() => {
+	sessionInitPromise ??= configured.then(establishInternalSession).finally(() => {
 		sessionInitPromise = undefined;
 	});
 	return await sessionInitPromise;
 }
 
-/**
- *
- */
+/** replaces the current session with a freshly initialized flowR server session */
 export async function establishServerSession() {
 	destroySession();
 	flowrSession = new FlowrServerSession(outputChannel);
@@ -196,17 +205,13 @@ export async function establishServerSession() {
 	return flowrSession;
 }
 
-/**
- *
- */
+/** destroys the active flowR session, if any */
 export function destroySession() {
 	flowrSession?.destroy();
 	flowrSession = undefined;
 }
 
-/**
- *
- */
+/** refreshes the status bar item from the current session, telemetry and recording state */
 export function updateStatusBar() {
 	// telemetry/recording may sync from settings before the status bar exists; activate() refreshes it right after creation
 	if(!statusBarItem) {
@@ -221,7 +226,7 @@ export function updateStatusBar() {
 		if(connected) {
 			tooltip.push(`R version ${flowrSession.rVersion}  \nflowR version ${flowrSession.flowrVersion}`);
 		}
-		if(flowrSession.working){
+		if(flowrSession.working) {
 			text.push('$(loading~spin) Analyzing');
 		}
 	} else if(flowrSession instanceof FlowrInternalSession) {
@@ -235,7 +240,7 @@ export function updateStatusBar() {
 			info += `  \n${sigDbSummary()}`;
 			tooltip.push(info);
 		}
-		if(flowrSession.working){
+		if(flowrSession.working) {
 			text.push('$(loading~spin) Analyzing');
 		}
 	}
@@ -262,10 +267,10 @@ export function updateStatusBar() {
 		}
 	}
 
-	if(telemetry instanceof RecordingTelemetry){
+	if(telemetry instanceof RecordingTelemetry) {
 		text.push('$(record) Recording');
 		tooltip.push(`Recording this session to ${telemetry.filePath}`);
-	} else if(!(telemetry instanceof NoTelemetry)){
+	} else if(!(telemetry instanceof NoTelemetry)) {
 		text.push('$(record) Telemetry active');
 	}
 
@@ -283,9 +288,7 @@ export function isWeb() {
 	return !(typeof process === 'object' && process.versions.node);
 }
 
-/**
- *
- */
+/** root path from which the extension loads its WASM assets (a vscode URI string on web) */
 export function getWasmRootPath(): string {
 	if(!isWeb()) {
 		return __dirname;
@@ -297,9 +300,7 @@ export function getWasmRootPath(): string {
 }
 
 
-/**
- *
- */
+/** registers a vscode command that reports its use to telemetry before invoking `callback` */
 // we're just passing through vscode's command args syntax here :)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerCommand(context: vscode.ExtensionContext, command: string, callback: (...args: any[]) => any, thisArg?: any): void {
@@ -329,11 +330,10 @@ async function hydrateBundledSigDbForWeb(): Promise<void> {
 	}
 	try {
 		const sourceDir = vscode.Uri.joinPath(extensionContext.extensionUri, 'dist', 'web', 'sigdb');
-		const entries = await vscode.workspace.fs.readDirectory(sourceDir);
-		await Promise.all(entries.map(async([name, type]) => {
-			if(type !== vscode.FileType.File) {
-				return;
-			}
+		// static hosting has no directory listing (readDirectory fails with EntryNotADirectory), so the build writes an index
+		const index = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(sourceDir, 'index.json')))) as string[];
+		const names = ['sigdb.remote.json', ...index];
+		await Promise.all(names.map(async name => {
 			const virtualPath = `${WebBundledSigDbVirtualPath}/${name}`;
 			if(fs.existsSync(virtualPath)) {
 				return;
@@ -384,6 +384,7 @@ export async function predownloadBaseRSignatures(): Promise<void> {
 
 /** re-reads sigdb settings/on-disk state and destroys the active session, so the next feature call mounts what is now on disk */
 export function refreshSigDbConfig() {
+	invalidateSigDbPackageNamesCache();
 	configureSigDb();
 	updateFlowrConfig();
 	destroySession();

@@ -9,9 +9,10 @@ import type { DataflowInformation } from '@eagleoutice/flowr/dataflow/info';
 import { RNode } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/model';
 import type { DiagramSelectionMode } from './diagrams/diagram-definitions';
 import type { CfgSimplificationPassName } from '@eagleoutice/flowr/control-flow/cfg-simplification';
-import { RType } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/type';
-import type { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';
+import { RExpressionList } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-expression-list';
+import { RFunctionCall } from '@eagleoutice/flowr/r-bridge/lang-4.x/ast/model/nodes/r-function-call';
 import type { SliceDirection } from '@eagleoutice/flowr/util/slice-direction';
+import type { SliceCombination } from '../settings';
 import { Q, type FlowrSearch } from '@eagleoutice/flowr/search/flowr-search-builder';
 import { isNotUndefined } from '@eagleoutice/flowr/util/assert';
 
@@ -20,6 +21,26 @@ import { isNotUndefined } from '@eagleoutice/flowr/util/assert';
 export interface SliceReturn {
 	code:          string,
 	sliceElements: { id: NodeId, location: SourceRange }[]
+	/** why the slice is empty, if it is */
+	problem?:      string
+}
+
+/** explains a slice without any element, given what it was computed for */
+export function emptySliceProblem(criteria: SlicingCriteria, combine?: SliceCombination): string {
+	if(criteria.length === 0) {
+		return 'there is nothing to slice for';
+	}
+	return combine === 'intersection' && criteria.length > 1 ? 'the slices of the marked positions have no code in common' : 'flowR found no code for the slicing criterion';
+}
+
+const SyntaxErrorHint = 'the file has syntax errors flowR could only partially recover from (enable the `syntactically-valid` linting rule to see them)';
+
+/**
+ * Returns the ids contained in every one of the given sets.
+ */
+export function intersectIds(sets: readonly ReadonlySet<NodeId>[]): Set<NodeId> {
+	const [first, ...rest] = sets;
+	return new Set([...first ?? []].filter(id => rest.every(s => s.has(id))));
 }
 
 export interface FlowrSession {
@@ -30,7 +51,8 @@ export interface FlowrSession {
 		direction: SliceDirection,
 		document: vscode.TextDocument,
 		showErrorMessage?: boolean,
-		info?: { dfi: DataflowInformation, ast: NormalizedAst }
+		info?: { dfi: DataflowInformation, ast: NormalizedAst },
+		combine?: SliceCombination
 	) => Promise<SliceReturn>
 	retrieveDataflowMermaid:  (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode, simplified?: boolean) => Promise<string>
 	retrieveAstMermaid:       (document: vscode.TextDocument, selections: readonly vscode.Selection[], selectionMode: DiagramSelectionMode) => Promise<string>
@@ -40,10 +62,7 @@ export interface FlowrSession {
 	runRepl:                  (output: Omit<FlowrReplOptions, 'parser'>) => Promise<void>
 }
 
-// Snaps to the enclosing word so positions on adjacent whitespace still hit the identifier.
-/**
- *
- */
+/** builds a fuzzy flowR location search for the symbol under `position` */
 export function locationSearch(position: vscode.Position, document: vscode.TextDocument): FlowrSearch {
 	const pos = getPositionAt(position, document)?.start ?? position;
 	return Q.locFuzzy(pos.line + 1, pos.character + 1, true).build();
@@ -54,7 +73,7 @@ export function locationSearch(position: vscode.Position, document: vscode.TextD
  */
 export async function getNodeIdAt(position: vscode.Position, document: vscode.TextDocument, session: FlowrSession): Promise<NodeId | undefined> {
 	const result = await session.retrieveQuery(document, [{ type: 'search', search: locationSearch(position, document) }]);
-	return result.hasError ? undefined : result.result.search.results[0]?.ids[0];
+	return result.result.search?.results[0]?.ids[0];
 }
 
 /** maps a function-name symbol to its enclosing call node (the actual dataflow vertex); non-call nodes are returned unchanged */
@@ -64,24 +83,20 @@ export function toDataflowNode(ast: NormalizedAst, id: NodeId): NodeId {
 		return id;
 	}
 	const parent = ast.idMap.get(parentId);
-	if(parent?.type === RType.FunctionCall && parent.named && parent.functionName.info.id === id) {
+	if(RFunctionCall.isNamed(parent) && parent.functionName.info.id === id) {
 		return parentId;
 	}
 	return id;
 }
 
-/**
- *
- */
+/** the word range (R identifier characters) at `position`, if any */
 export function getPositionAt(position: vscode.Position, document: vscode.TextDocument): vscode.Range | undefined {
 	const re = /([a-zA-Z0-9._])+/;
 	const wordRange = document.getWordRangeAtPosition(position, re);
 	return wordRange;
 }
 
-/**
- *
- */
+/** normalizes CRLF line endings to LF */
 export function consolidateNewlines(text: string) {
 	return text.replace(/\r\n/g, '\n');
 }
@@ -89,30 +104,38 @@ export function consolidateNewlines(text: string) {
 
 /** resolves each position to a slicing criterion in one analysis pass, dropping positions that don't map to a flowR node */
 export async function makeSlicingCriteriaForPositions(positions: vscode.Position[], doc: vscode.TextDocument, session: FlowrSession): Promise<SlicingCriteria> {
+	return (await resolveSlicingCriteria(positions, doc, session)).criteria;
+}
+
+/** like {@link makeSlicingCriteriaForPositions}, but also explains why no criterion could be resolved */
+export async function resolveSlicingCriteria(positions: vscode.Position[], doc: vscode.TextDocument, session: FlowrSession): Promise<{ criteria: SlicingCriteria, problem?: string }> {
 	if(positions.length === 0) {
-		return [];
+		return { criteria: [], problem: 'there is no cursor position to slice for' };
 	}
 	const result = await session.retrieveQuery(doc, positions.map(pos => ({ type: 'search', search: locationSearch(pos, doc) } as const)));
-	if(result.hasError) {
-		return [];
+	// a syntax error elsewhere still leaves a usable (partial) AST, so only bail out when there is no result at all
+	if(!result.result.search) {
+		return { criteria: [], problem: result.hasError ? 'flowR could not parse the file' : 'flowR could not analyze the file' };
 	}
 	const ast = result.ast;
-	return result.result.search.results
+	const criteria = result.result.search.results
 		.map(r => r.ids[0])
 		.filter(isNotUndefined)
 		// map a function-name symbol to its call node so slicing on e.g. `print(x)` slices the call, not the bare name
 		.map(id => ast ? toDataflowNode(ast, id) : id)
 		.map(id => `$${id}` as SlicingCriterion);
+	if(criteria.length === 0) {
+		return { criteria, problem: `the cursor is not on an R expression flowR knows${result.hasError ? `; ${SyntaxErrorHint}` : ''}` };
+	}
+	return { criteria };
 }
 
-/**
- *
- */
+/** maps slice node ids to their locations, dropping ids without one, sorted by start position */
 export function makeSliceElements(sliceResponse: ReadonlySet<NodeId>, idToLocation: (id: NodeId) => SourceRange | undefined): { id: NodeId, location: SourceRange }[] {
 	const sliceElements: { id: NodeId, location: SourceRange }[] = [];
-	for(const id of sliceResponse){
+	for(const id of sliceResponse) {
 		const location = idToLocation(id);
-		if(location){
+		if(location) {
 			sliceElements.push({ id, location });
 		}
 	}
@@ -130,9 +153,7 @@ export function rangeToVscodeRange(range: SourceRange): vscode.Range {
 	return new vscode.Range(clamp(range[0] - 1), clamp(range[1] - 1), clamp(range[2] - 1), clamp(range[3]));
 }
 
-/**
- *
- */
+/** collects the ids of AST nodes covered by the selections, or `undefined` if the selection is empty */
 export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<ParentInformation>[]), selectionsRaw: readonly vscode.Selection[]): ReadonlySet<NodeId> | undefined {
 	if(selectionsRaw.length === 0 || selectionsRaw[0].isEmpty) {
 		return undefined;
@@ -148,7 +169,7 @@ export function selectionsToNodeIds(root: (RNode<ParentInformation> | RNode<Pare
 	));
 
 	RNode.visitAst(root, node => {
-		if(node.type === RType.ExpressionList) {
+		if(RExpressionList.is(node)) {
 			maybeIncluded.push(node);
 			return;
 		}
@@ -178,12 +199,12 @@ export class RotaryBuffer<T> {
 	private readonly buffer: T[];
 	private index:           number = 0;
 
-	constructor(size: number){
+	constructor(size: number) {
 		this.buffer = new Array<T>(size);
 	}
 
 	push(item: T): void {
-		if(this.buffer.length === 0){
+		if(this.buffer.length === 0) {
 			return;
 		}
 		this.buffer[this.index] = item;
@@ -191,7 +212,7 @@ export class RotaryBuffer<T> {
 	}
 
 	get(item: (t: T | undefined) => boolean): T | undefined {
-		if(this.buffer.length === 0){
+		if(this.buffer.length === 0) {
 			return undefined;
 		}
 		return this.buffer.find(item);

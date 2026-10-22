@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { getFlowrSession, registerCommand } from './extension';
 import type { LintingRuleConfig, LintingRuleMetadata, LintingRuleNames, LintingRuleResult } from '@eagleoutice/flowr/linter/linter-rules';
 import { LintingRules } from '@eagleoutice/flowr/linter/linter-rules';
+import { LintingRuleTag } from '@eagleoutice/flowr/linter/linter-tags';
 import { getConfig, isVerbose, LinterRefresherConfigKeys, Settings } from './settings';
 import type { ConfiguredLintingRule, LintingResult, LintQuickFix } from '@eagleoutice/flowr/linter/linter-format';
 import { ConfigurableRefresher } from './configurable-refresher';
@@ -10,18 +11,21 @@ import { rangeToVscodeRange } from './flowr/utils';
 import { flowrScheme } from './doc-provider';
 import { SourceLocation } from '@eagleoutice/flowr/util/range';
 
-/**
- *
- */
+/** registers the lint commands backed by a {@link LinterService} */
 export function registerLintCommands(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
 	const linter = new LinterService(context, output);
+	context.subscriptions.push(watchRPackages());
 	registerCommand(context, 'vscode-flowr.lint.run', async() => {
-		await linter.updateDiagnostics();
+		await linter.updateDiagnostics(true);
 	});
 }
 
-/** rules that only make sense for a whole R package; dropped for standalone scripts (see {@link isInRPackage}) */
+/** rules that only make sense for a whole R package; dropped for standalone scripts (see {@link isInRPackage}), as are flowR's `R CMD check` rules */
 const packageOnlyRules = new Set<LintingRuleNames>(['software-has-license', 'software-has-tests']);
+
+function isPackageOnlyRule(name: LintingRuleNames): boolean {
+	return packageOnlyRules.has(name) || (LintingRules[name].info.tags as readonly LintingRuleTag[]).includes(LintingRuleTag.CmdCheck);
+}
 
 /** whether a file exists at the given URI (never throws) */
 async function fileExists(uri: vscode.Uri): Promise<boolean> {
@@ -34,18 +38,41 @@ async function fileExists(uri: vscode.Uri): Promise<boolean> {
 }
 
 /** whether a document lives in an R package: walks up (bounded by the workspace) for a `DESCRIPTION` file */
-export async function isInRPackage(document: Pick<vscode.TextDocument, 'uri'>): Promise<boolean> {
-	if(document.uri.scheme !== 'file') {
+export function isInRPackage(document: Pick<vscode.TextDocument, 'uri'>): Promise<boolean> {
+	// asked on every code action request, so the walk is cached per folder until a DESCRIPTION file comes or goes
+	const dir = vscode.Uri.joinPath(document.uri, '..').toString();
+	let result = packageCache.get(dir);
+	if(!result) {
+		result = findDescription(document);
+		packageCache.set(dir, result);
+	}
+	return result;
+}
+
+const packageCache = new Map<string, Promise<boolean>>();
+
+/** forgets the cached {@link isInRPackage} answers when a DESCRIPTION file is created or deleted */
+export function watchRPackages(): vscode.Disposable {
+	const watcher = vscode.workspace.createFileSystemWatcher('**/DESCRIPTION', false, true, false);
+	const clear = () => packageCache.clear();
+	// deleting or moving a whole package folder fires no event for its DESCRIPTION
+	return vscode.Disposable.from(watcher, watcher.onDidCreate(clear), watcher.onDidDelete(clear),
+		vscode.workspace.onDidDeleteFiles(clear), vscode.workspace.onDidRenameFiles(clear), vscode.workspace.onDidChangeWorkspaceFolders(clear));
+}
+
+async function findDescription(document: Pick<vscode.TextDocument, 'uri'>): Promise<boolean> {
+	const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+	if(!folder) {
 		return false;
 	}
-	const root = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+	const root = folder.uri.toString();
 	let dir = vscode.Uri.joinPath(document.uri, '..');
 	for(let i = 0; i < 20; i++) {
 		if(await fileExists(vscode.Uri.joinPath(dir, 'DESCRIPTION'))) {
 			return true;
 		}
 		const parent = vscode.Uri.joinPath(dir, '..');
-		if(dir.fsPath === root || parent.fsPath === dir.fsPath) {
+		if(dir.toString() === root || parent.toString() === dir.toString()) {
 			break; // reached the workspace or filesystem root
 		}
 		dir = parent;
@@ -65,9 +92,8 @@ export function isLocInDocument(loc: SourceLocation, document: Pick<vscode.TextD
 		// no file attribution (or the inline-buffer marker) => the primary document being analyzed
 		return true;
 	}
-	const normalize = (p: string) => p.replace(/^file:\/\//, '').replace(/\\/g, '/');
-	const target = normalize(file);
-	return target === normalize(document.fileName) || target === normalize(document.uri.fsPath);
+	const uri = file.startsWith('file://') ? vscode.Uri.parse(file) : vscode.Uri.file(file);
+	return uri.toString() === document.uri.toString() || uri.toString() === vscode.Uri.file(document.fileName).toString();
 }
 
 /** drops the finding's absolute file path from its message: {@link SourceLocation.format} prefixes the location with it, but the diagnostic already points at the file in the editor and Problems panel */
@@ -91,12 +117,12 @@ class CodeAction extends vscode.CodeAction {
 class LinterService implements vscode.CodeActionProvider<CodeAction> {
 	private readonly output: vscode.OutputChannel;
 	private readonly diagnosticCollection = vscode.languages.createDiagnosticCollection('flowr-lint');
-	private readonly codeActions = vscode.languages.registerCodeActionsProvider({ language: 'r' }, this, {
+	private readonly codeActions = vscode.languages.registerCodeActionsProvider([{ language: 'r' }, { language: 'rmd' }], this, {
 		providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
 	});
-	private readonly refresher:      ConfigurableRefresher;
-	/** cached lint results keyed by `uri@version` so an edit invalidates the entry (avoids stale quick-fixes) */
-	private readonly resultsPerFile: Map<string, LinterQueryResult> = new Map<string, LinterQueryResult>();
+	private readonly refresher: ConfigurableRefresher;
+	/** lint runs keyed by `uri@version#rules`, so an edit or a rule change invalidates the entry (avoids stale quick-fixes) */
+	private readonly resultsPerFile = new Map<string, Promise<LinterQueryResult | undefined>>();
 	private static readonly maxResultCacheEntries = 32;
 
 	constructor(context: vscode.ExtensionContext, output: vscode.OutputChannel) {
@@ -105,7 +131,8 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 			name:            'Lint',
 			keys:            LinterRefresherConfigKeys,
 			refreshCallback: async() => {
-				await this.updateDiagnostics();
+				// re-run even for an unchanged version, as sourced scripts or the signature database may have changed
+				await this.updateDiagnostics(true);
 			},
 			output: output
 		});
@@ -128,7 +155,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 					continue;
 				}
 				const quickFixes = (finding as LintingResult).quickFix;
-				if(!quickFixes?.length){
+				if(!quickFixes?.length) {
 					continue;
 				}
 				// only add quick fixes if we overlap the relevant range or selection
@@ -158,26 +185,35 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 		return codeAction;
 	}
 
-	async lintFile(document: vscode.TextDocument, forceRefresh: boolean = false): Promise<LinterQueryResult | undefined> {
+	/** lints the document, sharing one run per document version and rule configuration between all callers */
+	lintFile(document: vscode.TextDocument, forceRefresh: boolean = false): Promise<LinterQueryResult | undefined> {
 		// skip documents generated by flowR for linting (like the slice reconstruction)
 		if(document.uri.scheme === flowrScheme) {
 			this.output.appendLine(`[Lint] Not analyzing flowR-generated document ${document.fileName}`);
-			return;
+			return Promise.resolve(undefined);
 		}
-
-		const cacheKey = `${document.uri.toString()}@${document.version}`;
-		if(!forceRefresh) {
-			const results = this.resultsPerFile.get(cacheKey);
-			if(results !== undefined) {
-				if(isVerbose()) {
-					this.output.appendLine(`[Lint] Using cached results for document ${document.fileName}`);
-				}
-				return results;
+		return this.configuredRules(document).then(rules => {
+			const cacheKey = `${document.uri.toString()}@${document.version}#${JSON.stringify(rules)}`;
+			const cached = forceRefresh ? undefined : this.resultsPerFile.get(cacheKey);
+			if(cached) {
+				return cached;
 			}
-		}
+			const run = this.runLinter(document, rules);
+			// bound the cache (one entry per file+version otherwise grows without limit)
+			if(!this.resultsPerFile.has(cacheKey) && this.resultsPerFile.size >= LinterService.maxResultCacheEntries) {
+				const oldest = this.resultsPerFile.keys().next().value;
+				if(oldest !== undefined) {
+					this.resultsPerFile.delete(oldest);
+				}
+			}
+			this.resultsPerFile.set(cacheKey, run);
+			// a failed run must not stay cached (nor remove a newer run for the same key)
+			void run.then(r => r === undefined && this.resultsPerFile.get(cacheKey) === run && this.resultsPerFile.delete(cacheKey));
+			return run;
+		});
+	}
 
-		const session = await getFlowrSession();
-
+	private async configuredRules(document: vscode.TextDocument): Promise<(LintingRuleNames | ConfiguredLintingRule)[]> {
 		// rules are only enabled if they're contained in the enabledRules config
 		let rules: (LintingRuleNames | ConfiguredLintingRule)[] = getConfig().get<LintingRuleNames[]>(Settings.LinterEnabledRules, []);
 		// empty array means all rules should be enabled (we do it like this so we can apply configs)
@@ -193,7 +229,7 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 		}
 		// license/tests rules only make sense inside an R package
 		if(!(await isInRPackage(document))) {
-			rules = rules.filter(r => !packageOnlyRules.has(typeof r === 'string' ? r : r.name));
+			rules = rules.filter(r => !isPackageOnlyRule(typeof r === 'string' ? r : r.name));
 		}
 		// now we apply the ruleConfigs to all enabled rules
 		for(const [ruleName, config] of Object.entries(getConfig().get<{ [N in LintingRuleNames]?: LintingRuleConfig<N> }>(Settings.LinterRuleConfigs, {}))) {
@@ -205,12 +241,17 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 				};
 			}
 		}
+		return rules;
+	}
+
+	private async runLinter(document: vscode.TextDocument, rules: (LintingRuleNames | ConfiguredLintingRule)[]): Promise<LinterQueryResult | undefined> {
 		if(isVerbose()) {
 			this.output.appendLine(`[Lint] Analyzing ${document.fileName} with rules: ${rules.map(r => typeof r === 'string' ? r : r.name).join(', ')}`);
 		}
 
 		let lint;
 		try {
+			const session = await getFlowrSession();
 			lint = await session.retrieveQuery(document, [{
 				type:  'linter',
 				rules: rules
@@ -218,31 +259,24 @@ class LinterService implements vscode.CodeActionProvider<CodeAction> {
 		} catch(e) {
 			this.output.appendLine(`[Lint] Error while analyzing ${document.fileName}: ${(e as Error).message}`);
 			this.output.appendLine((e as Error).stack ?? '');
+			vscode.window.setStatusBarMessage(`$(warning) flowR: linting failed: ${(e as Error).message}`, getConfig().get<number>(Settings.ErrorMessageTimer, 5000));
 			return undefined;
 		}
-		// bound the cache (one entry per file+version otherwise grows without limit)
-		if(this.resultsPerFile.size >= LinterService.maxResultCacheEntries) {
-			const oldest = this.resultsPerFile.keys().next().value;
-			if(oldest !== undefined) {
-				this.resultsPerFile.delete(oldest);
-			}
-		}
-		this.resultsPerFile.set(cacheKey, lint.result.linter);
-
 		return lint.result.linter;
 	}
 
-	async updateDiagnostics(): Promise<void> {
+	async updateDiagnostics(force = false): Promise<void> {
 		const activeEditor = vscode.window.activeTextEditor;
 		if(!activeEditor) {
 			return;
 		}
 
-		const results = await this.lintFile(activeEditor.document, true);
+		const results = await this.lintFile(activeEditor.document, force);
 		const diagnostics: vscode.Diagnostic[] = [];
 		const perRuleCounts: string[] = [];
 		for(const [ruleName, findings] of Object.entries(results?.results ?? {})) {
 			if('error' in findings) {
+				this.output.appendLine(`[Lint] Rule ${ruleName} failed: ${String((findings.error as Error)?.message ?? findings.error)}`);
 				continue;
 			}
 			const rule = LintingRules[ruleName as LintingRuleNames];

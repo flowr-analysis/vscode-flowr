@@ -1,7 +1,7 @@
 import assert from 'assert';
 import * as vscode from 'vscode';
 import { loadedPackagesIn, callBeforeCursor, packageArgumentCompletions, resolveArgNameAgainst, resolveCallArgs, endsInsideString, coexistenceWith, notCoveredBy } from '../completion';
-import { activateExtension, ensureSigDbCurrentDownloaded } from './test-util';
+import { activateExtension, ensureSigDbCurrentDownloaded, skipWithoutFullSigDb } from './test-util';
 import { getConfig, Settings } from '../settings';
 
 function labelOf(item: vscode.CompletionItem): string {
@@ -109,13 +109,15 @@ suite('completion', () => {
 			assert.strictEqual(await packageArgumentCompletions('ggplot(data = '), undefined);
 		});
 
-		test('suggests packages for library()\'s first (bare) argument', async() => {
+		test('suggests packages for library()\'s first (bare) argument', async function() {
+			skipWithoutFullSigDb(this);
 			const items = await packageArgumentCompletions('library(dp');
 			assert.ok(items);
 			assert.ok(items.length > 0, 'expected at least one package suggestion');
 		});
 
-		test('suggests packages for library()\'s named `package = ` argument too', async() => {
+		test('suggests packages for library()\'s named `package = ` argument too', async function() {
+			skipWithoutFullSigDb(this);
 			const items = await packageArgumentCompletions('library(package = dp');
 			assert.ok(items);
 			assert.ok(items.length > 0);
@@ -127,7 +129,8 @@ suite('completion', () => {
 			assert.ok(!items.some(item => labelOf(item).startsWith('package:')));
 		});
 
-		test('offers `package:<pkg>` suggestions alongside bare names for attach()/detach()', async() => {
+		test('offers `package:<pkg>` suggestions alongside bare names for attach()/detach()', async function() {
+			skipWithoutFullSigDb(this);
 			for(const fn of ['attach', 'detach']) {
 				const items = await packageArgumentCompletions(`${fn}(`);
 				assert.ok(items, `expected completions for ${fn}(`);
@@ -136,14 +139,16 @@ suite('completion', () => {
 			}
 		});
 
-		test('suggests packages for pacman::p_load()\'s unnamed, variadic arguments regardless of position', async() => {
+		test('suggests packages for pacman::p_load()\'s unnamed, variadic arguments regardless of position', async function() {
+			skipWithoutFullSigDb(this);
 			const items = await packageArgumentCompletions('p_load(dplyr, ');
 			assert.ok(items);
 			assert.ok(items.length > 0);
 		});
 
 		// regression test: `pack = ` must pmatch to `package = ` even without a real sigdb lookup (the single-name fallback still matches)
-		test('recognizes a partially-typed named `package = ` argument via R\'s partial-argument matching', async() => {
+		test('recognizes a partially-typed named `package = ` argument via R\'s partial-argument matching', async function() {
+			skipWithoutFullSigDb(this);
 			const items = await packageArgumentCompletions('library(pack = dp');
 			assert.ok(items);
 			assert.ok(items.length > 0);
@@ -154,7 +159,8 @@ suite('completion', () => {
 		});
 
 		// with the R language server around, it already completes the packages you have installed - we add the rest of CRAN
-		test('leaves out the packages the R language server already covers', async() => {
+		test('leaves out the packages the R language server already covers', async function() {
+			skipWithoutFullSigDb(this);
 			const all = await packageArgumentCompletions('library(');
 			assert.ok(all && all.length > 0);
 			const covered = labelOf(all[0]);
@@ -238,7 +244,8 @@ suite('completion', () => {
 			assert.ok(items.some(i => labelOf(i) === 'acf'), `expected 'acf' (from stats) to be suggested, got: ${items.map(labelOf).join(', ')}`);
 		});
 
-		test('completes a pkg::partial call from a package that is not loaded at all', async() => {
+		test('completes a pkg::partial call from a package that is not loaded at all', async function() {
+			skipWithoutFullSigDb(this);
 			const items = await completionsIn('dplyr::mut', new vscode.Position(0, 10));
 			assert.ok(items.some(i => labelOf(i) === 'mutate'), `expected 'mutate' (from dplyr::) to be suggested, got: ${items.map(labelOf).join(', ')}`);
 		});
@@ -257,7 +264,8 @@ suite('completion', () => {
 		});
 
 		// but package-name completion inside library("...") is deliberately a string argument, and must still work
-		test('still suggests package names inside library("...")', async() => {
+		test('still suggests package names inside library("...")', async function() {
+			skipWithoutFullSigDb(this);
 			const items = await completionsIn('library("dpl', new vscode.Position(0, 12));
 			assert.ok(items.some(i => labelOf(i) === 'dplyr'), `expected dplyr to be suggested inside library("..."), got: ${items.map(labelOf).join(', ')}`);
 		});
