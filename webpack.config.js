@@ -110,7 +110,7 @@ module.exports = () => {
 				path: require.resolve('path-browserify'),
 				stream: require.resolve('stream-browserify'),
 				util: require.resolve('util'),
-				os: require.resolve('os-browserify/browser'),
+				os: path.resolve(__dirname, 'webpack-shims/os.js'),
 				url: require.resolve('url'),
 				zlib: path.resolve(__dirname, 'webpack-shims/zlib.js'),
 				constants: require.resolve('constants-browserify'),

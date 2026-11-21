@@ -176,6 +176,13 @@ function unlinkSync(path) {
 	void persistDelete(String(path)).catch(() => { /* best-effort mirror */ });
 }
 
+function rmSync(path, options) {
+	if(!files.delete(String(path)) && !options?.force) {
+		throw notFound(path);
+	}
+	void persistDelete(String(path)).catch(() => { /* best-effort mirror */ });
+}
+
 function statSync(path) {
 	const data = files.get(String(path));
 	if(!data) {
@@ -190,6 +197,6 @@ function statSync(path) {
 
 module.exports = {
 	existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync,
-	openSync, readSync, closeSync, copyFileSync, renameSync, unlinkSync, statSync,
+	openSync, readSync, closeSync, copyFileSync, renameSync, unlinkSync, rmSync, statSync,
 	__vscodeFlowrVirtualFs: { files, hasFile: p => files.has(String(p)), clear: () => files.clear(), restoreFromIndexedDb }
 };

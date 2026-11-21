@@ -79,4 +79,10 @@ function createHash(algorithm) {
 	return new Sha256Hash();
 }
 
-module.exports = { createHash };
+function randomBytes(size) {
+	const out = Buffer.alloc(size);
+	globalThis.crypto.getRandomValues(out);
+	return out;
+}
+
+module.exports = { createHash, randomBytes };
