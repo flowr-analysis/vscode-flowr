@@ -5,9 +5,18 @@ on:
   workflow_dispatch:
   repository_dispatch:
     types: [flowr-release]
+
+concurrency:
+  group: flowr-update
+
+env:
+  BRANCH: auto/flowr-update
+  BOT: flowr-update-bot <41898282+github-actions[bot]@users.noreply.github.com>
+
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     permissions:
       contents: write
@@ -15,53 +24,104 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Install node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24.x
           registry-url: 'https://registry.npmjs.org/'
+          cache: npm
 
       - name: Check for a new flowR version
         id: check
         run: |
-          latest=$(npm view @eagleoutice/flowr version)
+          retry() { for i in 1 2 3 4; do "$@" && return; sleep $((i * 15)); done; return 1; }
+          latest=$(retry npm view @eagleoutice/flowr version)
           current=$(node -p "require('./package-lock.json').packages['node_modules/@eagleoutice/flowr'].version")
           echo "latest=$latest" >> "$GITHUB_OUTPUT"
-          if [ "$latest" != "$current" ]; then
-            echo "update=true" >> "$GITHUB_OUTPUT"
+          [ "$latest" != "$current" ] || { echo "Already on flowR $latest"; exit 0; }
+          # never overwrite fixes someone pushed to the update branch
+          if git fetch -q origin "$BRANCH" 2>/dev/null && git log --format='%an <%ae>' "origin/main..origin/$BRANCH" | grep -qvxF "$BOT"; then
+            echo "::notice::$BRANCH has manual commits, leaving it alone"
+            exit 0
           fi
+          echo "update=true" >> "$GITHUB_OUTPUT"
 
       - name: Update flowR
         if: steps.check.outputs.update
         id: bump
         run: |
-          npm ci
-          npm install "@eagleoutice/flowr@^$LATEST"
+          retry() { for i in 1 2 3; do "$@" && return; sleep $((i * 15)); done; return 1; }
+          retry npm ci
+          retry npm install "@eagleoutice/flowr@^$LATEST"
+          retry npx playwright install --with-deps chromium
+          command -v xvfb-run || { sudo apt-get update && sudo apt-get install -y xvfb; }
           echo "step=$(node scripts/bump-flowr.mjs "$LATEST")" >> "$GITHUB_OUTPUT"
         env:
           LATEST: ${{ steps.check.outputs.latest }}
 
+      # failing tests do not fail the job: they turn the pull request into a draft that lists the failures
       - name: Test
         if: steps.check.outputs.update
-        uses: coactions/setup-xvfb@v1
-        with:
-          run: npm run test -- --forbid-only
+        id: test
+        run: |
+          mkdir -p logs
+          attempt() { "$@" > "logs/$name.log" 2>&1 || "$@" > "logs/$name.log" 2>&1; }
+          failed=""
+          name=desktop; attempt xvfb-run -a npm run test -- --forbid-only || failed="$failed desktop"
+          name=web; attempt npm run test-web || failed="$failed web"
+          if [ -z "$failed" ]; then
+            echo "report=Tests (desktop and web) passed with the new version." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "failed=true" >> "$GITHUB_OUTPUT"
+          echo "::warning::tests failing with the new flowR:$failed"
+          {
+            echo 'report<<EOF_REPORT'
+            echo "**Tests failing:$failed.** Push fixes to \`$BRANCH\`, then mark this ready. [Logs]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+            echo '```'
+            sed 's/\x1b\[[0-9;]*m//g' logs/*.log | grep -aE '[0-9]+ (passing|failing)|^ +[0-9]+\) |TS[0-9]{4}|AssertionError|ERROR in' | head -n 60 | cut -c1-300 || true
+            echo '```'
+            echo 'EOF_REPORT'
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Test web
-        if: steps.check.outputs.update
-        run: npx playwright install --with-deps chromium && npm run test-web
+      - name: Upload test logs
+        if: always() && steps.check.outputs.update
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-logs
+          path: logs
+          if-no-files-found: ignore
 
       - name: Create pull request
         if: steps.check.outputs.update
-        uses: peter-evans/create-pull-request@v7
+        id: pr
+        uses: peter-evans/create-pull-request@v8
         with:
           # a token other than GITHUB_TOKEN, so the pull request triggers the regular CI
           token: ${{ secrets.RELEASE_TOKEN }}
-          branch: auto/flowr-update
+          branch: ${{ env.BRANCH }}
           delete-branch: true
+          add-paths: |
+            package.json
+            package-lock.json
+            CHANGELOG.md
+          author: ${{ env.BOT }}
+          committer: ${{ env.BOT }}
+          draft: ${{ steps.test.outputs.failed && 'always-true' || 'false' }}
           commit-message: '[release:${{ steps.bump.outputs.step }}] Bump to flowR ${{ steps.check.outputs.latest }}'
           title: '[release:${{ steps.bump.outputs.step }}] Bump to flowR ${{ steps.check.outputs.latest }}'
           body: |
-            Updates flowR to [${{ steps.check.outputs.latest }}](https://github.com/flowr-analysis/flowr/releases/tag/v${{ steps.check.outputs.latest }}). Tests (desktop and web) passed with the new version.
+            Updates flowR to [${{ steps.check.outputs.latest }}](https://github.com/flowr-analysis/flowr/releases/tag/v${{ steps.check.outputs.latest }}).
+
+            ${{ steps.test.outputs.report }}
+
             Squash-merge with the title unchanged to release.
+
+      - name: Mark pull request ready
+        if: steps.pr.outputs.pull-request-number && !steps.test.outputs.failed
+        run: gh pr ready "${{ steps.pr.outputs.pull-request-number }}" || true
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
