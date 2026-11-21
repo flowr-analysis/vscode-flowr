@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
 import assert from 'assert';
-import { activateExtension, openTestFile } from './test-util';
+import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile, skipWithoutFullSigDb } from './test-util';
 import type { RemovalSlice } from '../removal-slice';
-import { isWeb } from '../extension';
 
 suite('removal slice', () => {
 	suiteSetup(async() => {
@@ -52,10 +51,13 @@ suite('removal slice', () => {
 			const result = await removal(line, character);
 			assert.deepStrictEqual(result.removedLines, [2, 3, 4, 5, 6], `${line}: ${JSON.stringify(result)}`);
 		}
-		// without stm's signatures (no sigdb on the web), flowR soundly assumes cloud() may modify m and keeps it all
-		if(isWeb()) {
-			return;
-		}
+	});
+
+	// without stm's signatures, flowR soundly assumes cloud() may modify m and keeps it all
+	test('removes an unknown plot call with its device', async function() {
+		skipWithoutFullSigDb(this);
+		this.timeout(120000);
+		await ensureSigDbCurrentDownloaded();
 		await openTestFile('removal-devices.R');
 		for(const line of [2, 3, 4]) {
 			const cloud = await removal(line, 1);
