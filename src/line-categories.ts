@@ -15,15 +15,16 @@ import { isLocInDocument } from './lint';
  * the defaults of the contributed `vscodeFlowr.category.*` theme colors of the dependency view must match
  */
 export const CategoryColors: Record<DisplayedCategoryName, string> = {
-	library:    '#4CAF50',
-	remote:     '#26A69A',
-	source:     '#9CCC65',
-	read:       '#0072B2',
-	transform:  '#56B4E9',
-	statistics: '#7B3294',
-	test:       '#CC79A7',
-	visualize:  '#E69F00',
-	write:      '#D55E00'
+	library:     '#4CAF50',
+	remote:      '#26A69A',
+	source:      '#9CCC65',
+	read:        '#0072B2',
+	transform:   '#56B4E9',
+	statistics:  '#7B3294',
+	test:        '#CC79A7',
+	visualize:   '#E69F00',
+	write:       '#D55E00',
+	interactive: '#C9B200'
 };
 
 /** a value as inline markdown code: backticks and newlines would break the hover */

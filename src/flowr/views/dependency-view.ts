@@ -291,15 +291,16 @@ export interface DependencyCategoryInfo { name: string, verb: string, icon: stri
 export type DisplayedCategoryName = Exclude<DefaultDependencyCategoryName, 'undeclared' | 'unused'>;
 /** in the order of an analysis: set up, load data, transform it, analyze, check, then communicate the results */
 export const dependencyDisplayInfo: Record<DisplayedCategoryName, DependencyCategoryInfo> = {
-	'library':    { name: 'Libraries', verb: 'loads the library', icon: 'library' },
-	'remote':     { name: 'Remote Installs', verb: 'installs', icon: 'cloud-download' },
-	'source':     { name: 'Sourced Scripts', verb: 'sources the script', icon: 'file-code' },
-	'read':       { name: 'Imported Data', verb: 'imports the data', icon: 'file-text' },
-	'transform':  { name: 'Data Transformations', verb: 'transforms the data', icon: 'filter' },
-	'statistics': { name: 'Statistical Tests', verb: 'performs statistical test', icon: 'search' },
-	'test':       { name: 'Tests', verb: 'tests for', icon: 'beaker' },
-	'visualize':  { name: 'Visualizations', verb: 'visualizes the data', icon: 'graph', useReverseLinks: true },
-	'write':      { name: 'Outputs', verb: 'produces the output', icon: 'new-file' }
+	'library':     { name: 'Libraries', verb: 'loads the library', icon: 'library' },
+	'remote':      { name: 'Remote Installs', verb: 'installs', icon: 'cloud-download' },
+	'source':      { name: 'Sourced Scripts', verb: 'sources the script', icon: 'file-code' },
+	'read':        { name: 'Imported Data', verb: 'imports the data', icon: 'file-text' },
+	'transform':   { name: 'Data Transformations', verb: 'transforms the data', icon: 'filter' },
+	'statistics':  { name: 'Statistical Tests', verb: 'performs statistical test', icon: 'search' },
+	'test':        { name: 'Tests', verb: 'tests for', icon: 'beaker' },
+	'visualize':   { name: 'Visualizations', verb: 'visualizes the data', icon: 'graph', useReverseLinks: true },
+	'write':       { name: 'Outputs', verb: 'produces the output', icon: 'new-file' },
+	'interactive': { name: 'Interactive Calls', verb: 'needs an interactive session for', icon: 'person' }
 };
 type Update = Dependency | undefined | null;
 class FlowrDependencyTreeView implements vscode.TreeDataProvider<Dependency> {

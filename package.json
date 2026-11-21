@@ -134,6 +134,16 @@
           "highContrast": "#D55E00",
           "highContrastLight": "#D55E00"
         }
+      },
+      {
+        "id": "vscodeFlowr.category.interactive",
+        "description": "Color of the flowR Interactive Calls category in the dependency view (the line indicators always use the default)",
+        "defaults": {
+          "dark": "#C9B200",
+          "light": "#C9B200",
+          "highContrast": "#C9B200",
+          "highContrastLight": "#C9B200"
+        }
       }
     ],
     "languages": [
@@ -837,7 +847,8 @@
               "test",
               "statistics",
               "remote",
-              "transform"
+              "transform",
+              "interactive"
             ],
             "enumDescriptions": [
               "Libraries",
@@ -848,7 +859,8 @@
               "Tests",
               "Statistical Tests",
               "Remote Installs",
-              "Data Transformations"
+              "Data Transformations",
+              "Interactive Calls"
             ]
           },
           "default": [
@@ -860,7 +872,8 @@
             "test",
             "statistics",
             "remote",
-            "transform"
+            "transform",
+            "interactive"
           ],
           "markdownDescription": "When using the dependency view, which dependency categories should be detected. Can also be toggled by right-clicking on a category in the dependency view itself."
         },
@@ -909,7 +922,13 @@
               "package-metafiles",
               "rd-files",
               "package-data",
-              "package-runtime"
+              "package-runtime",
+              "overwritten-file",
+              "secret-exfiltration",
+              "process-state-in-session",
+              "code-clones",
+              "call-contracts",
+              "interactive-functions"
             ],
             "enumDescriptions": [
               "Marks deprecated functions that should not be used anymore.",
@@ -952,7 +971,13 @@
               "R CMD check: checks the demo index, `INDEX`, `inst/CITATION`, and links in README, NEWS and vignettes (R packages only).",
               "R CMD check: checks the Rd files, e.g. syntax, sections, cross-references and examples (R packages only).",
               "R CMD check: checks `data/` and `R/sysdata.rda` (R packages only).",
-              "R CMD check: finds what makes installing, loading or running the package fail, e.g. undefined exports (R packages only)."
+              "R CMD check: finds what makes installing, loading or running the package fail, e.g. undefined exports (R packages only).",
+              "Finds files the script writes more than once, so the later write replaces what the earlier one wrote, as two figures saved under the same name.",
+              "Finds secrets (environment, keyrings, config, credential files) sent to untrusted hosts, the browser, or logs, and optionally into urls, files, other processes, or language models.",
+              "Finds per-session Shiny code changing state all sessions share: globals, options, environment variables, the working directory, namespaces, top-level reactive values, shared caches (memoise, bindCache, cachem) whose key misses session values, and resource paths.",
+              "Finds duplicated code (code clones) with a configurable selection of AST, token, and fingerprint based algorithms.",
+              "Finds calls that hand a function a value its contract rules out, or leave out an argument it needs, so they fail whenever they run.",
+              "Finds calls that only do their job in an interactive session, such as `View`, `edit`, `browser`, or `debug`, left in a script, where `Rscript` skips or stops at them. A call in the branch an `interactive()` check takes is fine, one within a function is uncertain, as the function may only be meant for interactive use."
             ]
           },
           "default": [
@@ -992,9 +1017,14 @@
             "package-metafiles",
             "rd-files",
             "package-data",
-            "package-runtime"
+            "package-runtime",
+            "overwritten-file",
+            "secret-exfiltration",
+            "process-state-in-session",
+            "call-contracts",
+            "interactive-functions"
           ],
-          "markdownDescription": "The names of the linting rules that should be enabled. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their identifiers. By default, all rules except `naming-convention`, `roxygen-arguments`, `syntactically-valid` and `true-false-abbreviation` are enabled. The rules ported from `R CMD check` (and `software-has-license`/`software-has-tests`) only run on files inside an R package. An empty array causes _all_ linting rules (including those four) to be enabled."
+          "markdownDescription": "The names of the linting rules that should be enabled. See [the wiki](https://github.com/flowr-analysis/flowr/wiki/Linter#linting-rules) for a list of linting rules and their identifiers. By default, all rules except `code-clones` (experimental), `naming-convention`, `roxygen-arguments`, `syntactically-valid` and `true-false-abbreviation` are enabled. The rules ported from `R CMD check` (and `software-has-license`/`software-has-tests`) only run on files inside an R package. An empty array causes _all_ linting rules (including those five) to be enabled."
         },
         "vscode-flowr.linter.ruleConfigs": {
           "type": "object",
@@ -1386,7 +1416,7 @@
     "watch-web": "webpack --watch"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.16.6",
+    "@eagleoutice/flowr": "^2.17.9",
     "assert": "^2.1.0",
     "brotli-dec-wasm": "^2.3.2",
     "browserify-zlib": "^0.2.0",

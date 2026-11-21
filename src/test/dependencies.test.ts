@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { activateExtension, ensureSigDbCurrentDownloaded, openTestFile, refreshExtensionSigDbConfig } from './test-util';
 import type { Dependency } from '../flowr/views/dependency-view';
-import { shortenPath, textFingerprint, unknownGuardedName } from '../flowr/views/dependency-view';
+import { dependencyDisplayInfo, shortenPath, textFingerprint, unknownGuardedName } from '../flowr/views/dependency-view';
 import { downloadSigDbScope } from '../package-db';
 
 type DependencyDisplay = { label: string, description: string, children?: DependencyDisplay[] };
@@ -23,7 +23,7 @@ function populateExpectedDependencies(expected: DependencyDisplay[]) {
 	const found: DependencyDisplay[] = [];
 	const empty: DependencyDisplay[] = [];
 	// set default values for any that we didn't specify (undeclared/unused are not shown in the overview)
-	for(const def of ['Libraries', 'Remote Installs', 'Sourced Scripts', 'Imported Data', 'Data Transformations', 'Statistical Tests', 'Tests', 'Visualizations', 'Outputs']) {
+	for(const def of Object.values(dependencyDisplayInfo).map(i => i.name)) {
 		const given = expected.find(e => e.label === def) ?? { label: def, description: '0 items', children: [] };
 		(given.children?.length ? found : empty).push(given);
 	}

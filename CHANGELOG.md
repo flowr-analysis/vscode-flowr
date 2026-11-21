@@ -1,7 +1,8 @@
 # Version 0.9.0 (unreleased)
+- Show flowR's new "Interactive Calls" dependency category (`View`, `browser`, ...) and offer its new linting rules (`overwritten-file`, `secret-exfiltration`, `process-state-in-session`, `call-contracts`, `interactive-functions`, and the experimental, disabled by default `code-clones`)
 - Offer flowR's MCP server to the editor's MCP clients on desktop (`vscode-flowr.mcp.enabled`)
 - Complete the columns of data frames after `df$`, `df[["` and `df[, "`, using the shape flowR infers (columns it is sure of first)
-- Update to flowR 2.16.6; removal slices are now computed by flowR (`removal` option of the slice query) instead of by the extension
+- Update to flowR 2.17.9; removal slices are now computed by flowR (`removal` option of the slice query) instead of by the extension
 - A fully downloaded signature database no longer slows down the extension: file hashes, the opened databases and the known package names are cached instead of being recomputed on every completion, hover and tree refresh
 - Update to flowR 2.16.2 and offer its new `unused-import`, `unclosed-connection`, `unescaped-arguments` and `namespace-access` linting rules (enabled by default)
 - Line indicators use the middle lane of the scrollbar, so lint warnings no longer paint over their color

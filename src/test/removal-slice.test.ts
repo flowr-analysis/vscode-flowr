@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import assert from 'assert';
 import { activateExtension, openTestFile } from './test-util';
 import type { RemovalSlice } from '../removal-slice';
+import { isWeb } from '../extension';
 
 suite('removal slice', () => {
 	suiteSetup(async() => {
@@ -29,7 +30,7 @@ suite('removal slice', () => {
 	test('keeps code that the rest of the script needs', async() => {
 		await openTestFile('removal-example.R');
 		const result = await removal(4, 1);
-		assert.deepStrictEqual(result.removedLines, [4], 'raw is still needed by helper and the plot');
+		assert.deepStrictEqual(result.removedLines, [0, 4], 'raw is still needed by helper and the plot, but library(ggplot2) may only serve summary() via S3 dispatch');
 	});
 
 	test('explains why nothing can be removed', async() => {
@@ -50,6 +51,10 @@ suite('removal slice', () => {
 		for(const [line, character] of [[4, 1], [6, 1]]) {
 			const result = await removal(line, character);
 			assert.deepStrictEqual(result.removedLines, [2, 3, 4, 5, 6], `${line}: ${JSON.stringify(result)}`);
+		}
+		// without stm's signatures (no sigdb on the web), flowR soundly assumes cloud() may modify m and keeps it all
+		if(isWeb()) {
+			return;
 		}
 		await openTestFile('removal-devices.R');
 		for(const line of [2, 3, 4]) {
@@ -81,7 +86,7 @@ suite('removal slice', () => {
 	test('removes a printed ggplot with its data and the ggsave of it', async() => {
 		await openTestFile('removal-outputs.R');
 		const result = await removal(16, 1);
-		assert.deepStrictEqual(result.removedLines, [0, 15, 16, 17], 'only this plot needs ggplot2, so its library() goes too');
+		assert.deepStrictEqual(result.removedLines, [15, 16, 17], 'library(ggplot2) stays, summary() and print() may dispatch to its S3 methods');
 	});
 
 	test('is offered in the editor and the dependency view', () => {
