@@ -1,4 +1,4 @@
-# Version 0.9.0 (unreleased)
+# Version 0.8.6 (2026-11-21)
 - Show flowR's new "Interactive Calls" dependency category (`View`, `browser`, ...) and offer its new linting rules (`overwritten-file`, `secret-exfiltration`, `process-state-in-session`, `call-contracts`, `interactive-functions`, and the experimental, disabled by default `code-clones`)
 - Offer flowR's MCP server to the editor's MCP clients on desktop (`vscode-flowr.mcp.enabled`)
 - Complete the columns of data frames after `df$`, `df[["` and `df[, "`, using the shape flowR infers (columns it is sure of first)
